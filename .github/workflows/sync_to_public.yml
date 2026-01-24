@@ -14,35 +14,32 @@ jobs:
       - name: Checkout Private Repo
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Fetch all history to compare branches
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Configure Git
         run: |
-          git config --global user.name ${{ vars.NAME_GITHUB }}
-          git config --global user.email ${{ vars.EMAIL_GITHUB }}
-
-      - name: Prepare Public Remote
-        run: |
-          # Use a Personal Access Token (PAT) stored in Secrets
-          git remote add public https://${{ secrets.PRIVATE_TO_PUBLIC_SYNC_TOKEN }}@github.com/Jastchi/newsbot-public.git
+          git config --global user.name "${{ vars.NAME_GITHUB }}"
+          git config --global user.email "${{ vars.EMAIL_GITHUB }}"
 
       - name: Squash and Push
+        env:
+          SYNC_TOKEN: ${{ secrets.PRIVATE_TO_PUBLIC_SYNC_TOKEN }}
         run: |
           # Fetch the current state of the public repo
+          git remote add public https://x-access-token:${SYNC_TOKEN}@github.com/Jastchi/newsbot-public.git
+          
+          # Fetch and prepare branch
           git fetch public main
+          git checkout -B sync-branch public/main
           
-          # Create a temporary branch starting from the public main
-          git checkout -b sync-branch public/main
+          # Squash changes and REMOVE workflows
+          git merge --squash origin/main --allow-unrelated-histories -X theirs
           
-          # Pull in all changes from private main, but don't commit them yet (squash)
-          git merge --squash origin/main
-          
-          # Check if there are actually changes to commit
+          # Commit and Force Push
           if git diff --staged --quiet; then
             echo "No new changes to sync."
           else
-            # Commit with the current date
             git commit -m "Update: $(date +'%Y-%m-%d')"
-            # Push to the public main
-            git push public sync-branch:main
+            git push public sync-branch:main --force
           fi
