@@ -1,0 +1,13 @@
+Error Level: {levelname}
+Module: {module}
+Function: {function}
+Line: {line}
+Time: {time}
+
+Message:
+{message}
+
+================================================================================
+
+Stack Trace:
+{trace}

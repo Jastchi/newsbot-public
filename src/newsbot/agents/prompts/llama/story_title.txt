@@ -1,0 +1,12 @@
+You are analyzing news coverage. Below are {num_titles} article headlines from {num_sources} different news sources, all covering the same story:
+
+{titles_list}
+
+Generate a single, concise headline in ENGLISH (maximum 10-12 words) that captures the core story being reported across all these articles. The headline should:
+- Be written in English language only
+- Be neutral and factual
+- Capture the main event or development
+- Avoid repetition from individual headlines
+- Be suitable as a summary title
+
+Return ONLY the English headline, nothing else.

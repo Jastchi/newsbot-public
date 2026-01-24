@@ -1,0 +1,117 @@
+{% extends "newsserver/base.html" %}
+
+{% block title %}Logs - NewsBot{% endblock %}
+
+{% block extra_styles %}
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            padding: 30px; 
+            background: #f4f7f6; 
+        }
+        #calendar-container { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+        }
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 20px; 
+        }
+        #status-msg { 
+            padding: 10px 20px; 
+            border-radius: 4px; 
+            display: none; 
+            color: white; 
+            font-weight: bold; 
+        }
+        .success { background-color: #28a745; }
+        .error { background-color: #dc3545; }
+    </style>
+
+{% endblock %}
+
+{% block content %}
+{% if error %}
+    <div class="error-message">{{ error }}</div>
+{% else %}
+
+    <div class="header">
+        <h1>Weekly Analysis Schedule</h1>
+        <div id="status-msg"></div>
+    </div>
+
+    <div id="calendar-container">
+        <div id='calendar'></div>
+    </div>
+
+    {% csrf_token %}
+{% endif %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const calendarEl = document.getElementById('calendar');
+            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            const statusMsg = document.getElementById('status-msg');
+
+            const calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'timeGridWeek',
+                slotMinTime: "00:00:00",
+                slotMaxTime: "24:00:00",
+                allDaySlot: false,
+                headerToolbar: { left: '', center: 'title', right: '' },
+                dayHeaderFormat: { weekday: 'long' },
+                
+                // Call the same URL as the page, but with X-Requested-With header
+                events: {
+                    url: window.location.href,
+                    extraParams: { 'ajax': '1' }
+                },
+                
+                editable: true,
+                eventDrop: function(info) {
+                    updateSchedule(info.event);
+                }
+            });
+
+            calendar.render();
+
+            function showStatus(text, isError = false) {
+                statusMsg.innerText = text;
+                statusMsg.className = isError ? 'error' : 'success';
+                statusMsg.style.display = 'block';
+                setTimeout(() => { statusMsg.style.display = 'none'; }, 3000);
+            }
+
+            function updateSchedule(event) {
+                fetch(window.location.href, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({
+                        id: event.id,
+                        start: event.start.toISOString()
+                    })
+                })
+                .then(response => {
+                    if (response.ok) {
+                        showStatus("Schedule updated successfully!");
+                    } else {
+                        showStatus("Failed to update. Reverting...", true);
+                        calendar.refetchEvents();
+                    }
+                })
+                .catch(() => {
+                    showStatus("Network error.", true);
+                    calendar.refetchEvents();
+                });
+            }
+        });
+    </script>
+{% endblock %}

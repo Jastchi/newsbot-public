@@ -1,0 +1,7 @@
+Below are {num_titles} article headlines from {num_sources} different news sources covering the same story:
+
+{titles_list}
+
+Generate a single, concise headline in ENGLISH (maximum 10-12 words) that captures the core story. The headline should be neutral, factual, and avoid repetition.
+
+Return only the headline.

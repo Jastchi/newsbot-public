@@ -1,0 +1,22 @@
+You are a news analysis assistant. Your task is to identify additional interesting points in an article that are NOT already covered in a broader story summary.
+
+Articles are processed oldest to newest. If this article contains newer facts that UPDATE or REPLACE information in the summary (e.g., updated casualty figures, new developments, revised statements), highlight these as updates.
+
+Here is the current story summary (covering multiple articles):
+{story_summary}
+
+Now, analyze this article for any additional information, unique perspective, or interesting details not mentioned in the story summary:
+
+Title: {title}
+
+Article Content:
+{content}
+
+Extract ONLY the SINGLE most valuable fact that the story summary is missing. If there are multiple genuinely important additions, you may include up to 2, but only rarely should you exceed 1. Focus on:
+1. Updates or corrections to facts in the summary (newer information supersedes older)
+2. New developments not yet reflected in the summary
+3. Unique perspective or insight from this specific source
+4. Additional context, quotes, or details that enrich understanding
+5. Contrasting viewpoints or disagreements
+
+Return ONLY bullet points (1 bullet point in most cases, maximum 3 in exceptional cases). Each bullet point must be very brief and singular in focus. Do not describe the content of the article. If there are no significant additional points beyond the summary, return nothing.

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        h1 { margin: 0; font-size: 2.5em; }
+        h2 { color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+        h3 { color: #764ba2; }
+        .overview {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .sentiment-summary {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .source-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .article {
+            border-left: 4px solid #667eea;
+            padding-left: 15px;
+            margin: 15px 0;
+        }
+        .article-title {
+            font-weight: bold;
+            color: #333;
+            font-size: 1.1em;
+        }
+        .article-meta {
+            color: #666;
+            font-size: 0.9em;
+            margin: 5px 0;
+        }
+        .sentiment {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+        .sentiment-positive { background: #d4edda; color: #155724; }
+        .sentiment-negative { background: #f8d7da; color: #721c24; }
+        .sentiment-neutral { background: #e2e3e5; color: #383d41; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .topics {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .topic-tag {
+            background: #667eea;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
+        .footer {
+            text-align: center;
+            color: #666;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📰 Weekly News Analysis Report</h1>
+        <p>Generated on {{ date }}</p>
+    </div>
+    
+    <div class="overview">
+        <h2>📊 Executive Summary</h2>
+        <p>{{ weekly_overview }}</p>
+        
+        <h3>Key Topics This Week</h3>
+        <div class="topics">
+            {% for topic in key_topics %}
+            <span class="topic-tag">{{ topic }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="sentiment-summary">
+        <h2>📈 Sentiment Analysis</h2>
+        
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-value">{{ total_articles }}</div>
+                <div class="stat-label">Total Articles</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">{{ sources_count }}</div>
+                <div class="stat-label">News Sources</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">{{ overall_sentiment }}</div>
+                <div class="stat-label">Overall Sentiment</div>
+            </div>
+        </div>
+        
+        <h3>Sentiment by Source</h3>
+        {% for source, data in sentiment_by_source.items() %}
+        <div style="margin: 10px 0;">
+            <strong>{{ source }}:</strong> 
+            Average Sentiment: {{ "%.3f"|format(data.avg_sentiment) }}
+            ({{ data.positive_count }} positive, 
+             {{ data.negative_count }} negative, 
+             {{ data.neutral_count }} neutral)
+        </div>
+        {% endfor %}
+        
+        {% if significant_differences %}
+        <h3>⚠️ Notable Sentiment Differences Between Sources</h3>
+        {% for diff in significant_differences[:3] %}
+        <div style="margin: 10px 0; padding: 10px; background: #fff3cd; border-radius: 5px;">
+            <strong>{{ diff.source1 }}</strong> ({{ "%.3f"|format(diff.source1_avg) }}) vs 
+            <strong>{{ diff.source2 }}</strong> ({{ "%.3f"|format(diff.source2_avg) }})
+            - Difference: {{ "%.3f"|format(diff.difference) }}
+        </div>
+        {% endfor %}
+        {% endif %}
+    </div>
+    
+    {% for source, source_articles in articles_by_source.items() %}
+    <div class="source-section">
+        <h2>{{ source }} ({{ source_articles|length }} articles)</h2>
+        
+        {% for article in source_articles[:10] %}
+        <div class="article">
+            <div class="article-title">{{ article.title }}</div>
+            <div class="article-meta">
+                <span class="sentiment sentiment-{{ article.sentiment.label if article.sentiment else 'neutral' }}">
+                    {{ article.sentiment.label.upper() if article.sentiment else 'NEUTRAL' }}
+                </span>
+                | {{ article.published_date.strftime('%Y-%m-%d %H:%M') if article.published_date else 'N/A' }}
+            </div>
+            {% if include_summaries and article.summary %}
+            <p style="margin: 10px 0; color: #555;">{{ article.summary }}</p>
+            {% endif %}
+            <a href="{{ article.url }}" style="color: #667eea; text-decoration: none;">Read more →</a>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+    
+    <div class="footer">
+        <p>This report was automatically generated by NewsBot</p>
+        <p>{{ date }}</p>
+    </div>
+</body>
+</html>

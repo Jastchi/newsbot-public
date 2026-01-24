@@ -1,0 +1,449 @@
+{% extends "newsserver/base.html" %}
+
+{% block title %}Logs - NewsBot{% endblock %}
+
+{% block extra_styles %}
+<style>
+    /* Config filter checkboxes */
+    .config-filters {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #edf2f7;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .config-filters-label {
+        font-weight: 600;
+        color: #4a5568;
+        margin-right: 8px;
+    }
+
+    .config-filter {
+        display: none;
+    }
+
+    .config-filter-label {
+        padding: 8px 16px;
+        border: 2px solid #cbd5e0;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.9em;
+        cursor: pointer;
+        display: inline-block;
+        transition: all 0.2s;
+        background: white;
+        color: #4a5568;
+        user-select: none;
+    }
+
+    .config-filter-label:hover {
+        border-color: #3182ce;
+        color: #3182ce;
+    }
+
+    .config-filter:checked + .config-filter-label {
+        background: #3182ce;
+        border-color: #3182ce;
+        color: white;
+    }
+
+    .config-filter:checked + .config-filter-label:hover {
+        background: #2c5aa0;
+        border-color: #2c5aa0;
+    }
+
+    .logs-header {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 20px;
+    }
+
+    .log-selector {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+
+    .log-dropdown {
+        flex: 1;
+        min-width: 250px;
+    }
+
+    .log-dropdown select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #cbd5e0;
+        border-radius: 8px;
+        font-size: 0.95em;
+        background: white;
+        color: #2c3e50;
+        cursor: pointer;
+    }
+
+    .log-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        transition: all 0.2s;
+    }
+
+    .btn-download {
+        background: #3182ce;
+        color: white;
+    }
+
+    .btn-download:hover {
+        background: #2c5aa0;
+    }
+
+    .btn-stream {
+        background: #38a169;
+        color: white;
+    }
+
+    .btn-stream:hover {
+        background: #2f855a;
+    }
+
+    .btn-stream.active {
+        background: #e53e3e;
+    }
+
+    .btn-stream.active:hover {
+        background: #c53030;
+    }
+
+    .streaming-indicator {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        background: #e53e3e;
+        border-radius: 50%;
+        margin-left: 8px;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    .log-info {
+        display: flex;
+        gap: 20px;
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #edf2f7;
+        font-size: 0.9em;
+        color: #718096;
+    }
+
+    .log-container {
+        background: #1e1e1e;
+        color: #d4d4d4;
+        padding: 20px;
+        border-radius: 12px;
+        overflow-x: auto;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+
+    .log-content {
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 0.85em;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+
+    .error-message {
+        text-align: center;
+        padding: 40px;
+        color: #a0aec0;
+        background: white;
+        border-radius: 12px;
+        border: 2px dashed #e2e8f0;
+    }
+
+    /* Syntax highlighting for log levels */
+    .log-content {
+        color: #d4d4d4;
+    }
+
+    .log-content .non-important {
+        color: #6c757d;
+    }
+    .log-content .main {
+        color: #FFCE7A;
+    }
+    .log-content .important {
+        color: #65aeff;
+    }
+    .log-content .important::before {
+        content: "🔄";
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if error %}
+    <div class="error-message">{{ error }}</div>
+{% else %}
+    <div class="logs-header">
+        {% if config_tabs %}
+        <div class="config-filters">
+            <span class="config-filters-label">Filter:</span>
+            {% for tab in config_tabs %}
+            <input type="checkbox" id="filter-{{ tab.name }}" class="config-filter" data-config="{{ tab.name }}" checked onchange="filterLogs()">
+            <label for="filter-{{ tab.name }}" class="config-filter-label">{{ tab.display_name }}</label>
+            {% endfor %}
+        </div>
+        {% endif %}
+        <div class="log-selector">
+            <div class="log-dropdown">
+                <label for="log-select" style="display: block; margin-bottom: 5px; font-weight: 600;">Select Log File:</label>
+                <select id="log-select" onchange="changeLog()">
+                    {% for log in logs %}
+                    <option value="{{ log.filename }}" data-config="{{ log.config_name }}" {% if log.filename == current_log %}selected{% endif %}>{{ log.filename }} ({{ log.size|filesizeformat }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="log-actions">
+                {% if is_current_log_active %}
+                <button id="stream-toggle" class="btn btn-stream" onclick="toggleStream()">
+                    ▶️ Stream
+                </button>
+                {% endif %}
+                <a href="?log={{ current_log }}&download=1" class="btn btn-download">
+                    ⬇️ Download
+                </a>
+            </div>
+        </div>
+        
+        {% if logs %}
+        <div class="log-info">
+            <span><strong>Last Modified:</strong> 
+                {% for log in logs %}
+                    {% if log.filename == current_log %}
+                        {{ log.modified|date:"Y-m-d H:i:s" }}
+                    {% endif %}
+                {% endfor %}
+            </span>
+            <span><strong>Showing:</strong> <span id="display-mode">Last 1000 lines</span><span id="streaming-indicator" class="streaming-indicator" style="display: none;"></span></span>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="log-container">
+        <pre class="log-content">{{ log_content }}</pre>
+    </div>
+{% endif %}
+
+<script>
+    let eventSource = null;
+    let isStreaming = false;
+    const currentLog = '{{ current_log }}';
+    const isActiveLog = {{ is_current_log_active|yesno:"true,false" }};
+
+    function changeLog() {
+        // Stop streaming if active when changing logs
+        if (isStreaming) {
+            stopStream();
+        }
+        const select = document.getElementById('log-select');
+        const selectedLog = select.value;
+        window.location.href = '?log=' + encodeURIComponent(selectedLog);
+    }
+
+    function filterLogs() {
+        // Get all checked config filters
+        const checkedFilters = document.querySelectorAll('.config-filter:checked');
+        const selectedConfigs = Array.from(checkedFilters).map(cb => cb.dataset.config);
+
+        // Get all options in the dropdown
+        const select = document.getElementById('log-select');
+        const options = select.querySelectorAll('option');
+
+        // Show/hide options based on selected configs
+        let hasVisibleOption = false;
+        let firstVisibleOption = null;
+
+        options.forEach(option => {
+            const configName = option.dataset.config;
+            const shouldShow = selectedConfigs.length === 0 || selectedConfigs.includes(configName);
+            option.style.display = shouldShow ? '' : 'none';
+            option.disabled = !shouldShow;
+
+            if (shouldShow) {
+                hasVisibleOption = true;
+                if (!firstVisibleOption) {
+                    firstVisibleOption = option;
+                }
+            }
+        });
+
+        // If current selection is now hidden, select the first visible option
+        const currentOption = select.options[select.selectedIndex];
+        if (currentOption && currentOption.style.display === 'none' && firstVisibleOption) {
+            firstVisibleOption.selected = true;
+        }
+    }
+
+    function toggleStream() {
+        if (isStreaming) {
+            stopStream();
+        } else {
+            startStream();
+        }
+    }
+
+    function startStream() {
+        if (!isActiveLog) {
+            alert('Streaming is only available for active log files');
+            return;
+        }
+
+        const streamUrl = '{% url "newsserver:logs_stream" %}?log=' + encodeURIComponent(currentLog);
+        eventSource = new EventSource(streamUrl);
+
+        eventSource.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'connected') {
+                    isStreaming = true;
+                    updateStreamUI(true);
+                } else if (data.type === 'log_line') {
+                    appendLogLine(data.content);
+                } else if (data.type === 'error') {
+                    console.error('Stream error:', data.message);
+                    stopStream();
+                    alert('Stream error: ' + data.message);
+                }
+            } catch (e) {
+                console.error('Error parsing SSE data:', e);
+            }
+        };
+
+        eventSource.onerror = function(event) {
+            console.error('EventSource error:', event);
+            stopStream();
+        };
+    }
+
+    function stopStream() {
+        if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+        }
+        isStreaming = false;
+        updateStreamUI(false);
+    }
+
+    function updateStreamUI(streaming) {
+        const toggleBtn = document.getElementById('stream-toggle');
+        const indicator = document.getElementById('streaming-indicator');
+        const displayMode = document.getElementById('display-mode');
+
+        if (toggleBtn) {
+            if (streaming) {
+                toggleBtn.textContent = '⏸️ Stop';
+                toggleBtn.classList.add('active');
+            } else {
+                toggleBtn.textContent = '▶️ Stream';
+                toggleBtn.classList.remove('active');
+            }
+        }
+
+        if (indicator) {
+            indicator.style.display = streaming ? 'inline-block' : 'none';
+        }
+
+        if (displayMode) {
+            displayMode.textContent = streaming ? 'Streaming live' : 'Last 1000 lines';
+        }
+    }
+
+    function appendLogLine(lineContent) {
+        const pre = document.querySelector('.log-content');
+        if (!pre) return;
+
+        // Create span for the new line with syntax highlighting
+        const span = document.createElement('span');
+        const grey_lines = ['httpx'];
+        const main_lines = ['newsbot.pipeline'];
+        const important_lines = ['Processing story'];
+
+        if (grey_lines.some(keyword => lineContent.includes(keyword))) {
+            span.className = 'non-important';
+        } else if (main_lines.some(keyword => lineContent.includes(keyword))) {
+            span.className = 'main';
+        } else if (important_lines.some(keyword => lineContent.includes(keyword))) {
+            span.className = 'important';
+        }
+
+        span.textContent = lineContent;
+        pre.appendChild(span);
+        pre.appendChild(document.createTextNode('\n'));
+
+        // Auto-scroll to bottom
+        const logContainer = document.querySelector('.log-container');
+        if (logContainer) {
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+    }
+
+    function applySyntaxHighlighting() {
+        const pre = document.querySelector('.log-content');
+        if (!pre) return;
+
+        const grey_lines = ['httpx'];
+        const main_lines = ['newsbot.pipeline'];
+        const important_lines = ['Processing story'];
+
+        const lines = pre.textContent.split(/\r?\n/);
+        pre.innerHTML = '';
+        lines.forEach((line, idx) => {
+            const span = document.createElement('span');
+            if (grey_lines.some(keyword => line.includes(keyword))) span.className = 'non-important';
+            if (main_lines.some(keyword => line.includes(keyword))) span.className = 'main';
+            if (important_lines.some(keyword => line.includes(keyword))) span.className = 'important';
+            span.textContent = line;
+            pre.appendChild(span);
+            if (idx !== lines.length - 1) pre.appendChild(document.createTextNode('\n'));
+        });
+    }
+
+    // Auto-scroll to bottom initially
+    document.addEventListener('DOMContentLoaded', function() {
+        const logContainer = document.querySelector('.log-container');
+        applySyntaxHighlighting();
+
+        if (logContainer) {
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // Stop streaming when page is unloaded
+        window.addEventListener('beforeunload', function() {
+            stopStream();
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,291 @@
+{% extends "newsserver/base.html" %}
+
+{% block title %}Runs - NewsBot{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .date-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        background: white;
+        padding: 15px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .date-nav h2 {
+        margin: 0 20px;
+        min-width: 200px;
+        text-align: center;
+        flex: 1;
+    }
+
+    .nav-btn {
+        text-decoration: none;
+        color: #2c3e50;
+        padding: 8px 16px;
+        border: 1px solid #e0e6ed;
+        border-radius: 6px;
+        transition: all 0.2s;
+    }
+
+    .nav-btn:hover {
+        background: #f8f9fa;
+        border-color: #cbd5e0;
+    }
+
+    .nav-btn.disabled {
+        opacity: 0.5;
+        pointer-events: none;
+        cursor: default;
+    }
+
+    .runs-section {
+        margin-bottom: 40px;
+    }
+
+    .section-title {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+        color: #2c3e50;
+    }
+
+    .section-badge {
+        background: #e2e8f0;
+        color: #4a5568;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8em;
+        margin-left: 10px;
+    }
+
+    .run-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border-left: 5px solid #cbd5e0;
+    }
+
+    .run-card.success {
+        border-left-color: #48bb78;
+    }
+
+    .run-card.failure {
+        border-left-color: #f56565;
+    }
+
+    .run-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .run-config {
+        font-weight: 600;
+        font-size: 1.1em;
+        color: #2d3748;
+    }
+
+    .run-time {
+        color: #718096;
+        font-size: 0.9em;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #edf2f7;
+    }
+
+    .stat-item {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .stat-label {
+        font-size: 0.85em;
+        color: #718096;
+        margin-bottom: 4px;
+    }
+
+    .stat-value {
+        font-weight: 600;
+        color: #2d3748;
+    }
+
+    .error-list {
+        margin-top: 15px;
+        padding: 15px;
+        background: #fff5f5;
+        border-radius: 8px;
+        border: 1px solid #feb2b2;
+    }
+
+    .error-title {
+        color: #c53030;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+
+    .error-item {
+        color: #e53e3e;
+        font-size: 0.9em;
+        margin-bottom: 4px;
+    }
+
+    .empty-message {
+        text-align: center;
+        padding: 40px;
+        color: #a0aec0;
+        background: white;
+        border-radius: 12px;
+        border: 2px dashed #e2e8f0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="date-nav">
+    <a href="?date={{ prev_date|date:'Y-m-d' }}" class="nav-btn">← {{ prev_date|date:"M d" }}</a>
+    <h2>{{ selected_date|date:"F d, Y" }}</h2>
+    {% if next_date %}
+    <a href="?date={{ next_date|date:'Y-m-d' }}" class="nav-btn">{{ next_date|date:"M d" }} →</a>
+    {% else %}
+    <span class="nav-btn disabled">Tomorrow →</span>
+    {% endif %}
+</div>
+
+<div class="runs-section">
+    <h3 class="section-title">
+        Daily Scrapes
+        <span class="section-badge">{{ scrape_runs|length }}</span>
+    </h3>
+    
+    {% if scrape_runs %}
+        {% for run in scrape_runs %}
+        <div class="run-card {% if run.success %}success{% else %}failure{% endif %}">
+            <div class="run-header">
+                <div class="run-config">
+                    {% if run.config %}
+                        {{ run.config.display_name }}
+                    {% else %}
+                        Unknown Config
+                    {% endif %}
+                </div>
+                <div class="run-time">{{ run.timestamp|date:"H:i:s" }}</div>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <span class="stat-label">Duration</span>
+                    <span class="stat-value">{{ run.duration|floatformat:1 }}s</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Scraped</span>
+                    <span class="stat-value">{{ run.articles_scraped }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Saved</span>
+                    <span class="stat-value">{{ run.articles_saved }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Status</span>
+                    <span class="stat-value">
+                        {% if run.success %}✅ Success{% else %}❌ Failed{% endif %}
+                    </span>
+                </div>
+            </div>
+
+            {% if run.errors %}
+            <div class="error-list">
+                <div class="error-title">Errors ({{ run.error_count }})</div>
+                <div class="error-content">
+                    {{ run.errors|truncatechars:200 }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-message">No scrape runs recorded for this date.</div>
+    {% endif %}
+</div>
+
+<div class="runs-section">
+    <h3 class="section-title">
+        Weekly Analyses
+        <span class="section-badge">{{ analysis_runs|length }}</span>
+    </h3>
+    
+    {% if analysis_runs %}
+        {% for run in analysis_runs %}
+        <div class="run-card {% if run.success %}success{% else %}failure{% endif %}">
+            <div class="run-header">
+                <div class="run-config">
+                    {% if run.config %}
+                        {{ run.config.display_name }}
+                    {% else %}
+                        Unknown Config
+                    {% endif %}
+                </div>
+                <div class="run-time">{{ run.timestamp|date:"H:i:s" }}</div>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <span class="stat-label">Duration</span>
+                    <span class="stat-value">{{ run.duration|floatformat:1 }}s</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Analyzed</span>
+                    <span class="stat-value">{{ run.articles_analyzed }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Stories</span>
+                    <span class="stat-value">{{ run.stories_identified }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Status</span>
+                    <span class="stat-value">
+                        {% if run.success %}✅ Success{% else %}❌ Failed{% endif %}
+                    </span>
+                </div>
+            </div>
+
+            {% if run.errors %}
+            <div class="error-list">
+                <div class="error-title">Errors ({{ run.error_count }})</div>
+                <div class="error-content">
+                    {{ run.errors|truncatechars:200 }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-message">No analysis runs recorded for this date.</div>
+    {% endif %}
+</div>
+
+<script>
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowLeft') {
+            window.location.href = "?date={{ prev_date|date:'Y-m-d' }}";
+        }
+        {% if next_date %}
+        else if (e.key === 'ArrowRight') {
+            window.location.href = "?date={{ next_date|date:'Y-m-d' }}";
+        }
+        {% endif %}
+    });
+</script>
+{% endblock %}

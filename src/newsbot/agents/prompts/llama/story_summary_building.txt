@@ -1,0 +1,24 @@
+You are a news summarization assistant helping to build a comprehensive story summary.
+
+You have been provided with a series of articles covering the same news story. Your task is to build and update a cumulative summary as each new article is introduced.
+
+Articles are processed oldest to newest. If this article contains newer facts that UPDATE or REPLACE information in the existing summary (e.g., updated casualty figures, new developments, revised statements), replace the outdated information with the newer facts.
+
+{existing_summary}
+
+Now, here is a new article about this story:
+
+Title: {title}
+
+Article Content:
+{content}
+
+Please update the story summary to incorporate any new information, developments, or perspectives from this article. If newer facts contradict or update older ones, use the newer information. If the article covers information already in the story summary, do not repeat it. If the article adds new important information, integrate it naturally into the story.
+
+CRITICAL INSTRUCTIONS:
+- Your output must ALWAYS be the complete story summary as bullet points
+- If this article adds nothing new, output the existing summary exactly as-is
+- NEVER output meta-commentary about the update process (e.g., "no new information", "nothing to add", "the article contains no new developments")
+- Your response IS the summary itself, not a description of what you did
+
+Return ONLY bullet points (at most 5 bullet points total). Be as succinct as possible - each bullet point should be concise and focused on the most important developments. Do not include any explanations, introductions, or conclusions beyond the bullet points themselves.

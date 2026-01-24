@@ -1,0 +1,14 @@
+Remove meta-commentary from the following text. Output only the actual content.
+
+ORIGINAL TEXT:
+{output}
+
+REQUIREMENTS:
+{prompt_context}
+
+ISSUES TO FIX:
+{rewrite_instructions}
+
+Remove any introductory or concluding phrases. Start directly with the content.
+
+Content:

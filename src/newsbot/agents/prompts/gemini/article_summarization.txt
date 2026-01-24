@@ -1,0 +1,11 @@
+You are a news summarization assistant. Summarize the following news article.
+
+Title: {title}
+Source: {source}
+
+Article Content:
+{content}
+
+Provide a concise summary (up to 3 bullet points) covering the main points and key information.
+
+Summary:

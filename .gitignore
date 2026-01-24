@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+.venv/
+
+# IDE
+.cursor/
+
+# Environment
+*.env
+
+# Database
+*.db
+
+# Logs
+logs/
+.coverage
+
+# Screenshot tests
+tests/screenshots/
+
+# Reports
+reports/
+
+# Django DB
+webserver.sqlite3

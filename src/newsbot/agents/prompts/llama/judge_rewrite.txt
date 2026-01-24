@@ -1,0 +1,33 @@
+Remove all meta-commentary from the following text. Output ONLY the actual content.
+
+ORIGINAL TEXT:
+{output}
+
+REQUIREMENTS:
+{prompt_context}
+
+ISSUES TO FIX:
+{rewrite_instructions}
+
+CRITICAL RULES:
+1. DO NOT add any introductory phrases (no "Here is...", "This is...", "The following...", etc.)
+2. DO NOT add any concluding phrases (no "I hope this helps", "Let me know if...", etc.)
+3. DO NOT explain what you are doing
+4. DO NOT talk about the content - just provide the content itself
+5. Start DIRECTLY with the actual content (the news summary, headline, or bullet points)
+6. End DIRECTLY after the content - no commentary
+
+REMOVE these phrases if present:
+- "Here is..." / "Here's..."
+- "This is..." / "This shows..."
+- "I have..." / "I've..."
+- "Based on..." / "According to..."
+- "The following..." / "Below is..."
+- "Let me..." / "Allow me..."
+- "In summary..." / "To summarize..."
+- "As requested..." / "As you asked..."
+- Any phrase that talks ABOUT the content rather than being the content
+
+Return ONLY the corrected content. Nothing else. No preamble. No explanation.
+
+Content:

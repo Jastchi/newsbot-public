@@ -1,0 +1,10 @@
+Create a brief overview of this week's news based on the following article titles grouped by source:
+
+{sources_summary}
+
+Provide:
+1. Summary of main themes and topics
+2. Key events that dominated the news
+3. Notable trends across sources
+
+Keep the overview concise (3-4 paragraphs).

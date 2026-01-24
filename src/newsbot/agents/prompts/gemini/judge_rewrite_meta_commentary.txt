@@ -1,0 +1,2 @@
+Remove all meta-commentary and explanatory text. Delete phrases like "Here is...", "This is...", "Based on...", etc. Start directly with the news content.
+

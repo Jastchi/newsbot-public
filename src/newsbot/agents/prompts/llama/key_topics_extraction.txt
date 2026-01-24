@@ -1,0 +1,7 @@
+Based on the following news article titles, identify the top 5-7 main topics or themes:
+
+{titles_text}
+
+Please list only the topic names, one per line, without numbering or additional explanation.
+
+Topics:

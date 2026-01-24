@@ -1,0 +1,179 @@
+{% extends "newsserver/base.html" %}
+
+{% block title %}{{ config_name }} - NewsBot{% endblock %}
+
+{% block extra_styles %}
+<style>
+
+    .report-selector {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+    
+    .report-selector label {
+        font-weight: 600;
+        color: #34495e;
+    }
+    
+    .report-selector select {
+        padding: 10px 15px;
+        border: 2px solid #e0e6ed;
+        border-radius: 8px;
+        font-size: 1em;
+        background: white;
+        color: #2c3e50;
+        cursor: pointer;
+        min-width: 300px;
+        transition: all 0.3s ease;
+    }
+    
+    .report-selector select:hover {
+        border-color: #667eea;
+    }
+    
+    .report-selector select:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .report-content {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        min-height: 500px;
+    }
+    
+    .report-content iframe {
+        width: 100%;
+        min-height: 800px;
+        border: none;
+    }
+    
+    .error-message {
+        text-align: center;
+        padding: 60px 20px;
+        background: #fff3cd;
+        border: 2px solid #ffc107;
+        border-radius: 12px;
+        color: #856404;
+    }
+    
+    .error-message h3 {
+        margin-bottom: 10px;
+    }
+    
+    .back-button {
+        display: inline-block;
+        padding: 10px 20px;
+        background: #667eea;
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        margin-bottom: 20px;
+    }
+    
+    .back-button:hover {
+        background: #5568d3;
+        transform: translateX(-3px);
+    }
+    
+    .download-button {
+        display: inline-block;
+        padding: 10px 20px;
+        background: #5568d3;
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+    }
+    
+    .download-button:hover {
+        background: #059669;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+    
+    /* Mobile optimizations for PDF viewing */
+    @media (max-width: 768px) {
+        .container {
+            padding: 0 !important;
+        }
+        
+        .report-content {
+            padding: 0 !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+        }
+        
+        .report-content iframe {
+            border-radius: 0 !important;
+        }
+        
+        .back-button,
+        .report-selector {
+            margin-left: 10px;
+            margin-right: 10px;
+        }
+        
+        .breadcrumb {
+            padding: 10px;
+        }
+    }
+    
+</style>
+
+<script>
+    function changeReport() {
+        const select = document.getElementById('report-select');
+        const selectedReport = select.value;
+        const currentUrl = window.location.pathname;
+        window.location.href = currentUrl + '?report=' + encodeURIComponent(selectedReport);
+    }
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+    <a href="{% url 'newsserver:overview' %}">Home</a>
+    <span>/</span>
+    <strong>{{ config_name }}</strong>
+</div>
+
+<a href="{% url 'newsserver:overview' %}" class="back-button">← Back to Configs</a>
+
+{% if error %}
+<div class="error-message">
+    <h3>⚠️ {{ error }}</h3>
+    <p>Please check your reports directory and try again.</p>
+</div>
+{% else %}
+<h2>{{ config_name }}</h2>
+
+<div class="report-selector">
+    <label for="report-select">Select Report:</label>
+    <select id="report-select" onchange="changeReport()">
+        {% for report in reports %}
+        <option value="{{ report.filename }}" {% if report.filename == current_report %}selected{% endif %}>
+            {{ report.modified|date:"Y-m-d H:i:s" }} - {{ report.filename }} ({{ report.size|filesizeformat }})
+        </option>
+        {% endfor %}
+    </select>
+    <a href="?report={{ current_report }}&download=1" class="download-button" download>⬇️ Download Report</a>
+</div>
+
+<div class="report-content">
+    {{ report_content|safe }}
+</div>
+{% endif %}
+{% endblock %}

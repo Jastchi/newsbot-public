@@ -1,0 +1,110 @@
+name: 'Update PR Status'
+description: 'Updates commit status and optionally creates/updates a check run for PRs'
+
+inputs:
+  github-token:
+    description: 'GitHub token for API calls'
+    required: true
+  sha:
+    description: 'The commit SHA to update status for'
+    required: true
+  context:
+    description: 'The status context name (e.g., "Tests (Self-hosted)")'
+    required: true
+  state:
+    description: 'Status state: pending, success, or failure'
+    required: true
+  description:
+    description: 'Status description message'
+    required: true
+  check-run-id:
+    description: 'Existing check run ID to update (leave empty to create new)'
+    required: false
+    default: ''
+  create-check-run:
+    description: 'Whether to create a new check run (true/false)'
+    required: false
+    default: 'false'
+  check-run-name:
+    description: 'Name for the check run (defaults to context if not provided)'
+    required: false
+    default: ''
+
+outputs:
+  check-run-id:
+    description: 'The check run ID (if created or provided)'
+    value: ${{ steps.update-status.outputs.check_run_id }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Update PR status
+      id: update-status
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const sha = '${{ inputs.sha }}';
+          const state = '${{ inputs.state }}';
+          const statusContext = '${{ inputs.context }}';
+          const description = '${{ inputs.description }}';
+          const checkRunId = '${{ inputs.check-run-id }}';
+          const createCheckRun = '${{ inputs.create-check-run }}' === 'true';
+          const checkRunName = '${{ inputs.check-run-name }}' || statusContext;
+          const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+
+          // Update commit status
+          await github.rest.repos.createCommitStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            sha: sha,
+            state: state,
+            context: statusContext,
+            description: description,
+            target_url: runUrl
+          });
+          console.log(`Updated commit status: ${statusContext} -> ${state}`);
+
+          let outputCheckRunId = checkRunId;
+
+          // Create new check run if requested
+          if (createCheckRun && !checkRunId) {
+            const resp = await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: checkRunName,
+              head_sha: sha,
+              status: 'in_progress',
+              started_at: new Date().toISOString(),
+              details_url: runUrl
+            });
+            outputCheckRunId = resp.data.id;
+            console.log(`Created check run: ${checkRunName} (ID: ${outputCheckRunId})`);
+          }
+
+          // Update existing check run if ID provided
+          if (checkRunId) {
+            const isCompleted = state === 'success' || state === 'failure';
+            const updateParams = {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              check_run_id: parseInt(checkRunId),
+              status: isCompleted ? 'completed' : 'in_progress',
+              output: {
+                title: checkRunName,
+                summary: description
+              }
+            };
+
+            if (isCompleted) {
+              updateParams.conclusion = state;
+              updateParams.completed_at = new Date().toISOString();
+            }
+
+            await github.rest.checks.update(updateParams);
+            console.log(`Updated check run ${checkRunId}: ${state}`);
+          }
+
+          core.setOutput('check_run_id', outputCheckRunId);
+      env:
+        GITHUB_RUN_ID: ${{ github.run_id }}

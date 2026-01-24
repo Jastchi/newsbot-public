@@ -1,0 +1,87 @@
+## --- BASE STAGE ---
+## Use the official uv-python image
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS base
+
+# We will collect static files, so we need to know where to put them
+ARG STATIC_ROOT=/app/staticfiles
+ENV STATIC_ROOT=${STATIC_ROOT:-/app/staticfiles}
+
+## Setup a non-root user for security
+RUN groupadd --system --gid 999 appuser \
+    && useradd --system --gid 999 --uid 999 --create-home appuser
+
+## Optimize uv behavior with Environment Variables
+# Compile to bytecode to improve startup time
+ENV UV_COMPILE_BYTECODE=1
+# Copies the cached Python libraries into the image
+ENV UV_LINK_MODE=copy
+# Set Python path for Django
+ENV PYTHONPATH=/app/src
+# Set Django settings module for Django
+ENV DJANGO_SETTINGS_MODULE=web.web.settings
+# Add the virtual environment to the PATH
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PLAYWRIGHT_BROWSERS_PATH=/home/appuser/.cache/ms-playwright
+
+WORKDIR /app
+RUN mkdir -p $STATIC_ROOT && chown -R appuser:appuser /app $STATIC_ROOT
+
+## --- BUILDER STAGE (For Testing & Playwright) ---
+FROM base AS test-builder
+
+# Install ALL python dependencies (including playwright)
+USER appuser
+RUN --mount=type=cache,target=/home/appuser/.cache/uv,uid=999 \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    --mount=type=bind,source=README.md,target=README.md \
+    uv sync --frozen --no-install-project --no-default-groups --group serve --group test
+
+# Install Playwright system dependencies (drivers)
+USER root
+RUN --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    apt-get update && apt-get install -y --no-install-recommends \
+    && uv run --no-project --frozen playwright install-deps chromium \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install the Chromium browser itself
+USER appuser
+RUN uv run --no-project --frozen playwright install chromium
+
+## --- TEST STAGE ---
+FROM test-builder AS test
+
+ENV UV_COMPILE_BYTECODE=0
+
+# Copy source files
+COPY --chown=appuser:appuser . /app
+
+# Final sync to install the local project
+RUN uv sync --frozen --no-default-groups --group serve --group test
+
+## --- PRODUCTION STAGE ---
+FROM base AS production
+
+# Production should be slim
+USER appuser
+RUN --mount=type=cache,target=/home/appuser/.cache/uv,uid=999 \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    --mount=type=bind,source=README.md,target=README.md \
+    uv sync --frozen --no-install-project --no-default-groups --group serve
+
+COPY --chown=appuser:appuser . /app
+
+# Final sync to install the project itself
+RUN uv sync --frozen --no-default-groups --group serve
+
+## Django specific: collectstatic
+RUN mkdir -p $STATIC_ROOT
+RUN python src/manage.py collectstatic --noinput || true
+
+EXPOSE 8000
+
+WORKDIR /app
+
+CMD ["gunicorn", "web.web.wsgi:application", "--bind", "0.0.0.0:8000", "--access-logfile", "-", "--error-logfile", "-"]

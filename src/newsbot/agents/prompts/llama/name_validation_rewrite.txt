@@ -1,0 +1,11 @@
+You are a news editor. The following text contains names that could not be verified in the source material. Rewrite the text to remove or generalize these unverified names while preserving the meaning.
+
+UNVERIFIED NAMES: {unverified_names}
+
+ORIGINAL TEXT:
+{text}
+
+Rewrite the text. Replace unverified names with general terms like "a suspect", "authorities", "officials", "the organization", "a person", "sources", etc. as appropriate for the context.
+
+Return ONLY the rewritten text, without any preamble or explanation.
+

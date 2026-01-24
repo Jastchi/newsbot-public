@@ -1,0 +1,77 @@
+## --- BASE STAGE ---
+## Use the official uv-python image
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS base
+
+## Setup a non-root user for security
+RUN groupadd --system --gid 999 appuser \
+    && useradd --system --gid 999 --uid 999 --create-home appuser
+
+## Optimize uv behavior
+# Compile to bytecode to improve startup time
+ENV UV_COMPILE_BYTECODE=1
+# Copies the cached Python libraries into the image
+ENV UV_LINK_MODE=copy
+# Set Python path
+ENV PYTHONPATH=/app/src
+ENV PYTHONUNBUFFERED=1
+ENV PATH="/app/.venv/bin:$PATH"
+
+## Set working directory for the project
+WORKDIR /app
+
+## Set ownership of the app directory to the appuser
+RUN chown appuser:appuser /app
+
+## Switch to the non-root user
+USER appuser
+
+## Install core dependencies
+RUN --mount=type=cache,target=/home/appuser/.cache/uv,uid=999 \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-default-groups --group api
+
+## Pre-download embedding models for caching
+RUN --mount=type=cache,target=/home/appuser/.cache/uv,uid=999 \
+    --mount=type=cache,target=/home/appuser/.cache/huggingface,uid=999 \
+    python -c "from sentence_transformers import SentenceTransformer; \
+    SentenceTransformer('Xenova/all-mpnet-base-v2', backend='onnx'); \
+    SentenceTransformer('Xenova/all-MiniLM-L6-v2', backend='onnx')"
+
+## --- DEPENDENCIES STAGE ---
+# Sync everything needed for tests and API here
+# This layer will only rebuild if uv.lock or pyproject.toml changes
+FROM base AS deps
+RUN --mount=type=cache,target=/home/appuser/.cache/uv,uid=999 \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-default-groups --group test --group api
+
+## --- TEST STAGE ---
+## Lightweight stage for API tests
+FROM deps AS test
+
+# Skip bytecode compilation in CI
+ENV UV_COMPILE_BYTECODE=0
+
+COPY --chown=appuser:appuser . /app
+
+# Final sync including test and api deps (api includes newsbot)
+RUN --mount=type=cache,target=/home/appuser/.cache/uv,uid=999 \
+    uv sync --frozen --no-default-groups --group test --group api
+
+## --- PRODUCTION STAGE ---
+FROM base AS production
+
+COPY --chown=appuser:appuser . /app
+RUN chmod +x scripts/docker-entrypoint.sh
+
+RUN --mount=type=cache,target=/home/appuser/.cache/uv,uid=999 \
+    uv sync --frozen --no-default-groups --group api
+
+## Expose port
+EXPOSE 8000
+
+## Run using entrypoint script (supports ENABLE_SCHEDULER)
+WORKDIR /app
+ENTRYPOINT ["scripts/docker-entrypoint.sh"]

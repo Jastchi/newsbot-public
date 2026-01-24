@@ -1,0 +1,57 @@
+# Development files
+.git/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Test files
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+.coveragerc
+
+# Logs
+logs/
+*.log
+
+# Reports
+reports/
+
+# IDE files
+.cursor/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Database files
+*.db
+*.sqlite3
+db.sqlite3
+
+# Environment files (use env vars in Docker instead)
+*.env
+.env*
+.env.local
+
+# Documentation
+*.md
+!README.md
+
+# CI/CD
+.github/
+
+# Python cache and build artifacts
+*.egg-info/
+dist/
+build/
+*.egg
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,14 @@
+Remove ALL meta-commentary and explanatory text. Delete phrases like:
+- 'Here is the refined summary:' or any 'Here is...' / 'Here's...' phrases
+- 'This is...' / 'This shows...'
+- 'The following...' / 'The refined summary is...'
+- 'I have...' / 'I've...'
+- 'Based on...' / 'According to...'
+- 'Let me...' / 'Allow me...'
+- 'In summary...' / 'To summarize...'
+- 'As requested...' / 'As you asked...'
+- 'Below is...' / 'Please find...'
+- Any sentence that talks ABOUT the content rather than being the content itself
+- Any phrase followed by a colon that introduces the actual content
+
+Start DIRECTLY with the actual news content. Do NOT add any new introductory or concluding phrases. Keep only the actual content itself.
