@@ -1,0 +1,119 @@
+name: "NewsBot: Triggers [manual, self-hosted]"
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Action to perform'
+        required: true
+        default: 'run'
+        type: choice
+        options:
+          - run
+          - analyze
+          - status
+      config_key:
+        description: 'Configuration Key (e.g., technology, ignored for status)'
+        required: true
+        default: 'technology'
+        type: string
+      disable_email:
+        description: 'Only send to Newsbot (Analyze only)'
+        required: false
+        default: true
+        type: boolean
+      job_id:
+        description: 'Job ID for status operation (status only, if provided will query specific job status)'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  execute-api-call:
+    name: Trigger ${{ github.event.inputs.operation }}
+    runs-on: self-hosted
+    
+    steps:
+      - name: Construct Payload
+        id: payload
+        run: |
+          OPERATION="${{ github.event.inputs.operation }}"
+          DISABLE_EMAIL="${{ github.event.inputs.disable_email }}"
+          
+          if [ "$OPERATION" == "run" ]; then
+            # RunRequest doesn't use email fields
+            echo "json={}" >> $GITHUB_OUTPUT
+          else
+            # AnalyzeRequest logic
+            if [ "$DISABLE_EMAIL" == "true" ]; then
+              # Sends empty list to override 'None' and stop emails
+              echo "json={\"email_receivers\": []}" >> $GITHUB_OUTPUT
+            else
+              # Sends empty object so API falls back to None -> Config Defaults
+              echo "json={}" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Call NewsBot API
+        run: |
+          OPERATION="${{ github.event.inputs.operation }}"
+          CONFIG_KEY="${{ github.event.inputs.config_key }}"
+          JOB_ID="${{ github.event.inputs.job_id }}"
+          BODY='${{ steps.payload.outputs.json }}'
+          
+          echo "Executing $OPERATION for $CONFIG_KEY..."
+          echo "Payload: $BODY"
+          
+          # Use localhost since it's a self-hosted runner on the docker host
+          if [ "$OPERATION" == "status" ]; then
+            # If job_id is provided, query specific job status, otherwise use schedules/today
+            if [ -n "$JOB_ID" ] && [ "$JOB_ID" != "" ]; then
+              echo "Querying status for job_id: $JOB_ID"
+              RESPONSE=$(curl -s -X GET "http://localhost:9001/jobs/$JOB_ID" \
+                -H "Content-Type: application/json")
+            else
+              echo "Querying today's schedules"
+              RESPONSE=$(curl -s -X GET "http://localhost:9001/schedules/today" \
+                -H "Content-Type: application/json")
+            fi
+          else
+            RESPONSE=$(curl -s -X POST "http://localhost:9001/$OPERATION/$CONFIG_KEY" \
+              -H "Content-Type: application/json" \
+              -d "$BODY")
+          fi
+          
+          echo "--- API Response ---"
+          echo "$RESPONSE"
+          
+          # Basic success check
+          if [[ "$OPERATION" == "status" ]]; then
+            # Check for job_id-specific response or schedules/today response
+            if [ -n "$JOB_ID" ] && [ "$JOB_ID" != "" ]; then
+              # For specific job status, check for job fields
+              if [[ "$RESPONSE" == *"\"id\""* ]] || [[ "$RESPONSE" == *"\"status\""* ]]; then
+                echo "Job status retrieved successfully."
+                echo ""
+                echo "--- Recent Container Logs (Last 20 lines) ---"
+                docker logs newsbot-api --tail 20 2>&1 || echo "Warning: Could not retrieve container logs"
+              else
+                echo "Error: Failed to retrieve job status."
+                exit 1
+              fi
+            else
+              # For schedules/today, check for realized_jobs
+              if [[ "$RESPONSE" == *"realized_jobs"* ]]; then
+                echo "Status retrieved successfully."
+                echo ""
+                echo "--- Recent Container Logs (Last 20 lines) ---"
+                docker logs newsbot-api --tail 20 2>&1 || echo "Warning: Could not retrieve container logs"
+              else
+                echo "Error: Failed to retrieve status."
+                exit 1
+              fi
+            fi
+          elif [[ "$RESPONSE" == *"job_id"* ]]; then
+            echo "Job successfully started."
+          else
+            echo "Error: API call failed or config not found."
+            exit 1
+          fi

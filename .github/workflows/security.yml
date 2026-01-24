@@ -1,0 +1,59 @@
+name: "Security Scanning"
+
+on:
+  push:
+    branches: [ 'main' ]
+  pull_request:
+    branches: [ 'main' ]
+  schedule:
+    - cron: '0 0 * * 1' 
+
+jobs:
+  bandit:
+    name: Bandit (SAST)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install Bandit
+        run: pip install bandit
+      
+      - name: Run Bandit
+        run: |
+          bandit -r src/ -ll -f txt -o bandit-report.txt && EXIT_CODE=$? || EXIT_CODE=$?
+          cat bandit-report.txt
+          exit $EXIT_CODE
+      
+      - name: Save Bandit Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-security-report
+          path: bandit-report.txt
+
+  safety:
+    name: Safety (Dependency Check)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      
+      - name: Export dependencies
+        run: uv export --format requirements-txt > requirements.txt
+      
+      - name: Run Safety
+        env:
+          SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
+        run: |
+          uvx safety scan --key $SAFETY_API_KEY --file requirements.txt

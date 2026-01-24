@@ -1,0 +1,140 @@
+name: "Docker: Build & Run [main, self-hosted]"
+
+on:
+  push:
+    branches: [ 'main' ]
+  workflow_dispatch:
+
+jobs:
+  deploy-api:
+    name: Deploy API Container
+    runs-on: self-hosted
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+
+      - name: Build API image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.api
+          target: production
+          tags: newsbot-api:latest
+          push: false
+          load: true
+          cache-from: type=local,src=/tmp/.buildx-cache-api
+          cache-to: type=local,dest=/tmp/.buildx-cache-api-new,mode=max
+
+      - name: Move api cache
+        run: |
+          rm -rf /tmp/.buildx-cache-api
+          mv /tmp/.buildx-cache-api-new /tmp/.buildx-cache-api
+      - name: Stop and remove existing API container
+        run: |
+          docker stop newsbot-api || true
+          docker rm newsbot-api || true
+
+      - name: Run API container
+        run: |
+          docker run -d \
+            --name newsbot-api \
+            --restart unless-stopped \
+            -p 9001:8000 \
+            -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+            -e SUPABASE_SERVICE_KEY="${{ secrets.SUPABASE_SECRET_KEY }}" \
+            -e GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
+            -e EMAIL_ENABLED="${{ vars.EMAIL_ENABLED }}" \
+            -e EMAIL_SENDER="${{ vars.EMAIL_SENDER }}" \
+            -e EMAIL_RECIPIENT="${{ vars.EMAIL_RECIPIENT }}" \
+            -e EMAIL_PASSWORD="${{ secrets.EMAIL_PASSWORD }}" \
+            -e EMAIL_SMTP_SERVER="${{ vars.EMAIL_SMTP_SERVER }}" \
+            -e EMAIL_SMTP_PORT="${{ vars.EMAIL_SMTP_PORT }}" \
+            -e EMAIL_USE_SSL="${{ vars.EMAIL_USE_SSL }}" \
+            -e EMAIL_FOR_CANCELLATION="${{ vars.EMAIL_FOR_CANCELLATION }}" \
+            -e ENABLE_SCHEDULER="true" \
+            newsbot-api:latest
+
+      - name: Cleanup old images
+        run: docker image prune -f
+
+  deploy-web:
+    name: Deploy Web Container
+    runs-on: self-hosted
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+
+      - name: Build Web image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.web
+          target: production
+          tags: newsbot-web:latest
+          push: false
+          load: true
+          cache-from: type=local,src=/tmp/.buildx-cache-web
+          cache-to: type=local,dest=/tmp/.buildx-cache-web-new,mode=max
+          build-args: |
+            STATIC_ROOT=${{ vars.STATIC_ROOT }}
+
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache-web
+          mv /tmp/.buildx-cache-web-new /tmp/.buildx-cache-web
+
+      - name: Run migrations
+        run: |
+          docker run --rm \
+            -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+            -e DJANGO_SETTINGS_MODULE="web.web.settings" \
+            newsbot-web:latest \
+            python src/web/manage.py migrate --noinput
+
+      - name: Stop and remove existing Web container
+        run: |
+          docker stop newsbot-web || true
+          docker rm newsbot-web || true
+
+      - name: Run Web container
+        run: |
+          docker run -d \
+            --name newsbot-web \
+            --restart unless-stopped \
+            -p 9000:8000 \
+            -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+            -e SUPABASE_SERVICE_KEY="${{ secrets.SUPABASE_SECRET_KEY }}" \
+            -e DJANGO_SECRET_KEY="${{ secrets.DJANGO_SECRET_KEY }}" \
+            -e DEBUG="${{ vars.DEBUG }}" \
+            -e DJANGO_ALLOWED_HOSTS="${{ vars.DJANGO_ALLOWED_HOSTS }}" \
+            -e DJANGO_CSRF_TRUSTED_ORIGINS="${{ vars.DJANGO_CSRF_TRUSTED_ORIGINS }}" \
+            -e FORCE_SCRIPT_NAME="${{ vars.FORCE_SCRIPT_NAME }}" \
+            -e STATIC_ROOT="${{ vars.STATIC_ROOT }}" \
+            -e DJANGO_SETTINGS_MODULE="web.web.settings" \
+            newsbot-web:latest
+
+  wait-for-containers:
+    name: Cool down
+    runs-on: self-hosted
+    needs: [deploy-api, deploy-web]
+    steps:
+      - name: Sleep for 30 seconds
+        run: sleep 30
+
+  smoke-test:
+    needs: [wait-for-containers]
+    uses: ./.github/workflows/smoke_test.yml

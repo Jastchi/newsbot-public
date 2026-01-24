@@ -1,0 +1,213 @@
+name: "Pipeline: Scrape & Analyze Production [manual, self-hosted]"
+# Manually triggered workflow to scrape news and optionally run analysis.
+# NOTE: This workflow requires the self-hosted runner to have 'uv' installed.
+
+permissions:
+  pull-requests: read
+  contents: read
+  checks: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      config:
+        description: 'Config key to use for scraping'
+        required: true
+        type: choice
+        options:
+          - israel
+          - oesterreich
+          - technology
+          - world_politics
+          - world
+          - test
+          - test_ollama
+      run_analysis:
+        description: 'Run analysis after scraping'
+        required: false
+        default: true
+        type: boolean
+      llm_provider:
+        description: 'LLM provider to use'
+        required: true
+        default: 'gemini'
+        type: choice
+        options:
+          - gemini
+          - ollama
+
+jobs:
+  scrape-and-analyze:
+    runs-on: self-hosted
+    environment: development
+    
+    steps:
+      - name: Find open PR for branch
+        id: pr
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const ref = github.ref || context.ref;
+            const branch = ref.replace('refs/heads/', '');
+            const response = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${context.repo.owner}:${branch}`,
+              state: 'open',
+              'per_page': 1
+            });
+            
+            const prs = response.data;
+
+            if (prs && prs.length > 0) {
+              const sha = prs[0].head.sha;
+              return {pr_found: 'true', sha: sha}
+            } else {
+              return {pr_found: 'false', sha: ''}
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create check run
+        id: create_check
+        if: ${{ fromJson(steps.pr.outputs.result).pr_found == 'true' }}
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const sha = process.env.PR_SHA;
+            const runUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            const resp = await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'Check Scrape and Analyze',
+              head_sha: sha,
+              status: 'in_progress',
+              started_at: new Date().toISOString(),
+              details_url: runUrl
+            });
+            return { created: true, check_run_id: resp.data.id, sha };
+        env:
+          PR_SHA: ${{ fromJson(steps.pr.outputs.result).sha }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run migrations
+        run: uv run ./src/web/manage.py migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Run scraper
+        id: scraper
+        run: uv run newsbot run --config ${{ inputs.config }}
+        env:
+          EMAIL_ENABLED: 'true'
+          EMAIL_SMTP_SERVER: ${{ vars.EMAIL_SMTP_SERVER }}
+          EMAIL_SMTP_PORT: ${{ vars.EMAIL_SMTP_PORT }}
+          EMAIL_USE_SSL: ${{ vars.EMAIL_USE_SSL }}
+          EMAIL_SENDER: ${{ vars.EMAIL_SENDER }}
+          EMAIL_RECIPIENT: ${{ vars.EMAIL_RECIPIENT }}
+          EMAIL_FOR_CANCELLATION: ${{ vars.EMAIL_FOR_CANCELLATION }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          GEMINI_API_KEY: ${{ inputs.llm_provider == 'gemini' && secrets.GEMINI_API_KEY || '' }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Run analysis
+        id: analysis
+        if: ${{ inputs.run_analysis }}
+        run: uv run newsbot analyze --config ${{ inputs.config }} --email-receivers 2>&1 | tee analysis_output.log
+        env:
+          EMAIL_ENABLED: 'true'
+          EMAIL_SMTP_SERVER: ${{ vars.EMAIL_SMTP_SERVER }}
+          EMAIL_SMTP_PORT: ${{ vars.EMAIL_SMTP_PORT }}
+          EMAIL_USE_SSL: ${{ vars.EMAIL_USE_SSL }}
+          EMAIL_SENDER: ${{ vars.EMAIL_SENDER }}
+          EMAIL_RECIPIENT: ${{ vars.EMAIL_RECIPIENT }}
+          EMAIL_FOR_CANCELLATION: ${{ vars.EMAIL_FOR_CANCELLATION }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          GEMINI_API_KEY: ${{ inputs.llm_provider == 'gemini' && secrets.GEMINI_API_KEY || '' }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+
+      - name: Verify email was sent
+        if: ${{ inputs.run_analysis && steps.analysis.outcome == 'success' }}
+        run: |
+          if grep -q "Email sent successfully" analysis_output.log; then
+            echo "✅ Email was sent successfully"
+          else
+            echo "⚠️ Email may not have been sent"
+            echo "--- Analysis output ---"
+            cat analysis_output.log
+          fi
+
+      - name: Write workflow summary
+        if: always()
+        run: |
+          echo "## Workflow Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Config:** ${{ inputs.config }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **LLM Provider:** ${{ inputs.llm_provider }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Scraper:** ${{ steps.scraper.outcome }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ inputs.run_analysis }}" == "true" ]; then
+            echo "- **Analysis:** ${{ steps.analysis.outcome }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Analysis:** skipped" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Update check run
+        if: always() && fromJson(steps.pr.outputs.result).pr_found == 'true'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const created = JSON.parse(process.env.CREATE_CHECK_RESULT);
+            const checkRunId = created.check_run_id;
+
+            // Determine step outcomes
+            const scraper = process.env.SCRAPER_OUTCOME || 'failure';
+            const analysis = process.env.ANALYSIS_OUTCOME || 'skipped';
+            const runAnalysis = process.env.RUN_ANALYSIS === 'true';
+
+            // Determine if passed
+            const scraperPassed = scraper === 'success';
+            const analysisPassed = !runAnalysis || analysis === 'success';
+            const allPassed = scraperPassed && analysisPassed;
+            const conclusion = allPassed ? 'success' : 'failure';
+
+            // Build summary message
+            let summary = '';
+            if (allPassed) {
+              summary = runAnalysis ? 'Scrape and analysis completed successfully' : 'Scrape completed successfully (analysis skipped)';
+            } else {
+              const failed = [];
+              if (scraper !== 'success') failed.push('Scraper');
+              if (runAnalysis && analysis !== 'success') failed.push('Analysis');
+              summary = `Failed: ${failed.join(', ')}`;
+            }
+
+            await github.rest.checks.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              check_run_id: checkRunId,
+              status: 'completed',
+              conclusion: conclusion,
+              completed_at: new Date().toISOString(),
+              output: {
+                title: 'Scrape and Analyze result',
+                summary: summary
+              }
+            });
+        env:
+          CREATE_CHECK_RESULT: ${{ steps.create_check.outputs.result }}
+          SCRAPER_OUTCOME: ${{ steps.scraper.outcome }}
+          ANALYSIS_OUTCOME: ${{ steps.analysis.outcome }}
+          RUN_ANALYSIS: ${{ inputs.run_analysis }}
+

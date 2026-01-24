@@ -1,0 +1,129 @@
+name: "Maintenance: Docker Control [manual, self-hosted]"
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'stop-api'
+        type: choice
+        options:
+          - start-api
+          - start-web
+          - stop-api
+          - restart-api
+          - run-api
+          - run-web
+          - status
+
+jobs:
+  control-api:
+    name: API Container Management
+    runs-on: self-hosted
+    environment: production
+    steps:
+      - name: Execute Docker Command
+        run: |
+          case "${{ github.event.inputs.action }}" in
+            start-api)
+              echo "Starting API container..."
+              docker start newsbot-api
+              ;;
+            start-web)
+              echo "Starting Web container..."
+              docker start newsbot-web
+              ;;
+            stop-api)
+              echo "EMERGENCY STOP: Halting API container..."
+              docker stop newsbot-api
+              ;;
+            restart-api)
+              echo "Restarting API container..."
+              docker restart newsbot-api
+              ;;
+            run-api)
+              echo "Running API container..."
+              # Stop and remove existing container if it exists
+              docker stop newsbot-api || true
+              docker rm newsbot-api || true
+              # Run new API container
+              docker run -d \
+                --name newsbot-api \
+                --restart unless-stopped \
+                -p 9001:8000 \
+                -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+                -e SUPABASE_SERVICE_KEY="${{ secrets.SUPABASE_SECRET_KEY }}" \
+                -e GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
+                -e EMAIL_ENABLED="${{ vars.EMAIL_ENABLED }}" \
+                -e EMAIL_SENDER="${{ vars.EMAIL_SENDER }}" \
+                -e EMAIL_RECIPIENT="${{ vars.EMAIL_RECIPIENT }}" \
+                -e EMAIL_PASSWORD="${{ secrets.EMAIL_PASSWORD }}" \
+                -e EMAIL_SMTP_SERVER="${{ vars.EMAIL_SMTP_SERVER }}" \
+                -e EMAIL_SMTP_PORT="${{ vars.EMAIL_SMTP_PORT }}" \
+                -e EMAIL_USE_SSL="${{ vars.EMAIL_USE_SSL }}" \
+                -e EMAIL_FOR_CANCELLATION="${{ vars.EMAIL_FOR_CANCELLATION }}" \
+                -e ENABLE_SCHEDULER="true" \
+                newsbot-api:latest
+              ;;
+            run-web)
+              echo "Running Web container..."
+              # Stop and remove existing container if it exists
+              docker stop newsbot-web || true
+              docker rm newsbot-web || true
+              # Run migrations first
+              docker run --rm \
+                -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+                -e DJANGO_SETTINGS_MODULE="web.web.settings" \
+                newsbot-web:latest \
+                python src/web/manage.py migrate --noinput || true
+              # Run new Web container
+              docker run -d \
+                --name newsbot-web \
+                --restart unless-stopped \
+                -p 9000:8000 \
+                -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+                -e SUPABASE_SERVICE_KEY="${{ secrets.SUPABASE_SECRET_KEY }}" \
+                -e DJANGO_SECRET_KEY="${{ secrets.DJANGO_SECRET_KEY }}" \
+                -e DEBUG="${{ vars.DEBUG }}" \
+                -e DJANGO_ALLOWED_HOSTS="${{ vars.DJANGO_ALLOWED_HOSTS }}" \
+                -e DJANGO_CSRF_TRUSTED_ORIGINS="${{ vars.DJANGO_CSRF_TRUSTED_ORIGINS }}" \
+                -e FORCE_SCRIPT_NAME="${{ vars.FORCE_SCRIPT_NAME }}" \
+                -e STATIC_ROOT="${{ vars.STATIC_ROOT }}" \
+                -e DJANGO_SETTINGS_MODULE="web.web.settings" \
+                newsbot-web:latest
+              ;;
+            status)
+              echo "Checking container status..."
+              echo ""
+              echo "=== API Container Status ==="
+              docker ps -a --filter "name=newsbot-api" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}"
+              echo ""
+              echo "=== Web Container Status ==="
+              docker ps -a --filter "name=newsbot-web" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}"
+              echo ""
+              echo "=== Summary ==="
+              API_RUNNING=$(docker ps --filter "name=newsbot-api" --format "{{.Names}}" | wc -l)
+              WEB_RUNNING=$(docker ps --filter "name=newsbot-web" --format "{{.Names}}" | wc -l)
+              if [ "$API_RUNNING" -gt 0 ]; then
+                echo "✓ API container is RUNNING"
+              else
+                echo "✗ API container is NOT running"
+              fi
+              if [ "$WEB_RUNNING" -gt 0 ]; then
+                echo "✓ Web container is RUNNING"
+              else
+                echo "✗ Web container is NOT running"
+              fi
+              ;;
+          esac
+
+      - name: Verify Status
+        if: github.event.inputs.action != 'status'
+        run: |
+          if [ "${{ github.event.inputs.action }}" = "run-api" ] || [ "${{ github.event.inputs.action }}" = "start-api" ] || [ "${{ github.event.inputs.action }}" = "stop-api" ] || [ "${{ github.event.inputs.action }}" = "restart-api" ]; then
+            docker ps -a --filter "name=newsbot-api"
+          fi
+          if [ "${{ github.event.inputs.action }}" = "run-web" ] || [ "${{ github.event.inputs.action }}" = "start-web" ]; then
+            docker ps -a --filter "name=newsbot-web"
+          fi

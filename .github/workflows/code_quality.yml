@@ -1,0 +1,74 @@
+name: "Code Quality Checks [auto]"
+# Consolidated workflow for code quality checks:
+# - Checks for ignore comments (not allowed)
+# - Ruff linting
+# - Type checking with ty
+
+on:
+  push:
+    branches: [ 'main' ]
+  pull_request:
+    branches: [ '**' ]
+
+jobs:
+  ignore-comments:
+    name: Check for Ignore Comments
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Check type, ruff, or general ignore comments
+      run: |
+        if grep -r "# type: ignore\|# noqa\|# ruff: ignore\|# ignore" --include="*.py" .; then
+          echo "❌ Found type, linting, or general ignore comments"
+          echo "Please fix the underlying issue instead of suppressing warnings"
+          exit 1
+        else
+          echo "✅ No type, linting, or general ignore comments found"
+        fi
+
+  lint:
+    name: Ruff Lint
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version-file: '.python-version'
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+
+    - name: Make manage.py executable
+      run: chmod +x src/web/manage.py
+    
+    - name: Run ruff check
+      run: uvx --refresh ruff check # use latest ruff
+
+  type-check:
+    name: Type Check (ty)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version-file: '.python-version'
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+    
+    - name: Install dependencies
+      run: uv sync
+    
+    - name: Run type check
+      run: uvx --refresh ty check # use latest ty

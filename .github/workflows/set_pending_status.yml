@@ -1,0 +1,54 @@
+name: "Set Pending Status for Manual Workflows [auto]"
+# This workflow sets placeholder statuses for manual workflows when a pull
+# request is opened, reopened, or synchronized. The placeholder statuses
+# are updated when those workflows are run manually.
+permissions:
+  statuses: write
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  set-pending-status:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set placeholder status check for Docker pipeline test (self-hosted)
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const sha = context.payload.pull_request.head.sha;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const workflowFile = 'pipeline_test_self_hosted_docker.yml';
+            const link = `https://github.com/${owner}/${repo}/actions/workflows/${workflowFile}`;
+            github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: sha,
+              state: "pending",
+              context: "Docker Pipeline Test (Docker, Self-hosted)",
+              description: "Docker pipeline test workflow not yet run",
+              target_url: link
+            });
+
+      - name: Set placeholder status check for Docker tests (self-hosted)
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const sha = context.payload.pull_request.head.sha;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const workflowFile = 'tests_self_hosted_docker.yml';
+            const link = `https://github.com/${owner}/${repo}/actions/workflows/${workflowFile}`;
+            github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: sha,
+              state: "pending",
+              context: "Tests (Docker, Self-hosted)",
+              description: "Docker tests (self-hosted) workflow not yet run",
+              target_url: link
+            });

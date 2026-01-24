@@ -1,0 +1,207 @@
+name: "Tests: Pytest in Docker [auto]"
+
+on:
+  pull_request:
+    branches: [ 'main' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write      # Required for coverage comments
+  pull-requests: write # Required for coverage comments
+  actions: read
+
+jobs:
+  test-api:
+    name: API Container Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Free up disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.api
+          target: test
+          tags: newsbot-api-test:latest
+          push: false
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy vulnerability scanner (API)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs' # Scans the files in your repo instead of the built image
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '1' # Fails the build if vulnerabilities are found
+          ignore-unfixed: true
+          vuln-type: 'library'
+          severity: 'CRITICAL,HIGH'
+          cache-dir: .trivy
+
+      - name: Save Trivy Cache
+        uses: actions/cache@v4
+        with:
+          path: .trivy
+          key: ${{ runner.os }}-trivy-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-trivy-
+
+      - name: Run API tests
+        run: |
+          mkdir -p coverage-api
+          chmod -R 777 coverage-api
+          docker run --rm \
+            -v "$(pwd)/tests:/app/tests" \
+            -v "$(pwd)/coverage-api:/app/coverage-output" \
+            -e DJANGO_SETTINGS_MODULE=web.web.settings \
+            -e GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
+            newsbot-api-test:latest \
+            bash -c "pytest /app/tests/core_tests/ -q --tb=short --cov=src --cov-report=xml:/app/coverage-output/coverage.xml; cp .coverage /app/coverage-output/api.coverage"
+
+      - name: Upload API coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-api
+          path: coverage-api/
+
+  test-web:
+    name: Web Container Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Free up disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Web Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.web
+          target: test
+          tags: newsbot-web-test:latest
+          push: false
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy vulnerability scanner (Web)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'newsbot-web-test:latest'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+          cache-dir: .trivy
+
+      - name: Save Trivy Cache
+        uses: actions/cache@v4
+        with:
+          path: .trivy
+          key: ${{ runner.os }}-trivy-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-trivy-
+
+      - name: Run Web tests
+        run: |
+          mkdir -p coverage-web tests/screenshots
+          chmod -R 777 coverage-web tests/screenshots
+          docker run --rm \
+            -v "$(pwd)/tests:/app/tests" \
+            -v "$(pwd)/coverage-web:/app/coverage-output" \
+            -e DJANGO_SETTINGS_MODULE=web.web.settings \
+            -e GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
+            newsbot-web-test:latest \
+            bash -c "pytest /app/tests/django_tests/ -q --tb=short --cov=src --cov-report=xml:/app/coverage-output/coverage.xml; cp .coverage /app/coverage-output/web.coverage"
+
+      - name: Upload Web results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-results
+          path: |
+            coverage-web/
+            tests/screenshots/
+
+  test-summary:
+    name: Test Summary
+    needs: [test-api, test-web]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-coverage
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install coverage tool
+        run: pip install coverage
+
+      - name: Combine and Fix Coverage
+        run: |
+          cat <<'EOF' > .coveragerc
+          [run]
+          source = src
+          relative_files = true
+
+          [paths]
+          source =
+              src/
+              /app/src/
+          EOF
+
+          find all-coverage -name "api.coverage" -exec mv -v {} .coverage.api \;
+          find all-coverage -name "web.coverage" -exec mv -v {} .coverage.web \;
+          
+          coverage combine
+          coverage xml -o coverage.xml
+          coverage report -m
+
+      - name: Coverage comment
+        if: github.event_name == 'pull_request'
+        uses: py-cov-action/python-coverage-comment-action@v3
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MINIMUM_GREEN: 80
+          MINIMUM_ORANGE: 70
+          COVERAGE_FILE: .coverage
+          COVERAGE_DATA_BRANCH: python-coverage-comment-action-data

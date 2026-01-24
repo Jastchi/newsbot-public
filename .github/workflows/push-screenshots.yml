@@ -1,0 +1,105 @@
+name: "Push Screenshots"
+
+on:
+  workflow_call:
+
+jobs:
+  push-screenshots:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    concurrency:
+      group: global-screenshot-upload
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Download screenshots from test workflow
+      uses: actions/download-artifact@v4
+      with:
+        name: screenshots-${{ github.run_id }}
+        path: tests/screenshots/
+        github-token: ${{ github.token }}
+        run-id: ${{ github.run_id }}
+      continue-on-error: true
+    
+    - name: Check screenshots exist
+      id: check_screenshots
+      run: |
+        if [ ! -d "tests/screenshots" ] || [ -z "$(ls -A tests/screenshots 2>/dev/null)" ]; then
+          echo "screenshots_exist=false" >> $GITHUB_OUTPUT
+        else
+          echo "screenshots_exist=true" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Prepare and Push to branch
+      if: steps.check_screenshots.outputs.screenshots_exist == 'true'
+      id: push_logic
+      run: |
+        # 1. Capture metadata before switching branches
+        LATEST_FOLDER=$(ls -t tests/screenshots/ 2>/dev/null | head -n 1)
+        SCREENSHOT_DIR="tests/screenshots/$LATEST_FOLDER"
+        
+        screenshot_count=$(find "$SCREENSHOT_DIR" -maxdepth 1 -name "*.png" ! -name "admin_*" | wc -l)
+        admin_count=$(find "$SCREENSHOT_DIR" -maxdepth 1 -name "admin_*.png" | wc -l)
+        
+        # 2. Move screenshots to a temporary location outside the git tree
+        mkdir -p /tmp/screenshot_payload
+        cp -r "$SCREENSHOT_DIR"/* /tmp/screenshot_payload/
+        
+        # 3. Configure Git
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        
+        # 4. Switch to/Create orphan branch
+        if git ls-remote --heads origin screenshots | grep -q "screenshots"; then
+          git fetch origin screenshots:screenshots
+          git checkout screenshots
+        else
+          git checkout --orphan screenshots
+          git rm -rf . 2>/dev/null || true
+        fi
+        
+        # 5. Place files in the unique run directory
+        TARGET_DIR="screenshots/${{ github.run_id }}"
+        mkdir -p "$TARGET_DIR"
+        cp -r /tmp/screenshot_payload/* "$TARGET_DIR/"
+        
+        # 6. Push with retry/rebase logic
+        git add "$TARGET_DIR"
+        git commit -m "Add screenshots for run ${{ github.run_id }} [skip ci]"
+        
+        for i in {1..5}; do
+          git pull --rebase origin screenshots
+          if git push origin screenshots; then
+            echo "Push successful"
+            break
+          fi
+          sleep 5
+        done
+
+        # 7. Set outputs for the comment step
+        echo "screenshot_count=$screenshot_count" >> $GITHUB_OUTPUT
+        echo "admin_count=$admin_count" >> $GITHUB_OUTPUT
+        echo "target_dir=$TARGET_DIR" >> $GITHUB_OUTPUT
+
+    - name: Create or update screenshot comment
+      if: github.event_name == 'pull_request' && steps.push_logic.outputs.screenshot_count != ''
+      uses: peter-evans/create-or-update-comment@v4
+      with:
+        issue-number: ${{ github.event.pull_request.number }}
+        comment-author: 'github-actions[bot]'
+        body-includes: '## Webapp Screenshots'
+        edit-mode: replace
+        body: |
+          ## Webapp Screenshots
+          **${{ steps.push_logic.outputs.screenshot_count }}** main | **${{ steps.push_logic.outputs.admin_count }}** admin screenshots
+          
+          [View Screenshots](https://github.com/${{ github.repository }}/tree/screenshots/${{ steps.push_logic.outputs.target_dir }}) captured for the last test run.

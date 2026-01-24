@@ -1,0 +1,213 @@
+name: "Tests: Pytest in Docker [manual, self-hosted]"
+
+on:
+  workflow_dispatch:  # Run manually
+
+permissions:
+  contents: write
+  pull-requests: write
+  statuses: write
+  checks: write
+
+jobs:
+  find-pr:
+    name: Find PR
+    runs-on: self-hosted
+    outputs:
+      pr_found: ${{ fromJson(steps.pr.outputs.result).pr_found }}
+      sha: ${{ fromJson(steps.pr.outputs.result).sha }}
+    steps:
+      - name: Find open PR for branch
+        id: pr
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const ref = github.ref || context.ref;
+            const branch = ref.replace('refs/heads/', '');
+            const response = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${context.repo.owner}:${branch}`,
+              state: 'open',
+              'per_page': 1
+            });
+            const prs = response.data;
+            if (prs && prs.length > 0) {
+              return {pr_found: 'true', sha: prs[0].head.sha}
+            } else {
+              return {pr_found: 'false', sha: ''}
+            }
+
+  test-api:
+    name: API Container Tests
+    needs: [find-pr]
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set status to running
+        if: ${{ needs.find-pr.outputs.pr_found == 'true' }}
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: '${{ needs.find-pr.outputs.sha }}',
+              state: 'pending',
+              context: 'Tests (Docker, Self-hosted)',
+              description: 'Docker tests are running...',
+              target_url: runUrl
+            });
+        env:
+          GITHUB_RUN_ID: ${{ github.run_id }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.api
+          target: test
+          tags: newsbot-api-test:latest
+          push: false
+          load: true
+
+      - name: Run API tests
+        run: |
+          mkdir -p coverage-api
+          chmod -R 777 coverage-api
+          docker run --rm \
+            -v "$(pwd)/tests:/app/tests" \
+            -v "$(pwd)/coverage-api:/app/coverage-output" \
+            -e DJANGO_SETTINGS_MODULE=web.web.settings \
+            -e GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
+            newsbot-api-test:latest \
+            bash -c "pytest /app/tests/core_tests/ -q --tb=short --cov=src --cov-report=xml:/app/coverage-output/coverage.xml; cp .coverage /app/coverage-output/api.coverage"
+
+      - name: Upload API coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-api-selfhosted
+          path: coverage-api/
+
+  test-web:
+    name: Web Container Tests
+    needs: [find-pr]
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Web Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.web
+          target: test
+          tags: newsbot-web-test:latest
+          push: false
+          load: true
+
+      - name: Run Web tests
+        run: |
+          mkdir -p coverage-web tests/screenshots
+          chmod -R 777 coverage-web tests/screenshots
+          docker run --rm \
+            -v "$(pwd)/tests:/app/tests" \
+            -v "$(pwd)/coverage-web:/app/coverage-output" \
+            -e DJANGO_SETTINGS_MODULE=web.web.settings \
+            -e GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
+            newsbot-web-test:latest \
+            bash -c "pytest /app/tests/django_tests/ -q --tb=short --cov=src --cov-report=xml:/app/coverage-output/coverage.xml; cp .coverage /app/coverage-output/web.coverage"
+
+      - name: Upload Web results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-results-selfhosted
+          path: |
+            coverage-web/
+            tests/screenshots/
+
+  test-summary:
+    name: Test Summary
+    needs: [find-pr, test-api, test-web]
+    if: always()
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-coverage
+
+      - name: Install coverage tool
+        run: pip install coverage
+
+      - name: Combine and Fix Coverage
+        run: |
+          # 1. Create a .coveragerc that forces relative paths
+          cat <<'EOF' > .coveragerc
+          [run]
+          source = src
+          relative_files = true
+
+          [paths]
+          source =
+              src/
+              /app/src/
+          EOF
+
+          # 2. Find and move coverage data files
+          find all-coverage -name "api.coverage" -exec mv -v {} .coverage.api \;
+          find all-coverage -name "web.coverage" -exec mv -v {} .coverage.web \;
+          
+          # 3. Combine files
+          # This uses the [paths] to map /app/src/ to the local src/
+          # AND the relative_files=true to strip the absolute runner paths
+          coverage combine
+
+          # 4. Generate XML and Report
+          coverage xml -o coverage.xml
+          coverage report -m
+
+      - name: Update PR status
+        if: always() && needs.find-pr.outputs.pr_found == 'true'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const sha = '${{ needs.find-pr.outputs.sha }}';
+            const apiResult = '${{ needs.test-api.result }}';
+            const webResult = '${{ needs.test-web.result }}';
+            const allPassed = apiResult === 'success' && webResult === 'success';
+            const state = allPassed ? 'success' : 'failure';
+            const description = allPassed 
+              ? 'All Docker tests passed (self-hosted)' 
+              : `Tests failed: API=${apiResult}, Web=${webResult}`;
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: sha,
+              state: state,
+              context: 'Tests (Docker, Self-hosted)',
+              description: description,
+              target_url: runUrl
+            });
+        env:
+          GITHUB_RUN_ID: ${{ github.run_id }}

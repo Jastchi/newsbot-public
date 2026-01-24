@@ -1,0 +1,149 @@
+name: "Tests: Pytest [auto]"
+# Runs all the tests for the project.
+
+on:
+  push:
+    branches: [ 'main' ]
+  pull_request:
+    branches: [ '**' ]
+  workflow_dispatch:  # Run manually
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    environment: development
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      screenshots_found: ${{ steps.prepare_screenshots.outputs.screenshots_found }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version-file: '.python-version'
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+    
+    - name: Install dependencies
+      run: uv sync --all-groups
+    
+    - name: Install Playwright browsers
+      run: uv run playwright install --with-deps chromium
+    
+    - name: Write coverage config
+      run: |
+        cat <<'EOF' > .coveragerc
+        [run]
+        relative_files = true
+        source = src
+        omit =
+            */tests/*
+            */__pycache__/*
+            */migrations/*
+
+        [paths]
+        source =
+            src
+            */src
+        EOF
+    
+    - name: Run tests
+      run: uv run pytest tests/ -q --tb=short --no-header --log-cli-level=CRITICAL --cov=src --cov-report=xml --cov-report=html
+      env:
+        DJANGO_SETTINGS_MODULE: web.web.settings
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    
+    - name: Upload coverage artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage
+        path: |
+          coverage.xml
+          htmlcov/**
+    
+    - name: Upload screenshots
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: screenshots-${{ github.run_id }}
+        path: tests/screenshots/**
+        retention-days: 7
+        if-no-files-found: ignore
+    
+    - name: Coverage comment
+      if: always()
+      uses: py-cov-action/python-coverage-comment-action@v3
+      with:
+        GITHUB_TOKEN: ${{ github.token }}
+        MINIMUM_GREEN: 80
+        MINIMUM_ORANGE: 70
+
+    - name: Prepare screenshots for branch
+      if: always()
+      id: prepare_screenshots
+      run: |
+        if [ ! -d "tests/screenshots" ]; then
+          echo "screenshots_found=false" >> $GITHUB_OUTPUT
+          echo "No screenshots directory found"
+          exit 0
+        fi
+        
+        LATEST_FOLDER=$(ls -t tests/screenshots/ 2>/dev/null | head -n 1)
+        if [ -z "$LATEST_FOLDER" ]; then
+          echo "screenshots_found=false" >> $GITHUB_OUTPUT
+          echo "No screenshot folders found"
+          exit 0
+        fi
+        
+        SCREENSHOT_DIR="tests/screenshots/$LATEST_FOLDER"
+        SCREENSHOTS_BRANCH_DIR="screenshots/${{ github.run_id }}"
+        
+        mkdir -p "$SCREENSHOTS_BRANCH_DIR"
+        
+        screenshot_count=0
+        admin_count=0
+        
+        for img in "$SCREENSHOT_DIR"/*.png; do
+          if [ -f "$img" ]; then
+            filename=$(basename "$img")
+            cp "$img" "$SCREENSHOTS_BRANCH_DIR/$filename"
+            if [[ "$filename" == admin_* ]]; then
+              admin_count=$((admin_count + 1))
+            else
+              screenshot_count=$((screenshot_count + 1))
+            fi
+          fi
+        done
+        
+        echo "screenshots_found=true" >> $GITHUB_OUTPUT
+        echo "screenshot_count=$screenshot_count" >> $GITHUB_OUTPUT
+        echo "admin_count=$admin_count" >> $GITHUB_OUTPUT
+        echo "screenshots_dir=$SCREENSHOTS_BRANCH_DIR" >> $GITHUB_OUTPUT
+    
+    - name: Generate screenshot summary
+      if: always() && steps.prepare_screenshots.outputs.screenshots_found == 'true'
+      run: |
+        SCREENSHOTS_DIR="${{ steps.prepare_screenshots.outputs.screenshots_dir }}"
+        
+        echo "## Webapp Screenshots" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**${{ steps.prepare_screenshots.outputs.screenshot_count }}** main | **${{ steps.prepare_screenshots.outputs.admin_count }}** admin screenshots" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- [Download artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+        echo "- [View in screenshots branch](https://github.com/${{ github.repository }}/tree/screenshots/${SCREENSHOTS_DIR})" >> $GITHUB_STEP_SUMMARY
+
+  push-screenshots:
+    needs: test
+    if: always() && needs.test.outputs.screenshots_found == 'true' && github.event_name == 'pull_request'
+    uses: Jastchi/newsbot/.github/workflows/push-screenshots.yml@main
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+    secrets: inherit

@@ -1,0 +1,58 @@
+name: "Service Health Check"
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  validate-services:
+    name: Validate Production Containers
+    runs-on: self-hosted
+    steps:
+      - name: Check API Health (Port 9001)
+        id: api_check
+        run: |
+          echo "Testing API Health Endpoint..."
+          # Fetch response and status code
+          RESPONSE=$(curl -s -w "\n%{http_code}" http://localhost:9001/health)
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+
+          HEALTH_STATUS=$(echo "$BODY" | jq -r '.status')
+          SCHEDULER_STATUS=$(echo "$BODY" | jq -r '.scheduler_running')
+
+          echo "HTTP Status: $HTTP_STATUS"
+          echo "HEALTH Status: $HEALTH_STATUS"
+          echo "Scheduler Running: $SCHEDULER_STATUS"
+          
+          if [ "$HTTP_STATUS" -eq 200 ] && [ "$HEALTH_STATUS" = "ok" ] && [ "$SCHEDULER_STATUS" = "true" ]; then
+            echo "✅ API is Healthy"
+            echo "Response: $BODY"
+          else
+            echo "❌ API Health Check Failed (Status: $HTTP_STATUS)"
+            echo "Response: $BODY"
+            exit 1
+          fi
+
+      - name: Check Web UI (Port 9000)
+        id: web_check
+        run: |
+          echo "Testing Web UI Home Page..."
+          HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}" http://localhost:9000/)
+          
+          if [ "$HTTP_STATUS" -eq 200 ]; then
+            echo "✅ Web UI is Up (200 OK)"
+          else
+            echo "❌ Web UI is Down (Status: $HTTP_STATUS)"
+            exit 1
+          fi
+
+      - name: Report Container Status on Failure
+        if: failure()
+        run: |
+          echo "--- Container Status ---"
+          docker ps -a --filter "name=newsbot"
+          echo "--- API Logs (Last 20 lines) ---"
+          docker logs newsbot-api --tail 20
+          echo "--- Web Logs (Last 20 lines) ---"
+          docker logs newsbot-web --tail 20

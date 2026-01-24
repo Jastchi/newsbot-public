@@ -1,0 +1,48 @@
+name: Daily Public Sync
+
+on:
+  schedule:
+    # Runs at 00:00 UTC every day
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Run it manually for testing
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Private Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history to compare branches
+
+      - name: Configure Git
+        run: |
+          git config --global user.name ${{ vars.NAME_GITHUB }}
+          git config --global user.email ${{ vars.EMAIL_GITHUB }}
+
+      - name: Prepare Public Remote
+        run: |
+          # Use a Personal Access Token (PAT) stored in Secrets
+          git remote add public https://${{ secrets.PRIVATE_TO_PUBLIC_SYNC_TOKEN }}@github.com/Jastchi/newsbot-public.git
+
+      - name: Squash and Push
+        run: |
+          # Fetch the current state of the public repo
+          git fetch public main
+          
+          # Create a temporary branch starting from the public main
+          git checkout -b sync-branch public/main
+          
+          # Pull in all changes from private main, but don't commit them yet (squash)
+          git merge --squash origin/main
+          
+          # Check if there are actually changes to commit
+          if git diff --staged --quiet; then
+            echo "No new changes to sync."
+          else
+            # Commit with the current date
+            git commit -m "Update: $(date +'%Y-%m-%d')"
+            # Push to the public main
+            git push public sync-branch:main
+          fi
