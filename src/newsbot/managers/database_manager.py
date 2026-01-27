@@ -6,6 +6,8 @@ import logging
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
+from django.db import DatabaseError, IntegrityError, OperationalError
+
 from newsbot.constants import TZ
 from newsbot.models import Article
 from utilities.django_models import Article as DjangoArticle
@@ -100,8 +102,8 @@ class DatabaseManager:
             else:
                 logger.info("No new articles to save")
 
-        except Exception:
-            logger.exception("Error saving to database")
+        except (DatabaseError, IntegrityError, OperationalError):
+            logger.exception("Database error saving articles")
             saved_count = 0
 
         return saved_count
@@ -212,8 +214,8 @@ class DatabaseManager:
             else:
                 logger.debug("No articles needed updating")
 
-        except Exception:
-            logger.exception("Error updating database")
+        except (DatabaseError, IntegrityError, OperationalError):
+            logger.exception("Database error updating articles")
             updated_count = 0
 
         return updated_count
@@ -236,8 +238,8 @@ class DatabaseManager:
                 url=url,
                 config=self._news_config,
             ).exists()
-        except Exception:
-            logger.exception("Error checking if URL exists")
+        except (DatabaseError, IntegrityError, OperationalError):
+            logger.exception("Database error checking if URL exists")
             return False
 
     def has_scraped_today(self) -> bool:
@@ -262,8 +264,8 @@ class DatabaseManager:
                 scraped_date__gte=today_start,
                 scraped_date__lt=today_end,
             ).count()
-        except Exception:
-            logger.exception("Error checking if scraped today")
+        except (DatabaseError, IntegrityError, OperationalError):
+            logger.exception("Database error checking if scraped today")
             return False
         else:
             return count > 0

@@ -22,24 +22,27 @@ jobs:
           git config --global user.name "${{ vars.NAME_GITHUB }}"
           git config --global user.email "${{ vars.EMAIL_GITHUB }}"
 
-      - name: Squash and Push
+      - name: Sync via File Overlay
         env:
           SYNC_TOKEN: ${{ secrets.PRIVATE_TO_PUBLIC_SYNC_TOKEN }}
         run: |
-          # Fetch the current state of the public repo
+          # Add and fetch the public repo
           git remote add public https://x-access-token:${SYNC_TOKEN}@github.com/Jastchi/newsbot-public.git
-          
-          # Fetch and prepare branch
           git fetch public main
+
+          # Switch to the public main branch
           git checkout -B sync-branch public/main
+
+          # Force the working directory to match the private repo's main
+          git checkout origin/main -- .
           
-          # Squash changes and REMOVE workflows
-          git merge --squash origin/main --allow-unrelated-histories -X theirs
-          
-          # Commit and Force Push
+          # Stage deletions
+          git add -A
+
+          # Diff and Commit
           if git diff --staged --quiet; then
-            echo "No new changes to sync."
+            echo "No changes to sync."
           else
             git commit -m "Update: $(date +'%Y-%m-%d')"
-            git push public sync-branch:main --force
+            git push public sync-branch:main
           fi

@@ -159,11 +159,12 @@ class TestDatabaseManager:
         self, monkeypatch, database_manager
     ):
         """Test that save_articles handles database errors gracefully."""
+        from django.db import DatabaseError
         from utilities.django_models import Article as DjangoArticle
 
         # Mock DjangoArticle.objects.filter to raise an exception
         def mock_filter(*args, **kwargs):
-            raise Exception("Database error")
+            raise DatabaseError("Database error")
 
         monkeypatch.setattr(
             DjangoArticle.objects,
@@ -180,11 +181,12 @@ class TestDatabaseManager:
         self, monkeypatch, database_manager
     ):
         """Test that update_articles_with_analysis handles errors."""
+        from django.db import DatabaseError
         from utilities.django_models import Article as DjangoArticle
 
         # Mock DjangoArticle.objects.filter to raise an exception
         def mock_filter(*args, **kwargs):
-            raise Exception("Database error")
+            raise DatabaseError("Database error")
 
         monkeypatch.setattr(
             DjangoArticle.objects,
@@ -200,11 +202,12 @@ class TestDatabaseManager:
         self, monkeypatch, database_manager
     ):
         """Test that has_scraped_today handles database errors gracefully."""
+        from django.db import DatabaseError
         from utilities.django_models import Article as DjangoArticle
 
         # Mock DjangoArticle.objects.filter to raise an exception
         def mock_filter(*args, **kwargs):
-            raise Exception("Database error")
+            raise DatabaseError("Database error")
 
         monkeypatch.setattr(
             DjangoArticle.objects,
@@ -292,11 +295,12 @@ class TestPipelineInitialization:
     @pytest.mark.django_db
     def test_lookup_news_config_handles_exception(self, sample_config, monkeypatch):
         """Test that _lookup_news_config handles exceptions gracefully."""
+        from django.db import DatabaseError
         from utilities.django_models import NewsConfig
 
         # Mock NewsConfig.objects.filter to raise an exception
         def mock_filter(*args, **kwargs):
-            raise Exception("Database error")
+            raise DatabaseError("Database error")
 
         monkeypatch.setattr(NewsConfig.objects, "filter", mock_filter)
 

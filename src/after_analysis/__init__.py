@@ -34,9 +34,11 @@ To temporarily disable a hook, prefix the filename with underscore
 
 import importlib
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
+from newsbot.constants import TZ
 from newsbot.models import AnalysisData
 
 logger = logging.getLogger(__name__)
@@ -72,7 +74,19 @@ def run_hooks(
 
     """
     if analysis_data is None:
-        analysis_data = {}
+        # Create empty AnalysisData dict with required fields
+        analysis_data: AnalysisData = {
+            "success": False,
+            "articles_count": 0,
+            "stories_count": 0,
+            "duration": 0.0,
+            "timestamp": "",
+            "format": "",
+            "config_name": "",
+            "from_date": datetime.now(TZ),
+            "to_date": datetime.now(TZ),
+            "email_receivers_override": None,
+        }
 
     hooks_dir = Path(__file__).parent
     hooks_executed = 0

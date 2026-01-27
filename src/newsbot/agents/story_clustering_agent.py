@@ -96,7 +96,7 @@ class StoryClusteringAgent:
         try:
             self.embedding_model = get_sentence_transformer(model_name)
             logger.info("Sentence transformer model loaded successfully")
-        except Exception:
+        except (OSError, RuntimeError):
             logger.exception("Error loading sentence transformer")
             logger.warning("Falling back to basic similarity")
             self.embedding_model = None
@@ -163,8 +163,8 @@ class StoryClusteringAgent:
             for ent in doc.ents:
                 if ent.label_ in ("GPE", "LOC"):
                     locations.add(ent.text.lower().strip())
-        except Exception:
-            logger.debug("Error extracting locations from text")
+        except (RuntimeError, ValueError) as e:
+            logger.debug(f"Error extracting locations from text: {e}")
             return set()
         else:
             return locations
@@ -212,7 +212,7 @@ class StoryClusteringAgent:
                 })
                 del doc
 
-        except Exception:
+        except (RuntimeError, ValueError, MemoryError):
             logger.exception(
                 "Error in batch location extraction, "
                 "falling back to sequential",
@@ -398,8 +398,8 @@ class StoryClusteringAgent:
 
             logger.info(f"Generated story title: {generated_title}")
 
-        except Exception:
-            logger.exception("Error generating story title with LLM.")
+        except (RuntimeError, ValueError, ConnectionError):
+            logger.exception("Error generating story title with LLM")
             # Fallback to most recent article's title
             fallback_title = max(cluster, key=lambda a: a.published_date).title
             logger.info(f"Using fallback title: {fallback_title}")

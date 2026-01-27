@@ -115,7 +115,7 @@ class SentimentAnalysisAgent:
 
             article.sentiment = result
 
-        except Exception:
+        except (ValueError, RuntimeError, AttributeError):
             logger.exception(
                 f"Error analyzing sentiment for '{article.title}'",
             )
@@ -265,7 +265,7 @@ class SentimentAnalysisAgent:
 
     def _identify_differences(
         self,
-        comparison: dict[str, dict],
+        comparison: dict[str, dict[str, float]],
     ) -> list[SentimentDifference]:
         """
         Identify significant sentiment differences between sources.

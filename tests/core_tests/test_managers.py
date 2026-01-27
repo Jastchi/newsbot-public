@@ -613,11 +613,12 @@ class TestDatabaseManager:
         self, database_manager, monkeypatch
     ):
         """Test that update_articles_with_analysis handles exceptions gracefully."""
+        from django.db import DatabaseError
         from utilities.django_models import Article as DjangoArticle
 
         # Mock DjangoArticle.objects.filter to raise an exception
         def mock_filter(*args, **kwargs):
-            raise Exception("Database error")
+            raise DatabaseError("Database error")
 
         monkeypatch.setattr(DjangoArticle.objects, "filter", mock_filter)
 
@@ -737,11 +738,12 @@ class TestDatabaseManager:
         self, database_manager, monkeypatch
     ):
         """Test that has_scraped_today handles exceptions gracefully."""
+        from django.db import DatabaseError
         from utilities.django_models import Article as DjangoArticle
 
         # Mock DjangoArticle.objects.filter to raise an exception
         def mock_filter(*args, **kwargs):
-            raise Exception("Database error")
+            raise DatabaseError("Database error")
 
         monkeypatch.setattr(DjangoArticle.objects, "filter", mock_filter)
 

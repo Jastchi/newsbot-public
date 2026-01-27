@@ -1,0 +1,46 @@
+name: 'Set Pending Status'
+description: 'Sets a pending status check for a manual workflow on a PR'
+
+inputs:
+  github-token:
+    description: 'GitHub token for API calls'
+    required: true
+  sha:
+    description: 'The commit SHA to set status for'
+    required: true
+  context:
+    description: 'The status context name'
+    required: true
+  workflow-file:
+    description: 'The workflow file name (e.g., tests_docker.yml)'
+    required: true
+  description:
+    description: 'Status description'
+    required: false
+    default: 'Workflow not yet run'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set pending status
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const sha = '${{ inputs.sha }}';
+          const statusContext = '${{ inputs.context }}';
+          const workflowFile = '${{ inputs.workflow-file }}';
+          const description = '${{ inputs.description }}';
+          const owner = context.repo.owner;
+          const repo = context.repo.repo;
+          const link = `https://github.com/${owner}/${repo}/actions/workflows/${workflowFile}`;
+          
+          await github.rest.repos.createCommitStatus({
+            owner: owner,
+            repo: repo,
+            sha: sha,
+            state: "pending",
+            context: statusContext,
+            description: description,
+            target_url: link
+          });

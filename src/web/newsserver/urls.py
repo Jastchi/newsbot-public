@@ -10,7 +10,7 @@ urlpatterns = [
     path("", views.ConfigOverviewView.as_view(), name="overview"),
     path("runs/", views.RunListView.as_view(), name="runs_list"),
     path("logs/", views.LogsView.as_view(), name="logs_list"),
-    path("logs/stream/", views.LogStreamView(), name="logs_stream"),
+    path("logs/stream/", views.log_stream_view, name="logs_stream"),
     path(
         "config/<str:config_name>/",
         views.ConfigReportView.as_view(),

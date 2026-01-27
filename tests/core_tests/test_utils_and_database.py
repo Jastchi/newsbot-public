@@ -975,7 +975,7 @@ class TestValidateEnvironment:
 
         mock_email_handler = MagicMock()
         mock_email_handler.flush = MagicMock(
-            side_effect=Exception("Flush failed")
+            side_effect=OSError("Flush failed")
         )
 
         with pytest.raises(SystemExit) as exc_info:

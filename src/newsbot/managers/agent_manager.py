@@ -95,20 +95,14 @@ class AgentManager:
             Dictionary mapping agent names to their status
 
         """
+        agents = {
+            "scraper": self._scraper,
+            "story_clustering": self._story_clustering,
+            "summarizer": self._summarizer,
+            "sentiment_analyzer": self._sentiment_analyzer,
+            "report_generator": self._report_generator,
+        }
         return {
-            "scraper": "initialized"
-            if self._scraper is not None
-            else "not_initialized",
-            "story_clustering": "initialized"
-            if self._story_clustering is not None
-            else "not_initialized",
-            "summarizer": "initialized"
-            if self._summarizer is not None
-            else "not_initialized",
-            "sentiment_analyzer": "initialized"
-            if self._sentiment_analyzer is not None
-            else "not_initialized",
-            "report_generator": "initialized"
-            if self._report_generator is not None
-            else "not_initialized",
+            name: "initialized" if agent is not None else "not_initialized"
+            for name, agent in agents.items()
         }

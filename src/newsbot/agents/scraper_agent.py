@@ -9,6 +9,7 @@ import socket
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta
+from urllib.error import URLError
 
 import feedparser
 import numpy as np
@@ -241,7 +242,11 @@ class NewsScraperAgent:
                 logger.info(
                     f"Scraped {len(articles)} articles from {source['name']}",
                 )
-            except Exception:
+            except (
+                requests.exceptions.RequestException,
+                OSError,
+                URLError,
+            ):
                 logger.exception(f"Error scraping {source['name']}")
 
         logger.info(f"Total articles scraped: {len(all_articles)}")
@@ -676,7 +681,13 @@ class NewsScraperAgent:
                 # Add delay between articles from same source
                 time.sleep(1.5)
 
-        except Exception:
-            logger.exception(f"Error parsing RSS feed {source['rss_url']}")
+        except (
+            requests.exceptions.RequestException,
+            OSError,
+            URLError,
+        ):
+            logger.exception(
+                f"Error parsing RSS feed {source['rss_url']}",
+            )
 
         return articles

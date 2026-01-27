@@ -164,7 +164,8 @@ class TestNewsScraperAgent:
     @patch("newsbot.agents.scraper_agent.feedparser.parse")
     def test_scrape_rss_feed_error_handling(self, mock_parse, sample_config):
         """Test error handling during RSS feed parsing"""
-        mock_parse.side_effect = Exception("Feed parsing error")
+        from urllib.error import URLError
+        mock_parse.side_effect = URLError("Feed parsing error")
 
         agent = NewsScraperAgent(sample_config)
         source_model = sample_config.news_sources[0]
@@ -244,8 +245,9 @@ class TestNewsScraperAgent:
         self, mock_scrape_source, sample_config
     ):
         """Test that scraping continues even if one source fails"""
+        import requests
         mock_scrape_source.side_effect = [
-            Exception("Source 1 failed"),
+            requests.exceptions.RequestException("Source 1 failed"),
             [],
         ]
 

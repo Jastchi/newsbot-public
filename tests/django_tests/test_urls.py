@@ -5,8 +5,8 @@ from django.urls import resolve, reverse
 from web.newsserver.views import (
     ConfigOverviewView,
     ConfigReportView,
-    LogStreamView,
     LogsView,
+    log_stream_view,
 )
 
 
@@ -51,8 +51,6 @@ class TestNewsserverUrls:
         url = reverse("newsserver:logs_stream")
         assert url == "/logs/stream/"
         resolved = resolve(url)
-        # LogStreamView is instantiated directly in URLs, so func is the instance
-        # We check by verifying it's callable and has the expected attributes
+        # log_stream_view is a function-based view
         assert callable(resolved.func)
-        # The function should be an instance of LogStreamView
-        assert hasattr(resolved.func, "__call__")
+        assert resolved.func == log_stream_view

@@ -47,7 +47,7 @@ class TestStoryClusteringAgent:
         """Test handling of model loading error"""
         with patch(
             "newsbot.agents.story_clustering_agent.get_sentence_transformer",
-            side_effect=Exception("Model load failed"),
+            side_effect=OSError("Model load failed"),
         ):
             agent = StoryClusteringAgent(sample_config)
 
@@ -59,7 +59,7 @@ class TestStoryClusteringAgent:
         """Test story identification when model is not available"""
         with patch(
             "newsbot.agents.story_clustering_agent.get_sentence_transformer",
-            side_effect=Exception("No model"),
+            side_effect=OSError("No model"),
         ):
             agent = StoryClusteringAgent(sample_config)
             stories = agent.identify_top_stories(sample_articles)

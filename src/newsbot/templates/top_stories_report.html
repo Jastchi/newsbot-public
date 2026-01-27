@@ -154,10 +154,10 @@
         <h2>Summary</h2>
         <p><strong>Total Stories:</strong> {{ story_count }}</p>
         <p><strong>Total Articles:</strong> {{ total_articles }}</p>
-        <p><strong>Sources Analyzed:</strong> {{ sources|length }}</p>
-        <p><strong>Sources:</strong> {{ sources|join(', ') }}</p>
+        <p><strong>Sources Analyzed:</strong> {{ sources|unique|list|length }}</p>
+        <p><strong>Sources:</strong> {{ sources|unique|sort|join(', ') }}</p>
         
-        <h3 style="margin-top: 20px; margin-bottom: 10px;">Stories in this report:</h3>
+        <h3 style="margin-top: 20px; margin-bottom: 10px;">Stories:</h3>
         <ol style="margin: 0; padding-left: 20px; line-height: 1.8;">
         {% for analysis in story_analyses %}
             <li><a href="#story-{{ loop.index }}">{{ analysis.story.title }}</a></li>
@@ -174,14 +174,14 @@
         {% endif %}
         
         <div class="story-meta">
-            <strong>Coverage:</strong> {{ analysis.story.sources|length }} sources, {{ analysis.story.article_count }} articles<br>
-            <strong>Sources:</strong> {{ analysis.story.sources|join(', ') }}<br>
+            <strong>Coverage:</strong> {{ analysis.story.sources|unique|list|length }} sources, {{ analysis.story.article_count }} articles<br>
+            <strong>Sources:</strong> {{ analysis.story.sources|unique|sort|join(', ') }}<br>
             <strong>Time Range:</strong> {{ analysis.story.earliest_date.strftime('%Y-%m-%d %H:%M') }} to {{ analysis.story.latest_date.strftime('%Y-%m-%d %H:%M') }}
         </div>
         
         <h3>How Different Sources Cover This Story:</h3>
         
-        {% for source in analysis.story.sources|sort %}
+        {% for source in analysis.story.sources|unique|sort %}
         <div class="source-coverage">
             <div class="source-header collapsed" onclick="toggleSource(this)">
                 <span>{{ source }}</span>

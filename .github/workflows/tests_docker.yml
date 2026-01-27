@@ -1,22 +1,46 @@
-name: "Tests: Pytest in Docker [auto]"
+name: "Tests: Pytest in Docker [manual]"
 
 on:
-  pull_request:
-    branches: [ 'main' ]
-  workflow_dispatch:
+  workflow_dispatch:  # Run manually
 
 permissions:
   contents: write      # Required for coverage comments
   pull-requests: write # Required for coverage comments
+  statuses: write      # Required for status checks
   actions: read
 
 jobs:
+  find-pr:
+    name: Find PR
+    runs-on: ubuntu-latest
+    outputs:
+      pr_found: ${{ steps.find-pr.outputs.pr_found }}
+      sha: ${{ steps.find-pr.outputs.sha }}
+    steps:
+      - name: Find open PR for branch
+        id: find-pr
+        uses: ./.github/actions/find-pr
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
   test-api:
     name: API Container Tests
+    needs: [find-pr]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set status to running
+        id: set_running
+        if: needs.find-pr.outputs.pr_found == 'true'
+        uses: ./.github/actions/update-pr-status
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ needs.find-pr.outputs.sha }}
+          context: 'Tests (Docker)'
+          state: 'pending'
+          description: 'Docker tests are running...'
 
       - name: Free up disk space
         uses: jlumbroso/free-disk-space@main
@@ -84,6 +108,7 @@ jobs:
 
   test-web:
     name: Web Container Tests
+    needs: [find-pr]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -156,7 +181,7 @@ jobs:
 
   test-summary:
     name: Test Summary
-    needs: [test-api, test-web]
+    needs: [find-pr, test-api, test-web]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -169,25 +194,18 @@ jobs:
           path: all-coverage
 
       - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+        uses: ./.github/actions/setup-python
 
       - name: Install coverage tool
         run: pip install coverage
 
+      - name: Setup coverage config
+        uses: ./.github/actions/setup-coverage-config
+        with:
+          include-docker-paths: 'true'
+
       - name: Combine and Fix Coverage
         run: |
-          cat <<'EOF' > .coveragerc
-          [run]
-          source = src
-          relative_files = true
-
-          [paths]
-          source =
-              src/
-              /app/src/
-          EOF
 
           find all-coverage -name "api.coverage" -exec mv -v {} .coverage.api \;
           find all-coverage -name "web.coverage" -exec mv -v {} .coverage.web \;
@@ -197,7 +215,7 @@ jobs:
           coverage report -m
 
       - name: Coverage comment
-        if: github.event_name == 'pull_request'
+        if: needs.find-pr.outputs.pr_found == 'true'
         uses: py-cov-action/python-coverage-comment-action@v3
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -205,3 +223,28 @@ jobs:
           MINIMUM_ORANGE: 70
           COVERAGE_FILE: .coverage
           COVERAGE_DATA_BRANCH: python-coverage-comment-action-data
+
+      - name: Calculate final status
+        id: calculate_status
+        if: always() && needs.find-pr.outputs.pr_found == 'true'
+        run: |
+          API_RESULT="${{ needs.test-api.result }}"
+          WEB_RESULT="${{ needs.test-web.result }}"
+          
+          if [[ "$API_RESULT" == "success" && "$WEB_RESULT" == "success" ]]; then
+            echo "state=success" >> $GITHUB_OUTPUT
+            echo "description=All Docker tests passed" >> $GITHUB_OUTPUT
+          else
+            echo "state=failure" >> $GITHUB_OUTPUT
+            echo "description=Tests failed: API=$API_RESULT, Web=$WEB_RESULT" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update PR status
+        if: always() && needs.find-pr.outputs.pr_found == 'true'
+        uses: ./.github/actions/update-pr-status
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ needs.find-pr.outputs.sha }}
+          context: 'Tests (Docker)'
+          state: ${{ steps.calculate_status.outputs.state }}
+          description: ${{ steps.calculate_status.outputs.description }}

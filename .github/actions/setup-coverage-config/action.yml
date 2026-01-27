@@ -1,0 +1,40 @@
+name: 'Setup Coverage Config'
+description: 'Creates .coveragerc file with standard configuration'
+
+inputs:
+  include-docker-paths:
+    description: 'Whether to include Docker container paths mapping'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Write coverage config
+      shell: bash
+      run: |
+        if [ "${{ inputs.include-docker-paths }}" == "true" ]; then
+          printf '%s\n' \
+            '[run]' \
+            'source = src' \
+            'relative_files = true' \
+            '' \
+            '[paths]' \
+            'source =' \
+            '    src/' \
+            '    /app/src/' > .coveragerc
+        else
+          printf '%s\n' \
+            '[run]' \
+            'relative_files = true' \
+            'source = src' \
+            'omit =' \
+            '    */tests/*' \
+            '    */__pycache__/*' \
+            '    */migrations/*' \
+            '' \
+            '[paths]' \
+            'source =' \
+            '    src' \
+            '    */src' > .coveragerc
+        fi

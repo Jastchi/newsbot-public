@@ -81,9 +81,7 @@ def run_once(args: Namespace) -> None:
         print(f"Success: {results.success}")
         print(f"Articles Scraped: {results.articles_count}")
         print(f"Duration: {results.duration:.2f} seconds")
-
-        if hasattr(results, "saved_to_db"):
-            print(f"Articles Saved to DB: {results.saved_to_db}")
+        print(f"Articles Saved to DB: {results.saved_to_db}")
 
         if results.errors:
             print(f"\nErrors: {len(results.errors)}")
@@ -99,7 +97,7 @@ def run_once(args: Namespace) -> None:
             success=results.success,
             duration=results.duration,
             articles_scraped=results.articles_count,
-            articles_saved=getattr(results, "saved_to_db", 0),
+            articles_saved=results.saved_to_db,
             errors=results.errors,
         )
 
@@ -176,14 +174,11 @@ def run_analysis(args: Namespace) -> None:
         print(f"Success: {results.success}")
         print(f"Analysis Period: Last {lookback_days} days")
         print(f"Articles Analyzed: {results.articles_count}")
-
-        if hasattr(results, "stories_count"):
-            print(f"Top Stories Identified: {results.stories_count}")
-
+        print(f"Top Stories Identified: {results.stories_count}")
         print(f"Duration: {results.duration:.2f} seconds")
 
         # Print top stories if available
-        if hasattr(results, "top_stories"):
+        if results.top_stories:
             print(f"\nTop {len(results.top_stories)} Stories:")
             for i, story in enumerate(results.top_stories[:5], 1):
                 print(f"  {i}. {story.title[:70]}...")
@@ -206,8 +201,8 @@ def run_analysis(args: Namespace) -> None:
             success=results.success,
             duration=results.duration,
             articles_analyzed=results.articles_count,
-            stories_identified=getattr(results, "stories_count", 0),
-            top_stories=getattr(results, "top_stories", []),
+            stories_identified=results.stories_count,
+            top_stories=results.top_stories,
             errors=results.errors,
         )
 
@@ -737,7 +732,7 @@ def _schedule_daily_scrape(
                 success=results.success,
                 duration=results.duration,
                 articles_scraped=results.articles_count,
-                articles_saved=getattr(results, "saved_to_db", 0),
+                articles_saved=results.saved_to_db,
                 errors=results.errors,
             )
         finally:
@@ -805,8 +800,8 @@ def _schedule_weekly_analysis(
                 success=results.success,
                 duration=results.duration,
                 articles_analyzed=results.articles_count,
-                stories_identified=getattr(results, "stories_count", 0),
-                top_stories=getattr(results, "top_stories", []),
+                stories_identified=results.stories_count,
+                top_stories=results.top_stories,
                 errors=results.errors,
             )
         finally:

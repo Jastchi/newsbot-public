@@ -32,12 +32,19 @@ def stub_dependencies(monkeypatch, dummy_handler):
         )
         return config, Mock()  # Return (config, news_config)
 
+    # Mock SummaryWriter to avoid database access in tests
+    mock_summary_writer = Mock()
+    mock_summary_writer_class = Mock(return_value=mock_summary_writer)
+
     monkeypatch.setattr(main_module, "load_config", mock_load_config)
     monkeypatch.setattr(
         main_module, "get_email_error_handler", lambda: dummy_handler
     )
     monkeypatch.setattr(
         main_module, "setup_logging", lambda *args, **kwargs: dummy_handler
+    )
+    monkeypatch.setattr(
+        main_module, "SummaryWriter", mock_summary_writer_class
     )
 
 

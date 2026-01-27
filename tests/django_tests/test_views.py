@@ -12,11 +12,11 @@ from django.utils import timezone
 from web.newsserver.views import (
     ConfigOverviewView,
     ConfigReportView,
-    LogStreamView,
     LogsView,
     RunListView,
-    _is_active_log_file,
+    log_stream_view,
 )
+from web.newsserver.utils import is_active_log_file
 
 
 @pytest.fixture
@@ -84,8 +84,8 @@ def test_news_configs(db):
 class TestConfigOverviewView:
     """Test cases for ConfigOverviewView."""
 
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.config_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.config_service.settings")
     def test_get_context_data_with_reports(
         self,
         mock_settings,
@@ -125,8 +125,8 @@ class TestConfigOverviewView:
         assert "last_modified" in tech_config
         assert tech_config["storage"] == "local"
 
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.config_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.config_service.settings")
     def test_get_context_data_empty_reports_dir(
         self,
         mock_settings,
@@ -150,8 +150,8 @@ class TestConfigOverviewView:
         # Configs exist in DB but have no reports, so they don't appear
         assert context["configs"] == []
 
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.config_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.config_service.settings")
     def test_get_context_data_inactive_configs_excluded(
         self,
         mock_settings,
@@ -184,8 +184,8 @@ class TestConfigOverviewView:
         config_names = [c["name"] for c in context["configs"]]
         assert "Inactive Config" not in config_names
 
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.config_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.config_service.settings")
     def test_get_context_data_configs_without_reports_excluded(
         self,
         mock_settings,
@@ -220,8 +220,8 @@ class TestConfigOverviewView:
         assert context["configs"][0]["name"] == "Technology"
         assert context["configs"][0]["key"] == "technology"
 
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.config_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.config_service.settings")
     def test_get_context_data_filesystem_only_configs_excluded(
         self,
         mock_settings,
@@ -262,8 +262,8 @@ class TestConfigOverviewView:
         assert len(context["configs"]) == 1
         assert context["configs"][0]["name"] == "Technology"
 
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.config_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.config_service.settings")
     def test_get_context_data_nonexistent_reports_dir(
         self,
         mock_settings,
@@ -290,8 +290,8 @@ class TestConfigOverviewView:
 class TestConfigReportView:
     """Test cases for ConfigReportView."""
 
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.report_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.report_service.settings")
     def test_get_context_data_with_reports(
         self,
         mock_settings,
@@ -323,8 +323,8 @@ class TestConfigReportView:
         # Latest report should be shown by default (most recent file)
         assert context["current_report"].startswith("news_report_2025")
 
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.report_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.report_service.settings")
     def test_get_context_data_with_selected_report(
         self,
         mock_settings,
@@ -348,8 +348,8 @@ class TestConfigReportView:
         assert context["current_report"] == "news_report_20251201_120000.html"
         assert "Tech Report 1" in context["report_content"]
 
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.report_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.report_service.settings")
     def test_get_context_data_invalid_selected_report(
         self,
         mock_settings,
@@ -373,8 +373,8 @@ class TestConfigReportView:
         assert context["current_report"].startswith("news_report_2025")
         assert context["current_report"].endswith(".html")
 
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.report_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.report_service.settings")
     def test_get_context_data_config_not_found(
         self,
         mock_settings,
@@ -395,8 +395,8 @@ class TestConfigReportView:
         assert "error" in context
         assert "not found" in context["error"]
 
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.report_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.report_service.settings")
     def test_get_context_data_inactive_config(
         self,
         mock_settings,
@@ -427,8 +427,8 @@ class TestConfigReportView:
         assert "error" in context
         assert "not found" in context["error"]
 
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.report_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.report_service.settings")
     def test_get_context_data_no_reports(
         self,
         mock_settings,
@@ -455,8 +455,8 @@ class TestConfigReportView:
         assert "error" in context
         assert "No reports" in context["error"]
 
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.report_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.report_service.settings")
     def test_get_download_existing_report(
         self,
         mock_settings,
@@ -488,8 +488,8 @@ class TestConfigReportView:
             in response["Content-Disposition"]
         )
 
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.report_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.report_service.settings")
     def test_get_download_nonexistent_report(
         self,
         mock_settings,
@@ -513,8 +513,8 @@ class TestConfigReportView:
         with pytest.raises(Http404):
             view.get(view.request, config_name="technology")
 
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.report_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.report_service.settings")
     def test_reports_list_metadata(
         self,
         mock_settings,
@@ -541,26 +541,26 @@ class TestConfigReportView:
 
 
 class TestIsActiveLogFile:
-    """Test cases for _is_active_log_file helper function."""
+    """Test cases for is_active_log_file helper function."""
 
     def test_active_log_file(self):
         """Test that active log files are detected correctly."""
-        assert _is_active_log_file("newsbot.log") is True
-        assert _is_active_log_file("app.log") is True
-        assert _is_active_log_file("my_log.log") is True
+        assert is_active_log_file("newsbot.log") is True
+        assert is_active_log_file("app.log") is True
+        assert is_active_log_file("my_log.log") is True
 
     def test_rotated_log_file(self):
         """Test that rotated log files are detected correctly."""
-        assert _is_active_log_file("newsbot.log.2025-12-13") is False
-        assert _is_active_log_file("app.log.2024-01-01") is False
-        assert _is_active_log_file("my_log.log.2023-12-31") is False
+        assert is_active_log_file("newsbot.log.2025-12-13") is False
+        assert is_active_log_file("app.log.2024-01-01") is False
+        assert is_active_log_file("my_log.log.2023-12-31") is False
 
     def test_log_file_with_other_suffixes(self):
         """Test log files with other suffixes."""
         # Files with other patterns should be considered active
-        assert _is_active_log_file("newsbot.log.old") is True
-        assert _is_active_log_file("newsbot.log.backup") is True
-        assert _is_active_log_file("newsbot.log.1") is True
+        assert is_active_log_file("newsbot.log.old") is True
+        assert is_active_log_file("newsbot.log.backup") is True
+        assert is_active_log_file("newsbot.log.1") is True
 
 
 @pytest.fixture
@@ -593,7 +593,7 @@ def temp_logs_dir(tmp_path):
 class TestLogsView:
     """Test cases for LogsView."""
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     def test_get_context_data_with_logs(
         self,
         mock_settings,
@@ -647,7 +647,7 @@ class TestLogsView:
         assert "is_current_log_active" in context
         assert context["is_current_log_active"] is True
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     def test_get_context_data_with_selected_log(
         self,
         mock_settings,
@@ -666,7 +666,7 @@ class TestLogsView:
         assert context["is_current_log_active"] is False
         assert "Old log line" in context["log_content"]
 
-    @patch("web.newsserver.views.settings")
+    @patch("django.conf.settings")
     def test_get_context_data_empty_logs_dir(
         self,
         mock_settings,
@@ -687,7 +687,7 @@ class TestLogsView:
         assert "error" in context
         assert "No log files" in context["error"]
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     def test_get_context_data_nonexistent_logs_dir(
         self,
         mock_settings,
@@ -704,9 +704,9 @@ class TestLogsView:
         context = view.get_context_data()
 
         assert "error" in context
-        assert "Logs directory not found" in context["error"]
+        assert "No log files found" in context["error"]
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     def test_get_download_existing_log(
         self,
         mock_settings,
@@ -725,7 +725,7 @@ class TestLogsView:
         assert "attachment" in response["Content-Disposition"]
         assert "newsbot.log" in response["Content-Disposition"]
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     def test_get_download_nonexistent_log(
         self,
         mock_settings,
@@ -743,7 +743,7 @@ class TestLogsView:
         with pytest.raises(Http404):
             view.get(view.request)
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     def test_get_download_path_traversal_protection(
         self,
         mock_settings,
@@ -761,7 +761,7 @@ class TestLogsView:
         with pytest.raises(Http404):
             view.get(view.request)
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     def test_get_context_data_large_log_file(
         self,
         mock_settings,
@@ -789,7 +789,7 @@ class TestLogsView:
         assert "Line 1499" in context["log_content"]  # Last line
         assert "Line 0" not in context["log_content"]  # First line removed
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     @patch("pathlib.Path.open")
     def test_get_context_data_log_read_error(
         self,
@@ -817,7 +817,7 @@ class TestLogsView:
 class TestLogStreamView:
     """Test cases for LogStreamView."""
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     @patch("web.newsserver.views._stream_log_file")
     def test_stream_active_log_file(
         self,
@@ -837,10 +837,9 @@ class TestLogStreamView:
 
         mock_stream.return_value = mock_generator()
 
-        view = LogStreamView()
         request = request_factory.get("/logs/stream/?log=newsbot.log")
 
-        response = view(request)
+        response = log_stream_view(request)
 
         assert response.status_code == 200
         assert response["Content-Type"] == "text/event-stream"
@@ -854,7 +853,7 @@ class TestLogStreamView:
         # Should have connected message
         assert "connected" in content_str
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     def test_stream_missing_log_parameter(
         self,
         mock_settings,
@@ -864,15 +863,14 @@ class TestLogStreamView:
         """Test streaming without log parameter returns 400."""
         mock_settings.BASE_DIR = temp_logs_dir.parent
 
-        view = LogStreamView()
         request = request_factory.get("/logs/stream/")
 
-        response = view(request)
+        response = log_stream_view(request)
 
         assert response.status_code == 400
         assert "Missing log parameter" in response.content.decode()
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     def test_stream_nonexistent_log(
         self,
         mock_settings,
@@ -882,15 +880,14 @@ class TestLogStreamView:
         """Test streaming a non-existent log returns 404."""
         mock_settings.BASE_DIR = temp_logs_dir.parent
 
-        view = LogStreamView()
         request = request_factory.get("/logs/stream/?log=nonexistent.log")
 
-        response = view(request)
+        response = log_stream_view(request)
 
         assert response.status_code == 404
         assert "Log file not found" in response.content.decode()
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     def test_stream_rotated_log_file(
         self,
         mock_settings,
@@ -900,12 +897,11 @@ class TestLogStreamView:
         """Test that streaming rotated log files is not allowed."""
         mock_settings.BASE_DIR = temp_logs_dir.parent
 
-        view = LogStreamView()
         request = request_factory.get(
             "/logs/stream/?log=newsbot.log.2025-12-22"
         )
 
-        response = view(request)
+        response = log_stream_view(request)
 
         assert response.status_code == 400
         assert (
@@ -913,7 +909,7 @@ class TestLogStreamView:
             in response.content.decode()
         )
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     def test_stream_path_traversal_protection(
         self,
         mock_settings,
@@ -923,15 +919,14 @@ class TestLogStreamView:
         """Test that path traversal attacks are prevented."""
         mock_settings.BASE_DIR = temp_logs_dir.parent
 
-        view = LogStreamView()
         request = request_factory.get("/logs/stream/?log=../../etc/passwd")
 
-        response = view(request)
+        response = log_stream_view(request)
 
         assert response.status_code == 403
         assert "Invalid log file path" in response.content.decode()
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     @patch("web.newsserver.views._stream_log_file")
     def test_stream_new_log_lines(
         self,
@@ -953,10 +948,9 @@ class TestLogStreamView:
 
         mock_stream.return_value = mock_generator()
 
-        view = LogStreamView()
         request = request_factory.get("/logs/stream/?log=newsbot.log")
 
-        response = view(request)
+        response = log_stream_view(request)
 
         assert response.status_code == 200
         assert isinstance(response, StreamingHttpResponse)
@@ -965,7 +959,7 @@ class TestLogStreamView:
         assert "New line 1" in content
         assert "New line 2" in content
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     @patch("web.newsserver.views._stream_log_file")
     def test_stream_log_file_new_content(
         self,
@@ -987,10 +981,9 @@ class TestLogStreamView:
 
         mock_stream.return_value = mock_generator()
 
-        view = LogStreamView()
         request = request_factory.get("/logs/stream/?log=newsbot.log")
 
-        response = view(request)
+        response = log_stream_view(request)
         assert isinstance(response, StreamingHttpResponse)
         content = b"".join(response.streaming_content).decode("utf-8")
 
@@ -998,7 +991,7 @@ class TestLogStreamView:
         assert "New line 1" in content
         assert "New line 2" in content
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     @patch("web.newsserver.views._stream_log_file")
     def test_stream_log_file_disappears(
         self,
@@ -1022,17 +1015,16 @@ class TestLogStreamView:
 
         mock_stream.return_value = mock_generator()
 
-        view = LogStreamView()
         request = request_factory.get("/logs/stream/?log=newsbot.log")
 
-        response = view(request)
+        response = log_stream_view(request)
         assert isinstance(response, StreamingHttpResponse)
         content = b"".join(response.streaming_content).decode("utf-8")
 
         assert "connected" in content
         assert "no longer exists" in content
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     @patch("web.newsserver.views._stream_log_file")
     def test_stream_log_file_outer_exception(
         self,
@@ -1055,17 +1047,16 @@ class TestLogStreamView:
 
         mock_stream.return_value = mock_generator()
 
-        view = LogStreamView()
         request = request_factory.get("/logs/stream/?log=newsbot.log")
 
-        response = view(request)
+        response = log_stream_view(request)
         assert isinstance(response, StreamingHttpResponse)
         content = b"".join(response.streaming_content).decode("utf-8")
 
         # Should have error message
         assert "Stream error" in content
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     @patch("web.newsserver.views._stream_log_file")
     def test_stream_log_file_read_error(
         self,
@@ -1089,17 +1080,16 @@ class TestLogStreamView:
 
         mock_stream.return_value = mock_generator()
 
-        view = LogStreamView()
         request = request_factory.get("/logs/stream/?log=newsbot.log")
 
-        response = view(request)
+        response = log_stream_view(request)
         assert isinstance(response, StreamingHttpResponse)
         content = b"".join(response.streaming_content).decode("utf-8")
 
         assert "connected" in content
         assert "Error reading log" in content
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     def test_stream_log_file_nonexistent_initial(
         self,
         mock_settings,
@@ -1115,10 +1105,9 @@ class TestLogStreamView:
         nonexistent_log = logs_dir / "nonexistent.log"
 
         # This should return 404 before streaming starts
-        view = LogStreamView()
         request = request_factory.get("/logs/stream/?log=nonexistent.log")
 
-        response = view(request)
+        response = log_stream_view(request)
 
         assert response.status_code == 404
 
@@ -1306,10 +1295,10 @@ class TestLogStreamView:
 class TestConfigOverviewViewSupabase:
     """Test cases for ConfigOverviewView with Supabase integration."""
 
-    @patch("web.newsserver.views.get_supabase_client")
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.list_supabase_reports")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.config_service.get_supabase_client")
+    @patch("web.newsserver.services.config_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.config_service.list_supabase_reports")
+    @patch("web.newsserver.services.config_service.settings")
     def test_get_context_data_with_supabase_reports(
         self,
         mock_settings,
@@ -1365,9 +1354,9 @@ class TestConfigOverviewViewSupabase:
         )
 
     @pytest.mark.django_db
-    @patch("web.newsserver.views.get_supabase_client")
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.config_service.get_supabase_client")
+    @patch("web.newsserver.services.config_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.config_service.settings")
     def test_get_context_data_supabase_no_client(
         self,
         mock_settings,
@@ -1393,11 +1382,11 @@ class TestConfigOverviewViewSupabase:
 class TestConfigReportViewSupabase:
     """Test cases for ConfigReportView with Supabase integration."""
 
-    @patch("web.newsserver.views.get_supabase_client")
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.list_supabase_reports")
-    @patch("web.newsserver.views.download_from_supabase")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.report_service.get_supabase_client")
+    @patch("web.newsserver.services.report_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.report_service.list_supabase_reports")
+    @patch("web.newsserver.services.report_service.download_from_supabase")
+    @patch("web.newsserver.services.report_service.settings")
     def test_get_context_data_with_supabase(
         self,
         mock_settings,
@@ -1414,7 +1403,7 @@ class TestConfigReportViewSupabase:
         reports_dir.mkdir()
         mock_settings.REPORTS_DIR = reports_dir
 
-        # Setup Supabase mocks
+        # Setup Supabase mocks (ReportService uses report_service's get_supabase_client)
         mock_client = Mock()
         mock_get_client.return_value = mock_client
         mock_should_use.return_value = True
@@ -1445,10 +1434,10 @@ class TestConfigReportViewSupabase:
         assert "Supabase Report" in context["report_content"]
         assert len(context["reports"]) == 1
 
-    @patch("web.newsserver.views.get_supabase_client")
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.list_supabase_reports")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.report_service.get_supabase_client")
+    @patch("web.newsserver.services.report_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.report_service.list_supabase_reports")
+    @patch("web.newsserver.services.report_service.settings")
     def test_get_context_data_supabase_no_reports(
         self,
         mock_settings,
@@ -1477,11 +1466,11 @@ class TestConfigReportViewSupabase:
         assert "error" in context
         assert "No reports found" in context["error"]
 
-    @patch("web.newsserver.views.get_supabase_client")
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.list_supabase_reports")
-    @patch("web.newsserver.views.download_from_supabase")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.report_service.get_supabase_client")
+    @patch("web.newsserver.services.report_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.report_service.list_supabase_reports")
+    @patch("web.newsserver.services.report_service.download_from_supabase")
+    @patch("web.newsserver.services.report_service.settings")
     def test_get_context_data_supabase_download_failure(
         self,
         mock_settings,
@@ -1498,6 +1487,7 @@ class TestConfigReportViewSupabase:
         reports_dir.mkdir()
         mock_settings.REPORTS_DIR = reports_dir
 
+        # Setup Supabase mocks (ReportService uses report_service's get_supabase_client)
         mock_client = Mock()
         mock_get_client.return_value = mock_client
         mock_should_use.return_value = True
@@ -1519,12 +1509,12 @@ class TestConfigReportViewSupabase:
         context = view.get_context_data(config_name="technology")
 
         assert "error" in context
-        assert "Failed to load report from Supabase" in context["error"]
+        assert "Failed to load report content" in context["error"]
 
-    @patch("web.newsserver.views.get_supabase_client")
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.download_from_supabase")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.report_service.get_supabase_client")
+    @patch("web.newsserver.services.report_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.report_service.download_from_supabase")
+    @patch("web.newsserver.services.report_service.settings")
     def test_get_download_from_supabase(
         self,
         mock_settings,
@@ -1558,10 +1548,10 @@ class TestConfigReportViewSupabase:
         assert "attachment" in response["Content-Disposition"]
         assert b"Download Test" in response.content
 
-    @patch("web.newsserver.views.get_supabase_client")
-    @patch("web.newsserver.views.should_use_supabase_for_config")
-    @patch("web.newsserver.views.download_from_supabase")
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.report_service.get_supabase_client")
+    @patch("web.newsserver.services.report_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.report_service.download_from_supabase")
+    @patch("web.newsserver.services.report_service.settings")
     def test_get_download_from_supabase_failure(
         self,
         mock_settings,
@@ -1592,9 +1582,9 @@ class TestConfigReportViewSupabase:
 
         with pytest.raises(Http404) as exc_info:
             view.get(view.request, config_name="technology")
-        assert "not found in Supabase" in str(exc_info.value)
+        assert "Report file not found" in str(exc_info.value)
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.report_service.settings")
     def test_get_context_data_invalid_config_name(
         self,
         mock_settings,
@@ -1613,7 +1603,7 @@ class TestConfigReportViewSupabase:
         assert "error" in context
         assert "Invalid config name" in context["error"]
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.report_service.settings")
     def test_get_invalid_config_name_type(
         self,
         mock_settings,
@@ -1637,6 +1627,7 @@ class TestConfigReportViewSupabase:
 class TestRunListView:
     """Test cases for RunListView."""
 
+    @patch("web.newsserver.utils.django_timezone")
     @patch("web.newsserver.views.timezone")
     @patch("web.newsserver.views.ScrapeSummary")
     @patch("web.newsserver.views.AnalysisSummary")
@@ -1644,13 +1635,15 @@ class TestRunListView:
         self,
         mock_analysis_summary,
         mock_scrape_summary,
-        mock_timezone,
+        mock_views_timezone,
+        mock_utils_timezone,
         request_factory,
     ):
         """Test RunListView with default date (today)."""
         # Mock timezone.now()
         mock_now = datetime(2025, 12, 23, 12, 0, 0)
-        mock_timezone.now.return_value = mock_now
+        mock_utils_timezone.now.return_value = mock_now
+        mock_views_timezone.now.return_value = mock_now
 
         # Mock querysets
         mock_scrape_qs = Mock()
@@ -1673,6 +1666,7 @@ class TestRunListView:
         assert "scrape_runs" in context
         assert "analysis_runs" in context
 
+    @patch("web.newsserver.utils.django_timezone")
     @patch("web.newsserver.views.timezone")
     @patch("web.newsserver.views.ScrapeSummary")
     @patch("web.newsserver.views.AnalysisSummary")
@@ -1680,12 +1674,14 @@ class TestRunListView:
         self,
         mock_analysis_summary,
         mock_scrape_summary,
-        mock_timezone,
+        mock_views_timezone,
+        mock_utils_timezone,
         request_factory,
     ):
         """Test RunListView with specific date from query param."""
         mock_now = datetime(2025, 12, 23, 12, 0, 0)
-        mock_timezone.now.return_value = mock_now
+        mock_utils_timezone.now.return_value = mock_now
+        mock_views_timezone.now.return_value = mock_now
 
         mock_scrape_qs = Mock()
         mock_analysis_qs = Mock()
@@ -1704,6 +1700,7 @@ class TestRunListView:
         assert context["prev_date"] == date(2025, 12, 19)
         assert context["next_date"] == date(2025, 12, 21)
 
+    @patch("web.newsserver.utils.django_timezone")
     @patch("web.newsserver.views.timezone")
     @patch("web.newsserver.views.ScrapeSummary")
     @patch("web.newsserver.views.AnalysisSummary")
@@ -1711,12 +1708,14 @@ class TestRunListView:
         self,
         mock_analysis_summary,
         mock_scrape_summary,
-        mock_timezone,
+        mock_views_timezone,
+        mock_utils_timezone,
         request_factory,
     ):
         """Test RunListView with invalid date falls back to today."""
         mock_now = datetime(2025, 12, 23, 12, 0, 0)
-        mock_timezone.now.return_value = mock_now
+        mock_utils_timezone.now.return_value = mock_now
+        mock_views_timezone.now.return_value = mock_now
 
         mock_scrape_qs = Mock()
         mock_analysis_qs = Mock()
@@ -1731,6 +1730,7 @@ class TestRunListView:
 
         assert context["selected_date"] == mock_now.date()
 
+    @patch("web.newsserver.utils.django_timezone")
     @patch("web.newsserver.views.timezone")
     @patch("web.newsserver.views.ScrapeSummary")
     @patch("web.newsserver.views.AnalysisSummary")
@@ -1738,12 +1738,14 @@ class TestRunListView:
         self,
         mock_analysis_summary,
         mock_scrape_summary,
-        mock_timezone,
+        mock_views_timezone,
+        mock_utils_timezone,
         request_factory,
     ):
         """Test that future dates don't allow next_date."""
         mock_now = datetime(2025, 12, 23, 12, 0, 0)
-        mock_timezone.now.return_value = mock_now
+        mock_utils_timezone.now.return_value = mock_now
+        mock_views_timezone.now.return_value = mock_now
 
         mock_scrape_qs = Mock()
         mock_analysis_qs = Mock()
@@ -1764,7 +1766,7 @@ class TestRunListView:
 class TestLogsViewConfigTabs:
     """Test cases for LogsView config tabs functionality."""
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     def test_get_context_data_with_config_tabs(
         self,
         mock_settings,
@@ -1797,7 +1799,7 @@ class TestLogsViewConfigTabs:
         assert config_tabs[1]["name"] == "world_politics"
         assert config_tabs[1]["display_name"] == "World Politics"
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     def test_get_context_data_active_tab_detection(
         self,
         mock_settings,
@@ -1818,7 +1820,7 @@ class TestLogsViewConfigTabs:
 
         assert context["active_tab"] == "technology"
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     def test_get_context_data_active_tab_from_rotated_log(
         self,
         mock_settings,
@@ -1841,7 +1843,7 @@ class TestLogsViewConfigTabs:
         # Should extract base name from rotated log
         assert context["active_tab"] == "technology"
 
-    @patch("web.newsserver.views.settings")
+    @patch("web.newsserver.services.log_service.settings")
     def test_get_context_data_selected_log_path_traversal(
         self,
         mock_settings,

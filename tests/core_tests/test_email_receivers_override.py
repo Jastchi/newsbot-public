@@ -86,6 +86,7 @@ class TestEmailReceiversOverride:
             AnalysisData,
             {
                 "config_name": "TestConfig",
+                "config_key": "testconfig",
                 "email_receivers_override": ["override@example.com"],
                 "stories_count": 5,
                 "from_date": Mock(strftime=lambda x: "01 Jan"),
@@ -158,6 +159,7 @@ class TestEmailReceiversOverride:
             AnalysisData,
             {
                 "config_name": "TestConfig",
+                "config_key": "testconfig",
                 "email_receivers_override": [],
                 "stories_count": 5,
                 "from_date": Mock(strftime=lambda x: "01 Jan"),
@@ -234,6 +236,7 @@ class TestEmailReceiversOverride:
             AnalysisData,
             {
                 "config_name": "TestConfig",
+                "config_key": "testconfig",
                 "stories_count": 5,
                 "from_date": Mock(strftime=lambda x: "01 Jan"),
                 "to_date": Mock(strftime=lambda x: "07 Jan"),
@@ -282,9 +285,9 @@ class TestEmailReceiversOverride:
                                 analysis_data,
                             )
 
-                            # Verify database function was called
+                            # Verify database function was called with config_key
                             mock_get_recipients.assert_called_once_with(
-                                "TestConfig"
+                                "testconfig"
                             )
 
                             # Verify email was sent

@@ -4,7 +4,7 @@ Data Models.
 Defines data classes and database models
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import TypedDict
@@ -461,7 +461,8 @@ class AnalysisData(TypedDict, total=False):
         duration: Analysis duration in seconds.
         timestamp: When the analysis was run.
         format: Report format (html/txt/md).
-        config_name: Name of the configuration used.
+        config_name: Display name of the configuration used.
+        config_key: Key of the configuration used.
         from_date: Start date for the analysis.
         to_date: End date for the analysis.
         email_receivers_override: Override email receivers list.
@@ -475,6 +476,7 @@ class AnalysisData(TypedDict, total=False):
     timestamp: str
     format: str
     config_name: str
+    config_key: str
     from_date: datetime
     to_date: datetime
     email_receivers_override: list[str] | None
@@ -528,20 +530,18 @@ class PipelineStatus(TypedDict):
     config: PipelineStatusConfig
 
 
+@dataclass
 class Results:
     """Results of pipeline execution."""
 
-    end_time: datetime
-
-    def __init__(self) -> None:
-        """Initialize empty Results object."""
-        self.success = False
-        self.start_time = datetime.now(TZ)
-        self.duration = 0.0
-        self.articles_count = 0
-        self.stories_count = 0
-        self.saved_to_db = 0
-        self.top_stories = []
-        self.story_analyses = []
-        self.errors = []
-        self.report_path = ""
+    success: bool = False
+    start_time: datetime = field(default_factory=lambda: datetime.now(TZ))
+    duration: float = 0.0
+    articles_count: int = 0
+    stories_count: int = 0
+    saved_to_db: int = 0
+    top_stories: list[Story] = field(default_factory=list)
+    story_analyses: list[StoryAnalysis] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    report_path: str = ""
+    end_time: datetime | None = None

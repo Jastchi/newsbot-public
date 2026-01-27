@@ -93,7 +93,7 @@ def handle_run(
             success=results.success,
             duration=results.duration,
             articles_scraped=results.articles_count,
-            articles_saved=getattr(results, "saved_to_db", 0),
+            articles_saved=results.saved_to_db,
             errors=results.errors,
         )
 
@@ -102,7 +102,7 @@ def handle_run(
             "config_key": config_key,
             "config_name": config.name,
             "articles_scraped": results.articles_count,
-            "articles_saved": getattr(results, "saved_to_db", 0),
+            "articles_saved": results.saved_to_db,
             "duration": round(duration, 2),
             "errors": results.errors,
         }
@@ -243,14 +243,14 @@ def handle_analyze(
             success=results.success,
             duration=results.duration,
             articles_analyzed=results.articles_count,
-            stories_identified=getattr(results, "stories_count", 0),
-            top_stories=getattr(results, "top_stories", []),
+            stories_identified=results.stories_count,
+            top_stories=results.top_stories,
             errors=results.errors,
         )
 
         # Build top stories summary for response
         top_stories_summary = []
-        if hasattr(results, "top_stories"):
+        if results.top_stories:
             top_stories_summary.extend(
                 [
                     {
@@ -267,7 +267,7 @@ def handle_analyze(
             "config_key": config_key,
             "config_name": config.name,
             "articles_analyzed": results.articles_count,
-            "stories_identified": getattr(results, "stories_count", 0),
+            "stories_identified": results.stories_count,
             "lookback_days": lookback_days,
             "top_stories": top_stories_summary,
             "duration": round(duration, 2),
@@ -376,6 +376,7 @@ def get_all_schedules() -> list[dict[str, Any]]:
         schedule = {
             "key": news_config.key,
             "name": news_config.display_name,
+            "is_active": news_config.is_active,
             "daily_scrape": {
                 "enabled": news_config.scheduler_daily_scrape_enabled,
                 "hour": news_config.scheduler_daily_scrape_hour,

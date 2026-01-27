@@ -125,7 +125,7 @@ def validate_environment(
     llm_config = config.llm
     provider = llm_config.provider
 
-    missing_vars = []
+    missing_vars: list[str] = []
 
     # Validate provider-specific environment variables
     if provider == "gemini" and not os.environ.get("GEMINI_API_KEY"):
@@ -150,9 +150,9 @@ def validate_environment(
         if email_error_handler and hasattr(email_error_handler, "flush"):
             try:
                 email_error_handler.flush()
-            except Exception:
+            except (OSError, AttributeError) as e:
                 # Don't let email flush failure prevent clean exit
-                logger.warning("Failed to flush email error handler")
+                logger.warning(f"Failed to flush email error handler: {e}")
 
         # Use exit code 0 for configuration errors to prevent process
         # from restarting.

@@ -4,6 +4,9 @@ import json
 import logging
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
+from typing import Any, cast
+
+from django.db import DatabaseError, IntegrityError, OperationalError
 
 from newsbot.agents.story_clustering_agent import Story
 from utilities.django_models import (
@@ -42,7 +45,7 @@ class SummaryWriter:
         """Initialize the summary writer and ensure Django is set up."""
         # Django is automatically set up when django_models is imported
 
-    def _get_config(self, config_key: str) -> object:
+    def _get_config(self, config_key: str) -> NewsConfig | None:
         """
         Get the NewsConfig instance with the given key.
 
@@ -55,7 +58,7 @@ class SummaryWriter:
         """
         try:
             return NewsConfig.objects.filter(key=config_key).first()
-        except Exception:
+        except (DatabaseError, IntegrityError, OperationalError):
             logger.exception("Error getting config")
             return None
 
@@ -95,7 +98,7 @@ class SummaryWriter:
                 errors=errors_text,
             )
             logger.info(f"Saved scrape summary for {config_key}")
-        except Exception:
+        except (DatabaseError, IntegrityError, OperationalError):
             logger.exception("Error saving scrape summary")
 
     def save_analysis_summary(
@@ -127,14 +130,15 @@ class SummaryWriter:
             errors_text = json.dumps(errors) if errors else ""
 
             # Serialize top stories
-            serialized_stories = []
+            serialized_stories: list[dict[str, Any] | str] = []
             for story in top_stories:
                 if isinstance(story, dict):
-                    serialized_stories.append(story)
+                    serialized_stories.append(cast("dict[str, Any]", story))
                 elif is_dataclass(story) and not isinstance(story, type):
                     serialized_stories.append(asdict(story))
                 elif hasattr(story, "__dict__"):
                     serialized_stories.append(
+
                         {
                             "title": getattr(story, "title", ""),
                             "article_count": getattr(
@@ -163,5 +167,5 @@ class SummaryWriter:
                 errors=errors_text,
             )
             logger.info(f"Saved analysis summary for {config_key}")
-        except Exception:
+        except (DatabaseError, IntegrityError, OperationalError):
             logger.exception("Error saving analysis summary")

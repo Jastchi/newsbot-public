@@ -79,11 +79,11 @@ class DatabaseLoggingHandler(logging.Handler):
             if len(self.buffer) >= self.BATCH_SIZE:
                 self.flush()
 
-        except Exception:
+        except (ValueError, AttributeError, TypeError):
             # Log to separate logger that doesn't use
             # DatabaseLoggingHandler
             _db_handler_logger.exception(
-                "Error in DatabaseLoggingHandler.emit(): %s",
+                "Error in DatabaseLoggingHandler.emit()",
             )
 
     def flush(self) -> None:
@@ -125,11 +125,15 @@ class DatabaseLoggingHandler(logging.Handler):
             # Clear buffer after successful write
             self.buffer.clear()
 
-        except Exception:
+        except (
+            sqlite3.Error,
+            sqlite3.OperationalError,
+            sqlite3.DatabaseError,
+            OSError,
+        ):
             # Log error using the separate logger
             _db_handler_logger.exception(
-                "Error writing logs to database at %s",
-                self.db_path,
+                f"Error writing logs to database at {self.db_path}",
             )
             # Still clear buffer to avoid memory bloat
             self.buffer.clear()

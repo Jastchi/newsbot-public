@@ -10,16 +10,16 @@ Generated: {{ date }}
 
 - **Total Stories:** {{ story_count }}
 - **Total Articles:** {{ total_articles }}
-- **Sources Analyzed:** {{ sources|length }}
-- **Sources:** {{ sources|join(', ') }}
+- **Sources Analyzed:** {{ sources|unique|list|length }}
+- **Sources:** {{ sources|unique|sort|join(', ') }}
 
 ---
 
 {% for analysis in story_analyses %}
 ## {{ loop.index }}. {{ analysis.story.title }}
 
-**Coverage:** {{ analysis.story.sources|length }} sources, {{ analysis.story.article_count }} articles  
-**Sources:** {{ analysis.story.sources|join(', ') }}  
+**Coverage:** {{ analysis.story.sources|unique|list|length }} sources, {{ analysis.story.article_count }} articles  
+**Sources:** {{ analysis.story.sources|unique|sort|join(', ') }}  
 **Time Range:** {{ analysis.story.earliest_date.strftime('%Y-%m-%d %H:%M') }} to {{ analysis.story.latest_date.strftime('%Y-%m-%d %H:%M') }}
 
 {% if analysis.story.story_summary %}
@@ -31,7 +31,7 @@ Generated: {{ date }}
 
 ### How Different Sources Cover This Story:
 
-{% for source in analysis.story.sources|sort %}
+{% for source in analysis.story.sources|unique|sort %}
 #### {{ source }}{% if source in analysis.source_sentiments %} - **Sentiment:** {{ analysis.source_sentiments[source].label|upper }} ({{ "%.2f"|format(analysis.source_sentiments[source].avg_sentiment) }}){% endif %}
 
 {% if analysis.story.source_additional_points and source in analysis.story.source_additional_points and analysis.story.source_additional_points[source] %}

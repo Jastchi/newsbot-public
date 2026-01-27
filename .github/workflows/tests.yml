@@ -23,12 +23,7 @@ jobs:
       uses: actions/checkout@v4
     
     - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version-file: '.python-version'
-    
-    - name: Install uv
-      uses: astral-sh/setup-uv@v2
+      uses: ./.github/actions/setup-python
     
     - name: Install dependencies
       run: uv sync --all-groups
@@ -37,21 +32,7 @@ jobs:
       run: uv run playwright install --with-deps chromium
     
     - name: Write coverage config
-      run: |
-        cat <<'EOF' > .coveragerc
-        [run]
-        relative_files = true
-        source = src
-        omit =
-            */tests/*
-            */__pycache__/*
-            */migrations/*
-
-        [paths]
-        source =
-            src
-            */src
-        EOF
+      uses: ./.github/actions/setup-coverage-config
     
     - name: Run tests
       run: uv run pytest tests/ -q --tb=short --no-header --log-cli-level=CRITICAL --cov=src --cov-report=xml --cov-report=html

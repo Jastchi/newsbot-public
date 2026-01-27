@@ -11,6 +11,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
+from django.db import DatabaseError, IntegrityError, OperationalError
+
 from after_analysis import run_hooks
 from newsbot.constants import SENTIMENT_THRESHOLD, TZ
 from newsbot.managers import AgentManager, DatabaseManager
@@ -19,7 +21,10 @@ from newsbot.models import (
     Article,
     PipelineStatus,
     Results,
+    SentimentResult,
+    SentimentSummary,
     StoryAnalysis,
+    SummaryItem,
 )
 from utilities.django_models import NewsConfig
 
@@ -52,7 +57,6 @@ class PipelineOrchestrator:
 
         """
         self.config = config
-        self.config_key = config_key
         self.email_receivers_override = None
 
         # Store or look up NewsConfig instance for ForeignKey
@@ -71,6 +75,8 @@ class PipelineOrchestrator:
             raise ValueError(msg)
 
         self._news_config: NewsConfigType = resolved_config
+        # Set config_key from news_config if empty
+        self.config_key = config_key or resolved_config.key
 
         # Initialize managers for database ops and lazy agent
         # initialization
@@ -97,9 +103,9 @@ class PipelineOrchestrator:
             return None
         try:
             return NewsConfig.objects.filter(key=config_key).first()
-        except Exception:
+        except (DatabaseError, IntegrityError, OperationalError) as e:
             logger.warning(
-                f"Could not look up NewsConfig for key: {config_key}",
+                f"Could not look up NewsConfig for key: {config_key}: {e}",
             )
             return None
 
@@ -220,7 +226,7 @@ class PipelineOrchestrator:
             self.agent_manager.summarizer.summarize_story(story)
 
             # Group summaries by source for analysis
-            source_summaries = {}
+            source_summaries: dict[str, list[SummaryItem]] = {}
             for article in story.articles:
                 if article.source not in source_summaries:
                     source_summaries[article.source] = []
@@ -263,7 +269,7 @@ class PipelineOrchestrator:
 
         for analysis in story_analyses:
             story = analysis["story"]
-            source_sentiments = {}
+            source_sentiments: dict[str, list[SentimentResult]] = {}
 
             # Analyze sentiment for all articles in this story
             for article in story.articles:
@@ -279,21 +285,24 @@ class PipelineOrchestrator:
                 source_sentiments[article.source].append(sentiment)
 
             # Calculate average sentiment per source for this story
-            source_sentiment_summary = {}
+            source_sentiment_summary: dict[str, SentimentSummary] = {}
             for source, sentiments in source_sentiments.items():
                 avg_compound = sum(s.compound for s in sentiments) / len(
                     sentiments,
                 )
-                source_sentiment_summary[source] = {
-                    "avg_sentiment": avg_compound,
-                    "label": "positive"
-                    if avg_compound > SENTIMENT_THRESHOLD
-                    else "negative"
-                    if avg_compound < -SENTIMENT_THRESHOLD
-                    else "neutral",
-                    "article_count": len(sentiments),
-                    "sentiments": sentiments,
-                }
+                source_sentiment_summary[source] = cast(
+                    "SentimentSummary",
+                    {
+                        "avg_sentiment": avg_compound,
+                        "label": "positive"
+                        if avg_compound > SENTIMENT_THRESHOLD
+                        else "negative"
+                        if avg_compound < -SENTIMENT_THRESHOLD
+                        else "neutral",
+                        "article_count": len(sentiments),
+                        "sentiments": sentiments,
+                    },
+                )
 
             analysis["source_sentiments"] = source_sentiment_summary
 
@@ -571,6 +580,7 @@ class PipelineOrchestrator:
                 ),
                 "format": self.config.report.format,
                 "config_name": self.config.name,
+                "config_key": self.config_key,
                 "from_date": cutoff_date,
                 "to_date": datetime.now(TZ),
                 "email_receivers_override": self.email_receivers_override,

@@ -281,6 +281,15 @@ def refresh_and_schedule_tasks(
             logger.warning("Config missing 'key' field, skipping")
             continue
 
+        # Skip inactive configs
+        is_active = config.get("is_active", True)
+        if not is_active:
+            logger.info(
+                f"Skipping inactive config '{config_key}' "
+                "(is_active=False)",
+            )
+            continue
+
         active_config_keys.add(config_key)
 
         # Schedule daily scrape if enabled

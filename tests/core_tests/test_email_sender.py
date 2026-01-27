@@ -19,8 +19,9 @@ class TestGetAvailableNewsletters:
         from after_analysis.email_sender import get_available_newsletters
 
         # Mock Django setup and NewsConfig model
+        # get_available_newsletters uses .filter(is_active=True).order_by().values_list()
         mock_queryset = MagicMock()
-        mock_queryset.order_by.return_value.values_list.return_value = [
+        mock_queryset.filter.return_value.order_by.return_value.values_list.return_value = [
             "Sports Updates",
             "Technology News",
             "World News",
@@ -49,7 +50,7 @@ class TestGetAvailableNewsletters:
         from after_analysis.email_sender import get_available_newsletters
 
         mock_queryset = MagicMock()
-        mock_queryset.order_by.return_value.values_list.return_value = []
+        mock_queryset.filter.return_value.order_by.return_value.values_list.return_value = []
 
         with patch(
             "after_analysis.email_sender.NewsConfig.objects",
@@ -194,6 +195,7 @@ class TestEmailEnabledCheck:
 
         analysis_data: AnalysisData = {
             "config_name": "test",
+            "config_key": "test",
             "stories_count": 5,
             "from_date": datetime(2025, 1, 1),
             "to_date": datetime(2025, 1, 2),
@@ -220,6 +222,7 @@ class TestEmailEnabledCheck:
 
         analysis_data: AnalysisData = {
             "config_name": "test",
+            "config_key": "test",
             "stories_count": 5,
             "from_date": datetime(2025, 1, 1),
             "to_date": datetime(2025, 1, 2),
@@ -250,6 +253,7 @@ class TestEmailEnabledCheck:
 
         analysis_data: AnalysisData = {
             "config_name": "test",
+            "config_key": "test",
             "stories_count": 5,
             "from_date": datetime(2025, 1, 1),
             "to_date": datetime(2025, 1, 2),

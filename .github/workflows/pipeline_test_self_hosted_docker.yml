@@ -20,28 +20,17 @@ jobs:
 
       - name: Find open PR for branch
         id: pr
-        uses: actions/github-script@v6
+        uses: ./.github/actions/find-pr
         with:
-          script: |
-            const ref = github.ref || context.ref;
-            const branch = ref.replace('refs/heads/', '');
-            const response = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              head: `${context.repo.owner}:${branch}`,
-              state: 'open',
-              'per_page': 1
-            });
-            const prs = response.data;
-            return prs.length > 0 ? {pr_found: 'true', sha: prs[0].head.sha} : {pr_found: 'false', sha: ''}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set status to running
         id: set_running
-        if: ${{ fromJson(steps.pr.outputs.result).pr_found == 'true' }}
+        if: steps.pr.outputs.pr_found == 'true'
         uses: ./.github/actions/update-pr-status
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ fromJson(steps.pr.outputs.result).sha }}
+          sha: ${{ steps.pr.outputs.sha }}
           context: 'Docker Pipeline Test'
           state: 'pending'
           description: 'Building images and running pipeline...'
@@ -134,12 +123,14 @@ jobs:
       # ===== FINAL STATUS CALCULATION =====
       - name: Calculate final status
         id: calculate_status
-        if: always() && fromJson(steps.pr.outputs.result).pr_found == 'true'
+        if: always() && steps.pr.outputs.pr_found == 'true'
         run: |
-          GEMINI_OK="${{ steps.gemini_run.outcome == 'success' && steps.email_check_gemini.outcome == 'success' }}"
-          OLLAMA_OK="${{ steps.ollama_run.outcome == 'success' && steps.email_check_ollama.outcome == 'success' }}"
+          GEMINI_RUN_OK="${{ steps.gemini_run.outcome == 'success' }}"
+          GEMINI_EMAIL_OK="${{ steps.email_check_gemini.outcome == 'success' }}"
+          OLLAMA_RUN_OK="${{ steps.ollama_run.outcome == 'success' }}"
+          OLLAMA_EMAIL_OK="${{ steps.email_check_ollama.outcome == 'success' }}"
           
-          if [[ "$GEMINI_OK" == "true" && "$OLLAMA_OK" == "true" ]]; then
+          if [[ "$GEMINI_RUN_OK" == "true" && "$GEMINI_EMAIL_OK" == "true" && "$OLLAMA_RUN_OK" == "true" && "$OLLAMA_EMAIL_OK" == "true" ]]; then
             echo "state=success" >> $GITHUB_OUTPUT
             echo "description=Pipeline succeeded (Gemini & Ollama)" >> $GITHUB_OUTPUT
           else
@@ -148,11 +139,11 @@ jobs:
           fi
 
       - name: Set final PR status
-        if: always() && fromJson(steps.pr.outputs.result).pr_found == 'true'
+        if: always() && steps.pr.outputs.pr_found == 'true'
         uses: ./.github/actions/update-pr-status
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ fromJson(steps.pr.outputs.result).sha }}
+          sha: ${{ steps.pr.outputs.sha }}
           context: 'Docker Pipeline Test'
           state: ${{ steps.calculate_status.outputs.state }}
           description: ${{ steps.calculate_status.outputs.description }}

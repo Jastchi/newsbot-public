@@ -27,39 +27,17 @@ jobs:
 
       - name: Find open PR for branch
         id: pr
-        uses: actions/github-script@v6
+        uses: ./.github/actions/find-pr
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const ref = github.ref || context.ref;
-            const branch = ref.replace('refs/heads/', '');
-            const response = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              head: `${context.repo.owner}:${branch}`,
-              state: 'open',
-              'per_page': 1
-            });
-            
-            const prs = response.data;
-
-            if (prs && prs.length > 0) {
-              const sha = prs[0].head.sha;
-              const prNumber = prs[0].number;
-              return {pr_found: 'true', sha: sha, pr_number: prNumber}
-            } else {
-              return {pr_found: 'false', sha: '', pr_number: ''}
-            }
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set status to running
         id: set_running
-        if: ${{ fromJson(steps.pr.outputs.result).pr_found == 'true' }}
+        if: steps.pr.outputs.pr_found == 'true'
         uses: ./.github/actions/update-pr-status
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ fromJson(steps.pr.outputs.result).sha }}
+          sha: ${{ steps.pr.outputs.sha }}
           context: 'Tests (Self-hosted)'
           state: 'pending'
           description: 'Tests are running...'
@@ -72,21 +50,7 @@ jobs:
         run: uv run playwright install chromium
 
       - name: Write coverage config
-        run: |
-          cat <<'EOF' > .coveragerc
-          [run]
-          relative_files = true
-          source = src
-          omit =
-              */tests/*
-              */__pycache__/*
-              */migrations/*
-
-          [paths]
-          source =
-              src
-              */src
-          EOF
+        uses: ./.github/actions/setup-coverage-config
       
       - name: Run tests
         id: run_tests
@@ -105,11 +69,11 @@ jobs:
             htmlcov/**
 
       - name: Set final PR status
-        if: always() && fromJson(steps.pr.outputs.result).pr_found == 'true'
+        if: always() && steps.pr.outputs.pr_found == 'true'
         uses: ./.github/actions/update-pr-status
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ fromJson(steps.pr.outputs.result).sha }}
+          sha: ${{ steps.pr.outputs.sha }}
           context: 'Tests (Self-hosted)'
           state: ${{ steps.run_tests.outcome == 'success' && 'success' || 'failure' }}
           description: ${{ steps.run_tests.outcome == 'success' && 'All tests passed successfully' || 'Tests failed' }}

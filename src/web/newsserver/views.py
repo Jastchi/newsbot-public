@@ -1,14 +1,12 @@
 """Views for displaying NewsBot reports."""
 
 import json
-import re
 from collections.abc import Generator
-from datetime import date, datetime, time, timedelta
+from datetime import datetime, time, timedelta
 from pathlib import Path
 from time import sleep
 from typing import TYPE_CHECKING, ClassVar, cast
 
-from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import (
     FileResponse,
@@ -21,41 +19,15 @@ from django.http import (
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.generic import TemplateView
-from supabase import Client
-
-from newsbot.constants import TZ
-from utilities.storage import (
-    download_from_supabase,
-    get_supabase_client,
-    list_supabase_reports,
-    should_use_supabase_for_config,
-)
 
 from .models import AnalysisSummary, NewsConfig, ScrapeSummary
+from .services.config_service import ConfigService
+from .services.log_service import LogService
+from .services.report_service import ReportService
+from .utils import get_date_range, parse_date_or_default
 
 if TYPE_CHECKING:
     from django.contrib.auth.models import AbstractUser
-
-
-def _is_active_log_file(log_filename: str) -> bool:
-    """
-    Check if a log file is currently active (being written to).
-
-    Active log files don't have a date suffix pattern like .YYYY-MM-DD.
-    For example:
-    - newsbot.log -> active
-    - newsbot.log.2025-12-13 -> inactive (rotated)
-
-    Args:
-        log_filename: Name of the log file
-
-    Returns:
-        True if the log file is active, False otherwise
-
-    """
-    # Pattern matches rotated log files: filename.log.YYYY-MM-DD
-    rotated_pattern = re.compile(r"\.\d{4}-\d{2}-\d{2}$")
-    return not bool(rotated_pattern.search(log_filename))
 
 
 class ConfigOverviewView(TemplateView):
@@ -66,78 +38,19 @@ class ConfigOverviewView(TemplateView):
     def get_context_data(self, **kwargs) -> dict:
         """Get all configs with their latest reports."""
         context = super().get_context_data(**kwargs)
-        configs_data = []
-
-        # Get Supabase client (if available)
-        supabase_client = get_supabase_client()
-
-        # Query all active configs from the database
-        news_configs = NewsConfig.objects.filter(is_active=True).order_by(
-            "display_name",
-        )
-
-        for news_config in news_configs:
-            config_key = news_config.key
-            config_name = news_config.display_name
-
-            # Check if this config uses Supabase
-            use_supabase = should_use_supabase_for_config(config_key)
-
-            if use_supabase and supabase_client:
-                # List reports from Supabase
-                reports = list_supabase_reports(
-                    supabase_client,
-                    "Reports",
-                    config_key,
-                )
-                if reports:
-                    # Parse timestamp from filename
-                    latest_report = max(
-                        reports,
-                        key=lambda x: x.get("updated_at", ""),
-                    )
-                    configs_data.append(
-                        {
-                            "name": config_name,
-                            "key": config_key,
-                            "report_count": len(reports),
-                            "latest_report": latest_report["name"],
-                            "last_modified": datetime.fromisoformat(
-                                latest_report["updated_at"],
-                            ),
-                            "storage": "supabase",
-                        },
-                    )
-            else:
-                # List reports from local filesystem
-                config_dir = settings.REPORTS_DIR / config_key
-                if config_dir.exists() and config_dir.is_dir():
-                    html_reports = sorted(
-                        config_dir.glob("*.html"),
-                        key=lambda x: x.stat().st_mtime,
-                        reverse=True,
-                    )
-
-                    if html_reports:
-                        latest_report = html_reports[0]
-                        configs_data.append(
-                            {
-                                "name": config_name,
-                                "key": config_key,
-                                "report_count": len(html_reports),
-                                "latest_report": latest_report.name,
-                                "last_modified": datetime.fromtimestamp(
-                                    latest_report.stat().st_mtime,
-                                    TZ,
-                                ),
-                                "storage": "local",
-                            },
-                        )
-
-        # Sort by display name
-        configs_data.sort(key=lambda x: x["name"])
-
-        context["configs"] = configs_data
+        configs = ConfigService.get_active_configs_with_reports()
+        # Convert dataclasses to dicts for template compatibility
+        context["configs"] = [
+            {
+                "name": config.name,
+                "key": config.key,
+                "report_count": config.report_count,
+                "latest_report": config.latest_report,
+                "last_modified": config.last_modified,
+                "storage": config.storage,
+            }
+            for config in configs
+        ]
         return context
 
 
@@ -150,137 +63,6 @@ class ConfigReportView(TemplateView):
     """
 
     template_name = "newsserver/config_report.html"
-
-    def _get_supabase_reports_context(
-        self,
-        context: dict,
-        config_key: str,
-        config_display_name: str,
-        selected_report: str | None,
-        supabase_client: Client,
-    ) -> dict:
-        """Get reports context from Supabase."""
-        reports = list_supabase_reports(
-            supabase_client,
-            "Reports",
-            config_key,
-        )
-
-        if not reports:
-            context["error"] = (
-                f"No reports found for config '{config_display_name}'"
-            )
-            return context
-
-        # Sort by updated_at (most recent first)
-        reports.sort(
-            key=lambda x: x.get("updated_at", ""),
-            reverse=True,
-        )
-
-        # Prepare report list for dropdown
-        reports_list = [
-            {
-                "filename": report["name"],
-                "modified": datetime.fromisoformat(
-                    report["updated_at"],
-                ),
-                "size": report.get("metadata", {}).get("size", 0),
-            }
-            for report in reports
-        ]
-
-        current_report_name = (
-            selected_report or reports[0]["name"]
-        )  # Latest
-
-        # Download report content from Supabase
-        file_path = f"{config_key}/{current_report_name}"
-        content = download_from_supabase(
-            supabase_client,
-            "Reports",
-            file_path,
-        )
-
-        if content:
-            report_content = content.decode("utf-8")
-            context.update(
-                {
-                    "config_name": config_display_name,
-                    "reports": reports_list,
-                    "current_report": current_report_name,
-                    "report_content": report_content,
-                    "storage": "supabase",
-                },
-            )
-        else:
-            context["error"] = "Failed to load report from Supabase"
-
-        return context
-
-    def _get_local_reports_context(
-        self,
-        context: dict,
-        config_key: str,
-        config_display_name: str,
-        selected_report: str | None,
-    ) -> dict:
-        """Get reports context from local filesystem."""
-        config_dir = settings.REPORTS_DIR / config_key
-
-        if not config_dir.exists():
-            context["error"] = f"Config '{config_display_name}' not found"
-            return context
-
-        # Get all HTML reports for this config
-        html_reports = sorted(
-            config_dir.glob("*.html"),
-            key=lambda x: x.stat().st_mtime,
-            reverse=True,
-        )
-
-        if not html_reports:
-            context["error"] = (
-                f"No reports found for config '{config_display_name}'"
-            )
-            return context
-
-        # Prepare report list for dropdown
-        reports_list = [
-            {
-                "filename": report_file.name,
-                "modified": datetime.fromtimestamp(
-                    report_file.stat().st_mtime,
-                    TZ,
-                ),
-                "size": report_file.stat().st_size,
-            }
-            for report_file in html_reports
-        ]
-
-        # Determine which report to show
-        if selected_report:
-            current_report_path = config_dir / selected_report
-            if not current_report_path.exists():
-                current_report_path = html_reports[0]
-        else:
-            current_report_path = html_reports[0]  # Latest report
-
-        # Read the report content
-        with Path(current_report_path).open(encoding="utf-8") as f:
-            report_content = f.read()
-
-        context.update(
-            {
-                "config_name": config_display_name,
-                "reports": reports_list,
-                "current_report": current_report_path.name,
-                "report_content": report_content,
-                "storage": "local",
-            },
-        )
-
-        return context
 
     def get(
         self,
@@ -296,37 +78,19 @@ class ConfigReportView(TemplateView):
         download = request.GET.get("download", None)
 
         if download and selected_report:
-            # Check if config uses Supabase
-            use_supabase = should_use_supabase_for_config(config_key)
-            supabase_client = get_supabase_client()
-
-            if use_supabase and supabase_client:
-                # Download from Supabase
-                file_path = f"{config_key}/{selected_report}"
-                content = download_from_supabase(
-                    supabase_client,
-                    "Reports",
-                    file_path,
+            content = ReportService.download_report(
+                config_key,
+                selected_report,
+            )
+            if content:
+                response = HttpResponse(
+                    content,
+                    content_type="text/html",
                 )
-                if content:
-                    response = HttpResponse(
-                        content,
-                        content_type="text/html",
-                    )
-                    response["Content-Disposition"] = (
-                        f'attachment; filename="{selected_report}"'
-                    )
-                    return response
-                raise Http404("Report file not found in Supabase")
-            # Download from local filesystem
-            config_dir = settings.REPORTS_DIR / config_key
-            report_path = config_dir / selected_report
-            if report_path.exists() and report_path.is_file():
-                response = FileResponse(report_path.open("rb"))
                 response["Content-Disposition"] = (
                     f'attachment; filename="{selected_report}"'
                 )
-                return cast("HttpResponse", response)
+                return response
             raise Http404("Report file not found")
 
         return super().get(request, *args, **kwargs)
@@ -342,35 +106,74 @@ class ConfigReportView(TemplateView):
         selected_report = self.request.GET.get("report", None)
 
         # Get config from database to get display name
-        try:
-            news_config = NewsConfig.objects.get(
-                key=config_key,
-                is_active=True,
-            )
-            config_display_name = news_config.display_name
-        except NewsConfig.DoesNotExist:
+        news_config = ConfigService.get_config_by_key(config_key)
+        if not news_config:
             context["error"] = f"Config '{config_key}' not found"
             return context
 
-        # Check if config uses Supabase
-        use_supabase = should_use_supabase_for_config(config_key)
-        supabase_client = get_supabase_client()
+        config_display_name = news_config.display_name
 
-        if use_supabase and supabase_client:
-            return self._get_supabase_reports_context(
-                context,
-                config_key,
-                config_display_name,
-                selected_report,
-                supabase_client,
+        # Get reports for this config
+        reports = ReportService.get_reports_for_config(config_key)
+
+        if not reports:
+            context["config_name"] = config_display_name
+            context["error"] = (
+                f"No reports found for config '{config_display_name}'"
             )
+            return context
 
-        return self._get_local_reports_context(
-            context,
+        # Convert ReportInfo dataclasses to dicts for template
+        reports_list = [
+            {
+                "filename": report.filename,
+                "modified": report.modified,
+                "size": report.size,
+            }
+            for report in reports
+        ]
+
+        # Determine which report to show
+        if selected_report:
+            # Validate that the selected report exists
+            report_filenames = [r.filename for r in reports]
+            if selected_report not in report_filenames:
+                selected_report = reports[0].filename  # Use latest
+        else:
+            selected_report = reports[0].filename  # Latest report
+
+        # Get report content
+        report_content = ReportService.get_report_content(
             config_key,
-            config_display_name,
             selected_report,
         )
+
+        if not report_content:
+            context.update(
+                {
+                    "config_name": config_display_name,
+                    "reports": reports_list,
+                    "current_report": selected_report,
+                    "error": "Failed to load report content",
+                },
+            )
+            return context
+
+        # Get storage type from first report (all reports for a config
+        # use the same storage)
+        storage = reports[0].storage
+
+        context.update(
+            {
+                "config_name": config_display_name,
+                "reports": reports_list,
+                "current_report": selected_report,
+                "report_content": report_content,
+                "storage": storage,
+            },
+        )
+
+        return context
 
 
 class RunListView(TemplateView):
@@ -384,13 +187,7 @@ class RunListView(TemplateView):
 
         # Get date from query param or default to today
         date_str = self.request.GET.get("date")
-        if date_str:
-            try:
-                selected_date = date.fromisoformat(date_str)
-            except ValueError:
-                selected_date = timezone.now().date()
-        else:
-            selected_date = timezone.now().date()
+        selected_date = parse_date_or_default(date_str)
 
         # Calculate next/prev dates
         prev_date = selected_date - timedelta(days=1)
@@ -402,13 +199,7 @@ class RunListView(TemplateView):
 
         # Fetch runs for the selected date
         # We filter by range to handle timezone differences correctly
-        start_of_day = datetime.combine(selected_date, datetime.min.time())
-        end_of_day = datetime.combine(selected_date, datetime.max.time())
-
-        # Make them timezone aware using configured timezone
-        if timezone.is_aware(timezone.now()):
-            start_of_day = start_of_day.replace(tzinfo=TZ)
-            end_of_day = end_of_day.replace(tzinfo=TZ)
+        start_of_day, end_of_day = get_date_range(selected_date)
 
         scrape_runs = (
             ScrapeSummary.objects.filter(
@@ -454,15 +245,9 @@ class LogsView(TemplateView):
         selected_log = request.GET.get("log", None)
         download = request.GET.get("download", None)
 
-        logs_dir = settings.BASE_DIR / "logs"
-
         if download and selected_log:
-            # Handle file download with path traversal protection
-            log_path = (logs_dir / selected_log).resolve()
-            # Ensure the resolved path is within the logs directory
-            if not log_path.is_relative_to(logs_dir.resolve()):
-                raise Http404("Invalid log file path")
-            if log_path.exists() and log_path.is_file():
+            log_path = LogService.validate_log_path(selected_log)
+            if log_path:
                 response = FileResponse(log_path.open("rb"))
                 response["Content-Disposition"] = (
                     f'attachment; filename="{selected_log}"'
@@ -476,114 +261,66 @@ class LogsView(TemplateView):
         """Get context data for the logs view."""
         context = super().get_context_data(**kwargs)
 
-        logs_dir = settings.BASE_DIR / "logs"
         selected_log = self.request.GET.get("log", None)
 
-        if not logs_dir.exists():
-            context["error"] = "Logs directory not found"
-            return context
+        # Get all log files
+        logs_list = LogService.get_log_files()
 
-        # Get all log files: active log first, then by date descending.
-        # Active logs get higher priority when sorting descending.
-        # Rotated logs sort by filename desc so newest dates come first.
-        log_files = sorted(
-            logs_dir.glob("*.log*"),
-            key=lambda x: (_is_active_log_file(x.name), x.name),
-            reverse=True,
-        )
-
-        if not log_files:
-            context["error"] = "No log files found"
-            return context
-
-        # Prepare log list for dropdown
-        logs_list = []
-        for log_file in log_files:
-            # Extract config name from filename
-            # e.g., "technology.log" -> "technology"
-            # e.g., "technology.log.2026-01-11" -> "technology"
-            filename = log_file.name
-            config_name = filename.split(".log")[0]
-            logs_list.append(
+        if not logs_list:
+            context.update(
                 {
-                    "filename": filename,
-                    "config_name": config_name,
-                    "modified": datetime.fromtimestamp(
-                        log_file.stat().st_mtime,
-                        tz=TZ,
-                    ),
-                    "size": log_file.stat().st_size,
-                    "is_active": _is_active_log_file(filename),
+                    "logs": [],
+                    "config_tabs": [],
+                    "error": "No log files found",
                 },
             )
+            return context
 
-        # Build config tabs from active log files (files ending in .log)
-        # Each tab represents a config's log file
-        config_tabs = []
-        for log_file in log_files:
-            if _is_active_log_file(log_file.name):
-                # Extract config name from filename
-                # (e.g., "technology" from "technology.log")
-                config_name = log_file.name.rsplit(".log", 1)[0]
-                # Create display name with title case and underscores
-                # replaced
-                display_name = config_name.replace("_", " ").title()
-                config_tabs.append(
-                    {
-                        "name": config_name,
-                        "display_name": display_name,
-                        "filename": log_file.name,
-                    },
-                )
-        # Sort tabs alphabetically by display name
-        config_tabs.sort(key=lambda x: x["display_name"])
+        # Convert LogFileInfo dataclasses to dicts for template
+        logs_dict_list = [
+            {
+                "filename": log.filename,
+                "config_name": log.config_name,
+                "modified": log.modified,
+                "size": log.size,
+                "is_active": log.is_active,
+            }
+            for log in logs_list
+        ]
 
-        # Determine which log to show with path traversal protection
+        # Get config tabs
+        config_tabs = LogService.get_config_tabs()
+
+        # Determine which log to show
         if selected_log:
-            current_log_path = (logs_dir / selected_log).resolve()
-            # Ensure the resolved path is within the logs directory
-            if (
-                not current_log_path.is_relative_to(
-                    logs_dir.resolve(),
-                )
-                or not current_log_path.exists()
-            ):
-                current_log_path = log_files[0]
+            # Validate the selected log exists
+            log_filenames = [log.filename for log in logs_list]
+            if selected_log not in log_filenames:
+                selected_log = logs_list[0].filename  # Use latest
         else:
-            current_log_path = log_files[0]  # Latest log
+            selected_log = logs_list[0].filename  # Latest log
 
-        # Determine active tab based on current log
-        # For rotated logs like "technology.log.2026-01-11", extract the
-        # base name
-        current_log_name = current_log_path.name
-        if _is_active_log_file(current_log_name):
-            active_tab = current_log_name.rsplit(".log", 1)[0]
-        else:
-            # Extract base config name from rotated log
-            # e.g., "technology.log.2026-01-11" -> "technology"
-            active_tab = current_log_name.split(".log")[0]
+        # Get active tab for the selected log
+        active_tab = LogService.get_active_tab_for_log(selected_log)
 
-        # Read the log content (last 1000 lines to avoid memory issues)
-        try:
-            with current_log_path.open(
-                encoding="utf-8",
-                errors="replace",
-            ) as f:
-                lines = f.readlines()
-                # Get last 1000 lines
-                log_content = "".join(lines[-1000:])
-        except Exception as e:
-            log_content = f"Error reading log file: {e}"
+        # Get log content
+        log_content = LogService.get_log_content(selected_log)
 
         # Check if current log is active
-        is_current_log_active = _is_active_log_file(current_log_path.name)
+        current_log_info = next(
+            (log for log in logs_list if log.filename == selected_log),
+            None,
+        )
+        is_current_log_active = (
+            current_log_info.is_active if current_log_info else False
+        )
 
         context.update(
             {
-                "logs": logs_list,
+                "logs": logs_dict_list,
                 "config_tabs": config_tabs,
                 "active_tab": active_tab,
-                "current_log": current_log_path.name,
+                "current_log": selected_log,
                 "log_content": log_content,
                 "is_current_log_active": is_current_log_active,
             },
@@ -673,53 +410,47 @@ def _stream_log_file(log_path: Path) -> Generator[str, None, None]:
         yield f"data: {error_payload}\n\n"
 
 
-class LogStreamView:
-    """View for streaming active log files using Server-Sent Events."""
+def log_stream_view(
+    request: HttpRequest,
+) -> HttpResponse | StreamingHttpResponse:
+    """
+    Stream log file content using Server-Sent Events.
 
-    def __call__(
-        self,
-        request: HttpRequest,
-    ) -> HttpResponse | StreamingHttpResponse:
-        """
-        Stream log file content using Server-Sent Events.
+    Args:
+        request: HTTP request with 'log' query parameter
 
-        Args:
-            request: HTTP request with 'log' query parameter
+    Returns:
+        StreamingHttpResponse with SSE content, or HttpResponse for
+        errors
 
-        Returns:
-            StreamingHttpResponse with SSE content, or HttpResponse for
-            errors
+    """
+    selected_log = request.GET.get("log", None)
+    if not selected_log:
+        return HttpResponse("Missing log parameter", status=400)
 
-        """
-        selected_log = request.GET.get("log", None)
-        if not selected_log:
-            return HttpResponse("Missing log parameter", status=400)
-
-        logs_dir = settings.BASE_DIR / "logs"
-        log_path = (logs_dir / selected_log).resolve()
-
-        # Path traversal protection
-        if not log_path.is_relative_to(logs_dir.resolve()):
-            return HttpResponse("Invalid log file path", status=403)
-
-        if not log_path.exists() or not log_path.is_file():
+    # Validate log path using LogService
+    log_path = LogService.validate_log_path(selected_log)
+    if not log_path:
+        # Check if it's path traversal (403) or file not found (404)
+        if LogService.is_safe_log_path(selected_log):
             return HttpResponse("Log file not found", status=404)
+        return HttpResponse("Invalid log file path", status=403)
 
-        # Only allow streaming for active log files
-        if not _is_active_log_file(selected_log):
-            return HttpResponse(
-                "Streaming only available for active log files",
-                status=400,
-            )
-
-        # Create streaming response with SSE headers
-        response = StreamingHttpResponse(
-            _stream_log_file(log_path),
-            content_type="text/event-stream",
+    # Only allow streaming for active log files
+    if not LogService.can_stream_log(selected_log):
+        return HttpResponse(
+            "Streaming only available for active log files",
+            status=400,
         )
-        response["Cache-Control"] = "no-cache"
-        response["X-Accel-Buffering"] = "no"  # Disable nginx buffering
-        return response
+
+    # Create streaming response with SSE headers
+    response = StreamingHttpResponse(
+        _stream_log_file(log_path),
+        content_type="text/event-stream",
+    )
+    response["Cache-Control"] = "no-cache"
+    response["X-Accel-Buffering"] = "no"  # Disable nginx buffering
+    return response
 
 class NewsSchedulerDashboardView(
     LoginRequiredMixin,
@@ -757,8 +488,16 @@ class NewsSchedulerDashboardView(
         # Handle standard page request
         return super().get(request, *args, **kwargs)
 
-    def _get_calendar_data(self) -> JsonResponse:
-        """Prepare JSON events for FullCalendar."""
+    def _parse_calendar_range(
+        self,
+    ) -> tuple[datetime | None, datetime | None]:
+        """
+        Parse start and end datetime from request parameters.
+
+        Returns:
+            Tuple of (start_limit, end_limit) or (None, None) if invalid
+
+        """
         start_param = self.request.GET.get("start")
         end_param = self.request.GET.get("end")
 
@@ -766,15 +505,28 @@ class NewsSchedulerDashboardView(
             # FullCalendar sends ISO strings for the range
             start_limit = parse_datetime(start_param)
             end_limit = parse_datetime(end_param)
-        else:
-            # Fallback for manual testing or missing params
-            now = timezone.now()
-            start_limit = now - timedelta(days=7)
-            end_limit = now + timedelta(days=14)
+            return start_limit, end_limit
 
-        if not start_limit or not end_limit:
-            return JsonResponse([], safe=False)
+        # Fallback for manual testing or missing params
+        now = timezone.now()
+        return now - timedelta(days=7), now + timedelta(days=14)
 
+    def _generate_calendar_events(
+        self,
+        start_limit: datetime,
+        end_limit: datetime,
+    ) -> list[dict[str, str | int]]:
+        """
+        Generate calendar events for the given date range.
+
+        Args:
+            start_limit: Start of the date range
+            end_limit: End of the date range
+
+        Returns:
+            List of event dictionaries for FullCalendar
+
+        """
         events = []
         configs = NewsConfig.objects.filter(is_active=True)
 
@@ -783,43 +535,73 @@ class NewsSchedulerDashboardView(
         curr_week_start = start_limit - timedelta(days=start_limit.weekday())
 
         while curr_week_start < end_limit:
-            # Get analysis events
             for config in configs:
                 if not config.scheduler_weekly_analysis_enabled:
                     continue
 
-                analysis_day_idx = self.DAY_MAP.get(
-                    config.scheduler_weekly_analysis_day_of_week,
-                    0,
-                )
-                analysis_event_date = (
-                    curr_week_start + timedelta(days=analysis_day_idx)
-                ).date()
+                event = self._create_analysis_event(config, curr_week_start)
+                if event:
+                    events.append(event)
 
-                # Use the configured hour/minute
-                analysis_ev_time = time(
-                    hour=config.scheduler_weekly_analysis_hour,
-                    minute=config.scheduler_weekly_analysis_minute,
-                )
-
-                # Construct aware datetime if possible, or just treat
-                # as UTC for now to be consistent with how the browser
-                # sends it (toISOString uses UTC). Adding 'Z' ensures
-                # FullCalendar knows it's UTC and converts to local.
-                analysis_start_iso = (
-                    f"{analysis_event_date.isoformat()}"
-                    f"T{analysis_ev_time.isoformat()}Z"
-                )
-
-                events.append({
-                    "id": config.id,
-                    "title": f"{config.display_name} [{config.key}]",
-                    "start": analysis_start_iso,
-                    "backgroundColor": "#3788d8",
-                    "borderColor": "#2c3e50",
-                })
             curr_week_start += timedelta(days=7)
 
+        return events
+
+    def _create_analysis_event(
+        self,
+        config: NewsConfig,
+        week_start: datetime,
+    ) -> dict[str, str | int] | None:
+        """
+        Create a calendar event for a config's weekly analysis.
+
+        Args:
+            config: NewsConfig instance
+            week_start: Start of the week (Monday)
+
+        Returns:
+            Event dictionary for FullCalendar, or None if invalid
+
+        """
+        analysis_day_idx = self.DAY_MAP.get(
+            config.scheduler_weekly_analysis_day_of_week,
+            0,
+        )
+        analysis_event_date = (
+            week_start + timedelta(days=analysis_day_idx)
+        ).date()
+
+        # Use the configured hour/minute
+        analysis_ev_time = time(
+            hour=config.scheduler_weekly_analysis_hour,
+            minute=config.scheduler_weekly_analysis_minute,
+        )
+
+        # Construct aware datetime if possible, or just treat
+        # as UTC for now to be consistent with how the browser
+        # sends it (toISOString uses UTC). Adding 'Z' ensures
+        # FullCalendar knows it's UTC and converts to local.
+        analysis_start_iso = (
+            f"{analysis_event_date.isoformat()}"
+            f"T{analysis_ev_time.isoformat()}Z"
+        )
+
+        return {
+            "id": config.pk,
+            "title": f"{config.display_name} [{config.key}]",
+            "start": analysis_start_iso,
+            "backgroundColor": "#3788d8",
+            "borderColor": "#2c3e50",
+        }
+
+    def _get_calendar_data(self) -> JsonResponse:
+        """Prepare JSON events for FullCalendar."""
+        start_limit, end_limit = self._parse_calendar_range()
+
+        if not start_limit or not end_limit:
+            return JsonResponse([], safe=False)
+
+        events = self._generate_calendar_events(start_limit, end_limit)
         return JsonResponse(events, safe=False)
 
     def post(self, request: HttpRequest, *_args, **_kwargs) -> JsonResponse:

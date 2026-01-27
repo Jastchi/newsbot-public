@@ -44,53 +44,22 @@ jobs:
     steps:
       - name: Find open PR for branch
         id: pr
-        uses: actions/github-script@v6
+        uses: ./.github/actions/find-pr
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const ref = github.ref || context.ref;
-            const branch = ref.replace('refs/heads/', '');
-            const response = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              head: `${context.repo.owner}:${branch}`,
-              state: 'open',
-              'per_page': 1
-            });
-            
-            const prs = response.data;
-
-            if (prs && prs.length > 0) {
-              const sha = prs[0].head.sha;
-              return {pr_found: 'true', sha: sha}
-            } else {
-              return {pr_found: 'false', sha: ''}
-            }
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create check run
         id: create_check
-        if: ${{ fromJson(steps.pr.outputs.result).pr_found == 'true' }}
-        uses: actions/github-script@v6
+        if: steps.pr.outputs.pr_found == 'true'
+        uses: ./.github/actions/update-pr-status
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const sha = process.env.PR_SHA;
-            const runUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
-            const resp = await github.rest.checks.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              name: 'Check Scrape and Analyze',
-              head_sha: sha,
-              status: 'in_progress',
-              started_at: new Date().toISOString(),
-              details_url: runUrl
-            });
-            return { created: true, check_run_id: resp.data.id, sha };
-        env:
-          PR_SHA: ${{ fromJson(steps.pr.outputs.result).sha }}
-          GITHUB_RUN_ID: ${{ github.run_id }}
+          sha: ${{ steps.pr.outputs.sha }}
+          context: 'Check Scrape and Analyze'
+          state: 'pending'
+          description: 'Scraping and analyzing...'
+          create-check-run: 'true'
+          check-run-name: 'Check Scrape and Analyze'
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -163,13 +132,12 @@ jobs:
           fi
 
       - name: Update check run
-        if: always() && fromJson(steps.pr.outputs.result).pr_found == 'true'
+        if: always() && steps.pr.outputs.pr_found == 'true'
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const created = JSON.parse(process.env.CREATE_CHECK_RESULT);
-            const checkRunId = created.check_run_id;
+            const checkRunId = process.env.CHECK_RUN_ID;
 
             // Determine step outcomes
             const scraper = process.env.SCRAPER_OUTCOME || 'failure';
@@ -193,20 +161,22 @@ jobs:
               summary = `Failed: ${failed.join(', ')}`;
             }
 
-            await github.rest.checks.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              check_run_id: checkRunId,
-              status: 'completed',
-              conclusion: conclusion,
-              completed_at: new Date().toISOString(),
-              output: {
-                title: 'Scrape and Analyze result',
-                summary: summary
-              }
-            });
+            if (checkRunId) {
+              await github.rest.checks.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                check_run_id: parseInt(checkRunId),
+                status: 'completed',
+                conclusion: conclusion,
+                completed_at: new Date().toISOString(),
+                output: {
+                  title: 'Scrape and Analyze result',
+                  summary: summary
+                }
+              });
+            }
         env:
-          CREATE_CHECK_RESULT: ${{ steps.create_check.outputs.result }}
+          CHECK_RUN_ID: ${{ steps.create_check.outputs.check-run-id }}
           SCRAPER_OUTCOME: ${{ steps.scraper.outcome }}
           ANALYSIS_OUTCOME: ${{ steps.analysis.outcome }}
           RUN_ANALYSIS: ${{ inputs.run_analysis }}

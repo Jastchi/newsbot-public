@@ -14,30 +14,14 @@ jobs:
     name: Find PR
     runs-on: self-hosted
     outputs:
-      pr_found: ${{ fromJson(steps.pr.outputs.result).pr_found }}
-      sha: ${{ fromJson(steps.pr.outputs.result).sha }}
+      pr_found: ${{ steps.find-pr.outputs.pr_found }}
+      sha: ${{ steps.find-pr.outputs.sha }}
     steps:
       - name: Find open PR for branch
-        id: pr
-        uses: actions/github-script@v6
+        id: find-pr
+        uses: ./.github/actions/find-pr
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const ref = github.ref || context.ref;
-            const branch = ref.replace('refs/heads/', '');
-            const response = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              head: `${context.repo.owner}:${branch}`,
-              state: 'open',
-              'per_page': 1
-            });
-            const prs = response.data;
-            if (prs && prs.length > 0) {
-              return {pr_found: 'true', sha: prs[0].head.sha}
-            } else {
-              return {pr_found: 'false', sha: ''}
-            }
 
   test-api:
     name: API Container Tests
@@ -48,23 +32,15 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set status to running
-        if: ${{ needs.find-pr.outputs.pr_found == 'true' }}
-        uses: actions/github-script@v6
+        id: set_running
+        if: needs.find-pr.outputs.pr_found == 'true'
+        uses: ./.github/actions/update-pr-status
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: '${{ needs.find-pr.outputs.sha }}',
-              state: 'pending',
-              context: 'Tests (Docker, Self-hosted)',
-              description: 'Docker tests are running...',
-              target_url: runUrl
-            });
-        env:
-          GITHUB_RUN_ID: ${{ github.run_id }}
+          sha: ${{ needs.find-pr.outputs.sha }}
+          context: 'Tests (Docker, Self-hosted)'
+          state: 'pending'
+          description: 'Docker tests are running...'
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -157,21 +133,14 @@ jobs:
       - name: Install coverage tool
         run: pip install coverage
 
+      - name: Setup coverage config
+        uses: ./.github/actions/setup-coverage-config
+        with:
+          include-docker-paths: 'true'
+
       - name: Combine and Fix Coverage
         run: |
-          # 1. Create a .coveragerc that forces relative paths
-          cat <<'EOF' > .coveragerc
-          [run]
-          source = src
-          relative_files = true
-
-          [paths]
-          source =
-              src/
-              /app/src/
-          EOF
-
-          # 2. Find and move coverage data files
+          # 1. Find and move coverage data files
           find all-coverage -name "api.coverage" -exec mv -v {} .coverage.api \;
           find all-coverage -name "web.coverage" -exec mv -v {} .coverage.web \;
           
@@ -184,30 +153,27 @@ jobs:
           coverage xml -o coverage.xml
           coverage report -m
 
+      - name: Calculate final status
+        id: calculate_status
+        if: always() && needs.find-pr.outputs.pr_found == 'true'
+        run: |
+          API_RESULT="${{ needs.test-api.result }}"
+          WEB_RESULT="${{ needs.test-web.result }}"
+          
+          if [[ "$API_RESULT" == "success" && "$WEB_RESULT" == "success" ]]; then
+            echo "state=success" >> $GITHUB_OUTPUT
+            echo "description=All Docker tests passed (self-hosted)" >> $GITHUB_OUTPUT
+          else
+            echo "state=failure" >> $GITHUB_OUTPUT
+            echo "description=Tests failed: API=$API_RESULT, Web=$WEB_RESULT" >> $GITHUB_OUTPUT
+          fi
+
       - name: Update PR status
         if: always() && needs.find-pr.outputs.pr_found == 'true'
-        uses: actions/github-script@v6
+        uses: ./.github/actions/update-pr-status
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const sha = '${{ needs.find-pr.outputs.sha }}';
-            const apiResult = '${{ needs.test-api.result }}';
-            const webResult = '${{ needs.test-web.result }}';
-            const allPassed = apiResult === 'success' && webResult === 'success';
-            const state = allPassed ? 'success' : 'failure';
-            const description = allPassed 
-              ? 'All Docker tests passed (self-hosted)' 
-              : `Tests failed: API=${apiResult}, Web=${webResult}`;
-            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
-            
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: sha,
-              state: state,
-              context: 'Tests (Docker, Self-hosted)',
-              description: description,
-              target_url: runUrl
-            });
-        env:
-          GITHUB_RUN_ID: ${{ github.run_id }}
+          sha: ${{ needs.find-pr.outputs.sha }}
+          context: 'Tests (Docker, Self-hosted)'
+          state: ${{ steps.calculate_status.outputs.state }}
+          description: ${{ steps.calculate_status.outputs.description }}

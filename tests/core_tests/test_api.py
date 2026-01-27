@@ -681,6 +681,7 @@ class TestFastAPIEndpoints:
             {
                 "key": "test_config",
                 "name": "Test Config",
+                "is_active": True,
                 "daily_scrape": {
                     "enabled": True,
                     "hour": 2,
@@ -886,6 +887,7 @@ class TestPydanticModels:
         schedule = ScheduleConfig(
             key="test",
             name="Test",
+            is_active=True,
             daily_scrape={"enabled": True, "cron": "0 2 * * *"},
             weekly_analysis={"enabled": True, "cron": "0 9 * * 1"},
         )

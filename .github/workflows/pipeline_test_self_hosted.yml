@@ -26,38 +26,17 @@ jobs:
 
       - name: Find open PR for branch
         id: pr
-        uses: actions/github-script@v6
+        uses: ./.github/actions/find-pr
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const ref = github.ref || context.ref;
-            const branch = ref.replace('refs/heads/', '');
-            const response = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              head: `${context.repo.owner}:${branch}`,
-              state: 'open',
-              'per_page': 1
-            });
-            
-            const prs = response.data;
-
-            if (prs && prs.length > 0) {
-              const sha = prs[0].head.sha;
-              return {pr_found: 'true', sha: sha}
-            } else {
-              return {pr_found: 'false', sha: ''}
-            }
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set status to running
         id: set_running
-        if: ${{ fromJson(steps.pr.outputs.result).pr_found == 'true' }}
+        if: steps.pr.outputs.pr_found == 'true'
         uses: ./.github/actions/update-pr-status
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ fromJson(steps.pr.outputs.result).sha }}
+          sha: ${{ steps.pr.outputs.sha }}
           context: 'Test Pipeline (Self-hosted)'
           state: 'pending'
           description: 'Test pipeline is running...'
@@ -166,7 +145,7 @@ jobs:
       # Calculate final status based on all step outcomes
       - name: Calculate final status
         id: calculate_status
-        if: always() && fromJson(steps.pr.outputs.result).pr_found == 'true'
+        if: always() && steps.pr.outputs.pr_found == 'true'
         run: |
           # Check Gemini outcomes
           GEMINI_PASSED="false"
@@ -203,11 +182,11 @@ jobs:
           fi
 
       - name: Set final PR status
-        if: always() && fromJson(steps.pr.outputs.result).pr_found == 'true'
+        if: always() && steps.pr.outputs.pr_found == 'true'
         uses: ./.github/actions/update-pr-status
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ fromJson(steps.pr.outputs.result).sha }}
+          sha: ${{ steps.pr.outputs.sha }}
           context: 'Test Pipeline (Self-hosted)'
           state: ${{ steps.calculate_status.outputs.state }}
           description: ${{ steps.calculate_status.outputs.description }}

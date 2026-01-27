@@ -69,6 +69,7 @@ class ScheduleConfig(BaseModel):
 
     key: str
     name: str
+    is_active: bool
     daily_scrape: dict[str, Any]
     weekly_analysis: dict[str, Any]
 
