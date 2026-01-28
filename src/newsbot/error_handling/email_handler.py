@@ -227,3 +227,82 @@ def get_email_error_handler() -> EmailErrorHandler:
         password=os.getenv("EMAIL_PASSWORD", ""),
         subject_prefix=os.getenv("EMAIL_SUBJECT_PREFIX", "[NewsBot Error]"),
     )
+
+
+def send_error_email_once(
+    message: str,
+    traceback_str: str,
+    config_key: str = "",
+) -> None:
+    """
+    Send a single error email when no EmailErrorHandler exists yet.
+
+    Use this when an error occurs before any EmailErrorHandler has been
+    created or attached (e.g. API startup failure, or the first request
+    failing in the endpoint before any run/analysis background task has
+    run). The normal flow buffers errors in the handler and flushes
+    after each run/analysis; in those early cases there is no handler
+    to flush, so we would never send an email. This function sends a
+    one-off email so we still notify instead of missing the error
+    entirely.
+
+    Does nothing if email is disabled (EMAIL_ENABLED not set). Swallows
+    SMTP failures and logs them so bad config does not crash the
+    process.
+
+    Args:
+        message: Short error message.
+        traceback_str: Full traceback (e.g. traceback.format_exc()).
+        config_key: Optional config key for subject (e.g. "world").
+
+    """
+    if os.getenv("EMAIL_ENABLED", "false").lower() not in ("true", "1", "yes"):
+        return
+
+    smtp_host = os.getenv("EMAIL_SMTP_SERVER", "")
+    if not smtp_host:
+        return
+
+    smtp_port = int(os.getenv("EMAIL_SMTP_PORT", "0"))
+    from_email = os.getenv("EMAIL_SENDER", "")
+    to_email = os.getenv("EMAIL_RECIPIENT", "")
+    password = os.getenv("EMAIL_PASSWORD", "")
+    subject_prefix = os.getenv("EMAIL_SUBJECT_PREFIX", "[NewsBot Error]")
+
+    config_info = f" [{config_key}]" if config_key else ""
+    subject = (
+        f"{subject_prefix}{config_info} 1 Error "
+        "(no handler yet - startup or first-request failure)"
+    )
+
+    body = (
+        f"NewsBot{config_info} encountered an error before any "
+        "EmailErrorHandler was created (e.g. startup or first request).\n\n"
+        "Message:\n"
+        f"{message}\n\n"
+        "=" * 70 + "\n\n"
+        "Stack Trace:\n"
+        f"{traceback_str}\n"
+    )
+
+    try:
+        msg = MIMEMultipart()
+        msg["From"] = from_email
+        msg["To"] = to_email
+        msg["Subject"] = subject
+        msg.attach(MIMEText(body, "plain"))
+
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            server.login(from_email, password)
+            server.send_message(msg)
+
+        logger.info(
+            f"Sent one-off error email to {to_email} "
+            "(no handler yet)",
+        )
+    except Exception:
+        logger.warning(
+            "Failed to send one-off error email to %s (no handler yet)",
+            to_email,
+        )

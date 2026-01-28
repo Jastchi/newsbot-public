@@ -248,3 +248,57 @@ def test_config_name_empty_not_in_email(monkeypatch):
     assert sent_message is not None
     # Should not have brackets when config_name is empty
     assert "[]" not in sent_message["Subject"]
+
+
+def test_send_error_email_once_sends_when_enabled(monkeypatch):
+    """send_error_email_once sends a single email when EMAIL_ENABLED and SMTP are set."""
+    monkeypatch.setenv("EMAIL_ENABLED", "true")
+    monkeypatch.setenv("EMAIL_SMTP_SERVER", "smtp.test.com")
+    monkeypatch.setenv("EMAIL_SMTP_PORT", "587")
+    monkeypatch.setenv("EMAIL_SENDER", "from@test.com")
+    monkeypatch.setenv("EMAIL_RECIPIENT", "to@test.com")
+    monkeypatch.setenv("EMAIL_PASSWORD", "pwd")
+
+    smtp_mock = Mock()
+    smtp_mock.__enter__ = lambda self=smtp_mock: self
+    smtp_mock.__exit__ = Mock(return_value=False)
+    monkeypatch.setattr(
+        "newsbot.error_handling.email_handler.smtplib.SMTP",
+        Mock(return_value=smtp_mock),
+    )
+
+    from newsbot.error_handling.email_handler import send_error_email_once
+
+    send_error_email_once(
+        "Error loading config 'world'",
+        "Traceback (most recent call last):\n  ...",
+        config_key="world",
+    )
+
+    smtp_mock.starttls.assert_called_once()
+    smtp_mock.login.assert_called_once_with("from@test.com", "pwd")
+    smtp_mock.send_message.assert_called_once()
+    msg = smtp_mock.send_message.call_args[0][0]
+    assert "[world]" in msg["Subject"]
+    assert "no handler yet" in msg["Subject"]
+    body = msg.get_payload()[0].get_payload()
+    assert "Error loading config 'world'" in body
+    assert "EmailErrorHandler was created" in body
+
+
+def test_send_error_email_once_skips_when_disabled(monkeypatch):
+    """send_error_email_once does nothing when EMAIL_ENABLED is false."""
+    monkeypatch.setenv("EMAIL_ENABLED", "false")
+    monkeypatch.setenv("EMAIL_SMTP_SERVER", "smtp.test.com")
+    monkeypatch.setenv("EMAIL_SMTP_PORT", "587")
+    smtp = Mock()
+    monkeypatch.setattr(
+        "newsbot.error_handling.email_handler.smtplib.SMTP",
+        smtp,
+    )
+
+    from newsbot.error_handling.email_handler import send_error_email_once
+
+    send_error_email_once("msg", "tb", config_key="x")
+
+    smtp.assert_not_called()

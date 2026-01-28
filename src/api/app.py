@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import traceback
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
@@ -22,6 +23,7 @@ from pydantic import BaseModel, Field
 from api.handlers import get_all_schedules, handle_analyze, handle_run
 from api.job_manager import Job, JobStatus, JobType, job_manager
 from newsbot.constants import TZ
+from newsbot.error_handling.email_handler import send_error_email_once
 from utilities import ConfigNotFoundError, load_config, setup_django
 
 logger = logging.getLogger(__name__)
@@ -123,8 +125,17 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """
     # Startup: Initialize Django
     logger.info("Initializing Django...")
-    setup_django()
-    logger.info("Django initialized successfully")
+    try:
+        setup_django()
+        logger.info("Django initialized successfully")
+    except Exception:
+        logger.exception("Error during API startup (Django initialization)")
+        send_error_email_once(
+            "Error during API startup (Django initialization)",
+            traceback.format_exc(),
+            config_key="startup",
+        )
+        raise
 
     yield
 
@@ -210,6 +221,11 @@ def run_scrape(
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         logger.exception(f"Error loading config '{config_key}'")
+        send_error_email_once(
+            f"Error loading config '{config_key}'",
+            traceback.format_exc(),
+            config_key=config_key,
+        )
         raise HTTPException(status_code=500, detail=str(e)) from e
 
     # Parse request body (use defaults if not provided)
@@ -269,6 +285,11 @@ def run_analysis(
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         logger.exception(f"Error loading config '{config_key}'")
+        send_error_email_once(
+            f"Error loading config '{config_key}'",
+            traceback.format_exc(),
+            config_key=config_key,
+        )
         raise HTTPException(status_code=500, detail=str(e)) from e
 
     # Parse request body (use defaults if not provided)

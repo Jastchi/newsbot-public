@@ -105,6 +105,13 @@ DATABASES = {
 if DATABASES["default"].get("ENGINE") == "django.db.backends.postgresql":
     DATABASES["default"].setdefault("OPTIONS", {})["sslmode"] = "require"
 
+    # Disable persistent connections when using a connection pooler.
+    # Poolers (like Supabase) handle pooling themselves, so Django's
+    # persistent connections cause stale connection issues.
+    database_url = os.getenv("DATABASE_URL", "")
+    if "pooler" in database_url.lower():
+        DATABASES["default"]["CONN_MAX_AGE"] = 0
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
