@@ -30,13 +30,17 @@ Examples:
 
 import argparse
 import logging
+import time
 from datetime import UTC, datetime
 
 import requests
+from apscheduler.jobstores.base import JobLookupError
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from newsbot.constants import TIMEZONE_STR, TZ
+from newsbot.error_handling.email_handler import send_error_email_once
 
 # Configure logging
 logging.basicConfig(
@@ -49,8 +53,17 @@ logger = logging.getLogger("scheduler")
 # Job ID prefix to identify scheduler-managed jobs
 JOB_PREFIX = "scheduler_"
 REFRESH_JOB_ID = f"{JOB_PREFIX}config_refresh"
+RETRY_REFRESH_JOB_ID = f"{JOB_PREFIX}retry_refresh"
 # Minimum number of parts in job ID after splitting by "_"
 MIN_JOB_ID_PARTS = 4
+
+# Health check: max total wait (seconds) before sending alert and
+# continuing degraded.
+HEALTH_WAIT_TIMEOUT = 120
+# Backoff: initial, then cap (seconds); exponential in between
+HEALTH_POLL_INITIAL = 0.25
+HEALTH_POLL_CAP = 5.0
+HTTP_OK = 200
 
 
 def make_api_request(
@@ -93,6 +106,58 @@ def make_api_request(
     except ValueError as e:
         logger.warning(f"Invalid JSON response: {e}")
     return None
+
+
+def wait_for_api_healthy(
+    api_base_url: str,
+    timeout_seconds: float = HEALTH_WAIT_TIMEOUT,
+) -> bool:
+    """
+    Wait for the API health endpoint.
+
+    Poll /health until the API responds with HTTP_OK and status ok,
+    or until timeout. Uses exponential backoff. Does not raise;
+    returns False on timeout.
+
+    Args:
+        api_base_url: Base URL of the API (e.g. http://localhost:8000)
+        timeout_seconds: Total time to wait before giving up
+
+    Returns:
+        True if health check succeeded, False on timeout
+
+    """
+    url = f"{api_base_url}/health"
+    deadline = time.monotonic() + timeout_seconds
+    interval = HEALTH_POLL_INITIAL
+
+    while time.monotonic() < deadline:
+        try:
+            response = requests.get(url, timeout=5)
+            if response.status_code != HTTP_OK:
+                logger.debug(
+                    "Health check returned %s, retrying...",
+                    response.status_code,
+                )
+            else:
+                data = response.json()
+                if data.get("status") == "ok":
+                    logger.info("API health check passed")
+                    return True
+                logger.debug(
+                    "Health check status not ok (%s), retrying...",
+                    data.get("status"),
+                )
+        except requests.exceptions.RequestException as e:
+            logger.debug(f"Health check failed: {e}, retrying...")
+        except ValueError:
+            logger.debug("Health check invalid JSON, retrying...")
+
+        time.sleep(interval)
+        # Exponential backoff, cap at HEALTH_POLL_CAP
+        interval = min(HEALTH_POLL_CAP, interval * 2)
+
+    return False
 
 
 def trigger_daily_scrape(api_base_url: str, config_key: str) -> None:
@@ -250,13 +315,16 @@ def remove_stale_jobs(
 def refresh_and_schedule_tasks(
     scheduler: BlockingScheduler,
     api_base_url: str,
-) -> None:
+) -> bool:
     """
     Fetch schedules from API and update scheduled jobs.
 
     Args:
         scheduler: APScheduler instance
         api_base_url: Base URL of the API
+
+    Returns:
+        True if schedules were fetched and applied, False otherwise.
 
     """
     logger.info("Refreshing schedules from API...")
@@ -266,12 +334,12 @@ def refresh_and_schedule_tasks(
 
     if not result:
         logger.error("Failed to fetch schedules from API")
-        return
+        return False
 
     configs = result.get("configs", [])
     if not configs:
         logger.warning("No active configs found in schedules")
-        return
+        return False
 
     active_config_keys = set()
 
@@ -322,6 +390,26 @@ def refresh_and_schedule_tasks(
         f"Schedule refresh complete. "
         f"{len(active_config_keys)} active configs.",
     )
+    return True
+
+
+def run_retry_refresh(
+    scheduler: BlockingScheduler,
+    api_base_url: str,
+) -> None:
+    """
+    Retry schedule refresh until success.
+
+    Used when the API was not healthy at startup. Runs on an interval
+    until refresh_and_schedule_tasks succeeds, then removes this job.
+
+    """
+    if refresh_and_schedule_tasks(scheduler, api_base_url):
+        try:
+            scheduler.remove_job(RETRY_REFRESH_JOB_ID)
+            logger.info("Retry refresh succeeded; retry job removed")
+        except JobLookupError:
+            pass
 
 
 def print_scheduler_info(scheduler: BlockingScheduler) -> None:
@@ -427,6 +515,32 @@ Examples:
         f"Config refresh scheduled at "
         f"{args.refresh_hour:02d}:{args.refresh_minute:02d} {TIMEZONE_STR}",
     )
+
+    # Wait for API to be healthy before initial refresh
+    api_healthy = wait_for_api_healthy(api_base_url)
+    if not api_healthy:
+        send_error_email_once(
+            (
+                f"NewsBot scheduler: API at {api_base_url} "
+                "did not become healthy "
+                f"within {HEALTH_WAIT_TIMEOUT}s. "
+                "Scheduler started in degraded mode; schedules will retry "
+                "every 60s until the API responds."
+            ),
+            "No traceback (API health check timeout).",
+            config_key="scheduler",
+        )
+        scheduler.add_job(
+            run_retry_refresh,
+            trigger=IntervalTrigger(seconds=60),
+            id=RETRY_REFRESH_JOB_ID,
+            name="Retry schedule refresh",
+            args=[scheduler, api_base_url],
+            replace_existing=True,
+        )
+        logger.info(
+            "API not ready; added retry job (every 60s) until schedules load",
+        )
 
     # Do an initial refresh to load schedules immediately
     logger.info("Performing initial schedule refresh...")
