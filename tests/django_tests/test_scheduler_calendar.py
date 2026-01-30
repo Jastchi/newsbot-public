@@ -1,8 +1,10 @@
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from django.urls import reverse
 from django.utils import timezone
 import pytest
+
+from newsbot.constants import TZ
 from web.newsserver.models import NewsConfig
 
 @pytest.mark.django_db
@@ -78,31 +80,29 @@ class TestNewsSchedulerDashboardView:
         self.admin_user.save()
         self.client.force_login(self.admin_user)
         config = self.configs[0]
-        
-        # Prepare data for update (moving to Tuesday 14:30)
-        # ISO string format that parse_datetime can handle
-        new_start = "2026-01-27T14:30:00Z" 
-        
-        update_data = {
-            "id": config.id,
-            "start": new_start
-        }
-        
+
+        # Frontend sends UTC (toISOString()). Use same conversion as view.
+        new_start = "2026-01-27T13:30:00Z"
+        utc_dt = datetime(2026, 1, 27, 13, 30, 0, tzinfo=UTC)
+        local_dt = utc_dt.astimezone(TZ)
+        day_map = {0: "mon", 1: "tue", 2: "wed", 3: "thu", 4: "fri", 5: "sat", 6: "sun"}
+
+        update_data = {"id": config.id, "start": new_start}
+
         response = self.client.post(
             self.url,
             data=json.dumps(update_data),
             content_type="application/json",
-            HTTP_X_REQUESTED_WITH="XMLHttpRequest"
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
-        
+
         assert response.status_code == 200
         assert response.json()["status"] == "success"
-        
-        # Verify database update
+
         config.refresh_from_db()
-        assert config.scheduler_weekly_analysis_day_of_week == "tue"
-        assert config.scheduler_weekly_analysis_hour == 14
-        assert config.scheduler_weekly_analysis_minute == 30
+        assert config.scheduler_weekly_analysis_day_of_week == day_map[local_dt.weekday()]
+        assert config.scheduler_weekly_analysis_hour == local_dt.hour
+        assert config.scheduler_weekly_analysis_minute == local_dt.minute
 
     def test_post_invalid_data(self):
         """Test that invalid POST data returns an error."""

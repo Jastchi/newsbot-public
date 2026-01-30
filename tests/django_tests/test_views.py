@@ -926,6 +926,49 @@ class TestLogStreamView:
         assert response.status_code == 403
         assert "Invalid log file path" in response.content.decode()
 
+    @patch("web.newsserver.views.sleep")
+    @patch("web.newsserver.services.log_service.settings")
+    def test_stream_returns_initial_content_then_connected(
+        self,
+        mock_settings,
+        mock_sleep,
+        request_factory,
+        temp_logs_dir,
+    ):
+        """Test that stream sends initial_content with current tail then connected."""
+        import json
+
+        mock_settings.BASE_DIR = temp_logs_dir.parent
+
+        # Stop after connected so we don't block on poll loop
+        def sleep_raise(_duration):
+            raise StopIteration()
+
+        mock_sleep.side_effect = sleep_raise
+
+        request = request_factory.get("/logs/stream/?log=newsbot.log")
+        response = log_stream_view(request)
+
+        assert response.status_code == 200
+        assert isinstance(response, StreamingHttpResponse)
+
+        stream_iter = iter(response.streaming_content)
+        first_chunk = next(stream_iter).decode("utf-8")
+        second_chunk = next(stream_iter).decode("utf-8")
+
+        # Parse SSE: "data: {...}\n\n"
+        first_data = json.loads(first_chunk.strip().replace("data: ", ""))
+        second_data = json.loads(second_chunk.strip().replace("data: ", ""))
+
+        assert first_data["type"] == "initial_content"
+        expected_content = (
+            "2025-12-23 10:00:00 - INFO - Test log line 1\n"
+            "2025-12-23 10:01:00 - INFO - Test log line 2\n"
+        )
+        assert first_data["content"] == expected_content
+
+        assert second_data["type"] == "connected"
+
     @patch("web.newsserver.services.log_service.settings")
     @patch("web.newsserver.views._stream_log_file")
     def test_stream_new_log_lines(
@@ -1160,7 +1203,8 @@ class TestLogStreamView:
 
         generator = _stream_log_file(log_file)
 
-        # Read connected event
+        # Read initial_content then connected
+        next(generator)
         next(generator)
 
         # Delete file
@@ -1208,7 +1252,8 @@ class TestLogStreamView:
 
         generator = _stream_log_file(log_file)
 
-        # Read connected event
+        # Read initial_content then connected
+        next(generator)
         next(generator)
 
         # Truncate file (simulate rotation)
@@ -1232,60 +1277,63 @@ class TestLogStreamView:
             pass
 
     @patch("web.newsserver.views.sleep")
-    @patch("pathlib.Path.open")
     def test_stream_log_file_function_read_error(
         self,
-        mock_open,
         mock_sleep,
         tmp_path,
     ):
         """Test _stream_log_file handles read errors."""
-        import time
-
         from web.newsserver.views import _stream_log_file
 
         log_file = tmp_path / "test.log"
-        log_file.write_text("Initial line\n")
+        log_file.write_text("Initial line\n")  # real open, before patching Path.open
 
-        generator = _stream_log_file(log_file)
+        with patch("pathlib.Path.open") as mock_open:
+            # First open (initial read): return context manager yielding file-like with content
+            file_like = Mock()
+            file_like.readlines.return_value = ["Initial line\n"]
+            file_like.tell.return_value = 13
+            mock_open.return_value.__enter__.return_value = file_like
+            mock_open.return_value.__exit__.return_value = None
 
-        # Read connected event
-        next(generator)
+            open_call_count = 0
 
-        # Mock open to raise error after first successful open
-        original_open = log_file.open
-        open_call_count = 0
+            def open_side_effect(*args, **kwargs):
+                nonlocal open_call_count
+                open_call_count += 1
+                if open_call_count <= 1:
+                    return mock_open.return_value
+                raise IOError("Read error")
 
-        def open_side_effect(*args, **kwargs):
-            nonlocal open_call_count
-            open_call_count += 1
-            if open_call_count <= 2:  # Allow initial setup
-                return original_open(*args, **kwargs)
-            raise IOError("Read error")
+            mock_open.side_effect = open_side_effect
 
-        mock_open.side_effect = open_side_effect
+            generator = _stream_log_file(log_file)
 
-        # Mock sleep side effect
-        call_count = 0
+            # Read initial_content then connected
+            next(generator)
+            next(generator)
 
-        def sleep_side_effect(duration):
-            nonlocal call_count
-            call_count += 1
-            if call_count > 1:
-                raise StopIteration
+            # Mock sleep so we don't block; raise after first sleep to stop generator
+            call_count = 0
 
-        mock_sleep.side_effect = sleep_side_effect
+            def sleep_side_effect(duration):
+                nonlocal call_count
+                call_count += 1
+                if call_count > 1:
+                    raise StopIteration
 
-        # Should handle read error
-        events = []
-        try:
-            for _ in range(3):
-                event = next(generator)
-                events.append(event)
-                if "Error reading log" in event:
-                    break
-        except (StopIteration, KeyboardInterrupt):
-            pass
+            mock_sleep.side_effect = sleep_side_effect
+
+            # Should handle read error (patch must stay active so next open raises)
+            events = []
+            try:
+                for _ in range(3):
+                    event = next(generator)
+                    events.append(event)
+                    if "Error reading log" in event:
+                        break
+            except (StopIteration, KeyboardInterrupt):
+                pass
 
         # Check that we got the error message or at least tried
         content = "".join(events)

@@ -12,26 +12,37 @@
             margin: 0;
             padding: 0;
         }
+        .intro {
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
         .header {
             background: #667eea;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-color: #667eea;
             color: white;
-            padding: 24px 2px 16px 2px;
-            border-radius: 8px;
+            padding: 20px 16px 6px;
             text-align: center;
-            box-shadow: 0 2px 3px rgba(0,0,0,0.05);
-            margin-bottom: 10px;
+        }
+        .header h1 {
+            margin: 0 0 4px 0;
+        }
+        .header-subline {
+            font-size: 0.95em;
+            opacity: 0.95;
+            margin: 0;
         }
         .global-summary {
-            background: #f5f5f5;  
-            border-radius: 8px; 
-            line-height: 1.4; 
+            background: #e8e6f5;
+            background: linear-gradient(135deg, #e8e6f5 0%, #e5e4f2 100%);
+            background-color: #e8e6f5;
+            padding: 6px 16px 10px;
             text-align: center;
-            border-bottom: 1.5px solid #667eea;
-            padding: 10px 2px;
-            margin-bottom: 10px;
-            border-bottom-left-radius: 0;
-            border-bottom-right-radius: 0;
+            border: none;
+            border-radius: 0 0 8px 8px;
+            line-height: 1.5;
         }
         h1 { 
             margin: 0 0 4px 0; 
@@ -53,11 +64,12 @@
             margin: 10px 0 6px 0;
             font-size: 1.3em;
         }
+        h3.sources-header {
+            margin-top: 10px;
+        }
         .story {
             background: white;
-            padding: 10px 2px;
             border-radius: 8px;
-            margin-bottom: 10px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
         .story-title {
@@ -74,20 +86,37 @@
         .story-summary {
             line-height: 1.6;
             text-align: justify;
-            margin-bottom: 12px;
+            margin-bottom: 6px;
             margin-left: 0;
             margin-right: 0;
-            padding: 0;
+            padding: 14px 4px;
             color: rgb(85,85,85);
-            border-bottom: 1.5px solid #667eea;
-            background: transparent;
-            border-radius: 4px;
-            border-bottom-left-radius: 0;
-            border-bottom-right-radius: 0;
+            background: #f8f9fa;
+            border: 1px solid #e8e8e8;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .story-summary .story-summary-title {
+            font-size: 1.6em;
+            font-weight: 700;
+            word-wrap: break-word;
+            color: #667eea;
+            margin: 0 0 10px 0;
+            text-align: left;
         }
         .story-summary-content {
-            padding: 4px 4px;
+            padding: 0;
             display: block;
+            text-align: justify;
+        }
+        .story-summary-label {
+            font-size: 0.85em;
+            font-weight: 700;
+            color: #667eea;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+            text-align: left;
         }
         .story-meta {
             color: #666;
@@ -98,33 +127,37 @@
             border-radius: 4px;
         }
         .source-coverage {
-            background: #f5f5f5;
-            border-radius: 6px;
-            padding: 4px 2px;
-            margin-bottom: 3px;
-            border: 1px solid #e8e8e8;
+            margin-bottom: 6px;
+            padding-bottom: 4px;
+            padding-left: 4px;
+            border-left: 1px solid #667eea;
+            border-bottom: 1px solid #667eea;
+            border-radius: 4px 0 4px 4px;
+        }
+        .source-coverage:last-child {
+            margin-bottom: 10px;
+            padding-bottom: 0;
         }
         .source-header {
-            font-size: 1.2em;
+            font-size: 1.05em;
             font-weight: 700;
             color: #667eea;
-            margin-left: 0;
-            margin-bottom: 2px;
+            margin-bottom: 8px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #e0e0e0;
         }
         .article-item-border {
-            border-left: 1px solid #667eea;
-            background: white;
-            border-radius: 0 4px 4px 0;
+            border: none;
+            background: transparent;
         }
         .article-item {
-            padding: 2px 2px;
-            margin: 1px 0 0 1px;
-            border-radius: 0;
+            padding: 6px 0 6px 0;
+            margin: 0;
         }
         .article-title {
             font-weight: 600;
@@ -176,6 +209,18 @@
             background: #f8f9fa;
             border-radius: 8px;
         }
+        .footer p {
+            margin: 0 0 4px 0;
+        }
+        .footer p:last-child {
+            margin-bottom: 0;
+        }
+        .footer-divider {
+            height: 0;
+            border: none;
+            border-top: 1px solid #e0e0e0;
+            margin: 4px 0;
+        }
         a { 
             color: #667eea; 
             text-decoration: none;
@@ -187,7 +232,7 @@
         }
         .stories-list-header {
             text-align: center;
-            margin-top: 10px;
+            margin-top: 2px;
             margin-bottom: 8px;
             text-decoration: underline;
         }
@@ -228,37 +273,36 @@
     </style>
 </head>
 <body>
-    <div class="header" style="background: #667eea; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 24px 2px 16px 2px; border-radius: 8px; text-align: center; margin-bottom: 10px;">
-        <h1>📰 Top Stories in {{ topic }}</h1>
-        <p>Cross-Source News Coverage & Sentiment Analysis</p>
-        <p>{{ date_range }}</p>
-    </div>
-    
-    <div class="global-summary">
-        <h2>Summary</h2>
-        <p><strong>Total Stories:</strong> {{ story_count }} |
-        <strong>Total Articles:</strong> {{ total_articles }} |
-        <strong>Sources Analyzed:</strong> {{ sources|unique|list|length }}</p>
-        <p><strong>Sources:</strong> {{ sources|unique|sort|join(', ') }}</p>
-        
-        <h3 class="stories-list-header">Stories</h3>
-        <ol class="stories-list">
-        {% for analysis in story_analyses %}
-            <li class="stories-list-item"><a href="#story-{{ loop.index }}">{{ analysis.story.title }}</a></li>
-        {% endfor %}
-        </ol>
+    <div class="intro">
+        <div class="header">
+            <h1>📰 Top Stories in {{ topic }}</h1>
+            <p class="header-subline">Cross-Source News Coverage & Sentiment Analysis</p>
+            <p class="header-subline">{{ date_range }}</p>
+        </div>
+        <div class="global-summary">
+            <h3 class="stories-list-header">Stories</h3>
+            <ol class="stories-list">
+            {% for analysis in story_analyses %}
+                <li class="stories-list-item"><a href="#story-{{ loop.index }}">{{ analysis.story.title }}</a></li>
+            {% endfor %}
+            </ol>
+        </div>
     </div>
     
     {% for analysis in story_analyses %}
     <div class="story" id="story-{{ loop.index }}">
-        <div class="story-title">{{ loop.index }}. {{ analysis.story.title }}</div>
-
         {% if analysis.story.story_summary %}
-        <div class="story-summary"><span class="story-summary-content">{{ analysis.story.story_summary }}</span></div>
+        <div class="story-summary">
+            <div class="story-summary-title">{{ loop.index }}. {{ analysis.story.title }}</div>
+            <div class="story-summary-label">Story summary</div>
+            <span class="story-summary-content">{{ analysis.story.story_summary }}</span>
+        </div>
+        {% else %}
+        <div class="story-title">{{ loop.index }}. {{ analysis.story.title }}</div>
         {% endif %}
         
         
-        <h3>How Different Sources Cover This Story:</h3>
+        <h3 class="sources-header">How Different Sources Cover This Story</h3>
         
         {% for source in analysis.story.sources|unique|sort %}
         <div class="source-coverage">
@@ -302,8 +346,13 @@
     
     <div class="footer">
         <p>Generated by NewsBot on {{ date }}</p>
+        <p><strong>Total Stories:</strong> {{ story_count }} |
+        <strong>Total Articles:</strong> {{ total_articles }} |
+        <strong>Sources Analyzed:</strong> {{ sources|unique|list|length }}</p>
+        <p><strong>Sources:</strong> {{ sources|unique|sort|join(', ') }}</p>
+        <p><strong>Also available:</strong> PLACEHOLDER_NEWSLETTERS</p>
+        <div class="footer-divider"></div>
         <p>This report analyzes how different news sources cover the same stories. If you have any questions or feedback, are interested in other topics or want to stop receiving these emails, please contact me at <a href="mailto:support@newsbot.com">PLACEHOLDER_EMAIL_ADDRESS</a>.</p>
-        <p>Newsletters available: PLACEHOLDER_NEWSLETTERS</p>
     </div>
 </body>
 </html>

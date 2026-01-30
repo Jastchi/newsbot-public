@@ -47,6 +47,7 @@ jobs:
             --name newsbot-api \
             --restart unless-stopped \
             -p 9001:8000 \
+            -v ${{ vars.API_LOG_DIR }}:/app/logs \
             -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
             -e SUPABASE_SERVICE_KEY="${{ secrets.SUPABASE_SECRET_KEY }}" \
             -e GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
@@ -116,6 +117,7 @@ jobs:
             --name newsbot-web \
             --restart unless-stopped \
             -p 9000:8000 \
+            -v ${{ vars.API_LOG_DIR }}:/app/logs \
             -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
             -e SUPABASE_SERVICE_KEY="${{ secrets.SUPABASE_SECRET_KEY }}" \
             -e DJANGO_SECRET_KEY="${{ secrets.DJANGO_SECRET_KEY }}" \

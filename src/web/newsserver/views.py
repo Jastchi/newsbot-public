@@ -2,7 +2,7 @@
 
 import json
 from collections.abc import Generator
-from datetime import datetime, time, timedelta
+from datetime import UTC, datetime, time, timedelta
 from pathlib import Path
 from time import sleep
 from typing import TYPE_CHECKING, ClassVar, cast
@@ -19,6 +19,8 @@ from django.http import (
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.generic import TemplateView
+
+from newsbot.constants import TZ
 
 from .models import AnalysisSummary, NewsConfig, ScrapeSummary
 from .services.config_service import ConfigService
@@ -328,10 +330,14 @@ class LogsView(TemplateView):
         return context
 
 
+MAX_INITIAL_LINES = 1000
+
+
 def _stream_log_file(log_path: Path) -> Generator[str, None, None]:
     """
     Stream new lines from a log file.
 
+    Sends the last N lines as initial_content, then streams new lines.
     Tracks file position and yields new lines as they're written.
     Uses a polling approach to check for new content.
 
@@ -342,15 +348,17 @@ def _stream_log_file(log_path: Path) -> Generator[str, None, None]:
         Server-Sent Events formatted strings with new log lines
 
     """
-    # Initialize position to end of file
     try:
-        # Get initial file size
+        last_position = 0
         if log_path.exists():
             with log_path.open(encoding="utf-8", errors="replace") as f:
-                f.seek(0, 2)  # Seek to end
+                lines = f.readlines()
+                initial_content = "".join(lines[-MAX_INITIAL_LINES:])
                 last_position = f.tell()
-        else:
-            last_position = 0
+            initial_payload = json.dumps(
+                {"type": "initial_content", "content": initial_content},
+            )
+            yield f"data: {initial_payload}\n\n"
 
         # Send initial keepalive
         connected_payload = json.dumps({"type": "connected"})
@@ -571,20 +579,15 @@ class NewsSchedulerDashboardView(
             week_start + timedelta(days=analysis_day_idx)
         ).date()
 
-        # Use the configured hour/minute
+        # Configured hour/minute in constants.TZ
         analysis_ev_time = time(
             hour=config.scheduler_weekly_analysis_hour,
             minute=config.scheduler_weekly_analysis_minute,
         )
-
-        # Construct aware datetime if possible, or just treat
-        # as UTC for now to be consistent with how the browser
-        # sends it (toISOString uses UTC). Adding 'Z' ensures
-        # FullCalendar knows it's UTC and converts to local.
-        analysis_start_iso = (
-            f"{analysis_event_date.isoformat()}"
-            f"T{analysis_ev_time.isoformat()}Z"
-        )
+        analysis_start_iso = TZ.localize(datetime.combine(
+            analysis_event_date,
+            analysis_ev_time,
+        )).isoformat()
 
         return {
             "id": config.pk,
@@ -621,13 +624,16 @@ class NewsSchedulerDashboardView(
             new_dt = parse_datetime(start_str)
 
             if new_dt:
-                # Update the specific scheduler fields in your model
-                # Note: new_dt is usually UTC if sent via toISOString()
+                # Frontend sends UTC. Convert to TZ so stored H:M match
+                # what the user sees on the calendar.
+                if new_dt.tzinfo is None:
+                    new_dt = new_dt.replace(tzinfo=UTC)
+                local_dt = new_dt.astimezone(TZ)
                 config.scheduler_weekly_analysis_day_of_week = (
-                    self.REV_DAY_MAP.get(new_dt.weekday())
+                    self.REV_DAY_MAP.get(local_dt.weekday())
                 )
-                config.scheduler_weekly_analysis_hour = new_dt.hour
-                config.scheduler_weekly_analysis_minute = new_dt.minute
+                config.scheduler_weekly_analysis_hour = local_dt.hour
+                config.scheduler_weekly_analysis_minute = local_dt.minute
                 config.save()
 
                 return JsonResponse({"status": "success"})

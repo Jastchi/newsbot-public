@@ -326,8 +326,18 @@
         eventSource.onmessage = function(event) {
             try {
                 const data = JSON.parse(event.data);
-                
-                if (data.type === 'connected') {
+
+                if (data.type === 'initial_content') {
+                    const pre = document.querySelector('.log-content');
+                    if (pre) {
+                        pre.textContent = data.content;
+                        applySyntaxHighlighting();
+                        const logContainer = document.querySelector('.log-container');
+                        if (logContainer) {
+                            logContainer.scrollTop = logContainer.scrollHeight;
+                        }
+                    }
+                } else if (data.type === 'connected') {
                     isStreaming = true;
                     updateStreamUI(true);
                 } else if (data.type === 'log_line') {

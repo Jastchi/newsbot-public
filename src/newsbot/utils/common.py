@@ -5,13 +5,36 @@ import logging.handlers
 import os
 import re
 import sys
+import time
+from datetime import datetime
 from pathlib import Path
 
 from bs4 import BeautifulSoup
 
+from newsbot.constants import TZ
 from utilities.models import ConfigModel
 
 logger = logging.getLogger(__name__)
+
+
+class TimezoneFormatter(logging.Formatter):
+    """Log formatter using configured TZ (same as scheduler)."""
+
+    def __init__(
+        self,
+        fmt: str | None = None,
+        datefmt: str | None = None,
+    ) -> None:
+        """Initialize formatter; timestamps use constants.TZ."""
+        super().__init__(fmt=fmt, datefmt=datefmt)
+        self.converter = self._timetuple_in_tz
+
+    @staticmethod
+    def _timetuple_in_tz(sec: float | None) -> time.struct_time:
+        """Struct_time in configured TZ for log timestamps."""
+        if sec is None:
+            sec = time.time()
+        return datetime.fromtimestamp(sec, tz=TZ).timetuple()
 
 
 def clean_text(text: str, config_name: str | None = None) -> str:
@@ -86,15 +109,19 @@ def setup_logging(
         utc=False,
         encoding="utf-8",
     )
-    rotating_handler.setFormatter(logging.Formatter(log_format))
+    tz_formatter = TimezoneFormatter(log_format)
+    rotating_handler.setFormatter(tz_formatter)
 
-    # Configure logging
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(tz_formatter)
+
+    # Configure logging (timestamps in configured TZ, same as scheduler)
     logging.basicConfig(
         level=getattr(logging, level),
         format=log_format,
         handlers=[
             rotating_handler,
-            logging.StreamHandler(),
+            stream_handler,
             *error_handlers,
         ],
     )
