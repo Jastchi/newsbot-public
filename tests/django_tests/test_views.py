@@ -666,7 +666,7 @@ class TestLogsView:
         assert context["is_current_log_active"] is False
         assert "Old log line" in context["log_content"]
 
-    @patch("django.conf.settings")
+    @patch("web.newsserver.services.log_service.settings")
     def test_get_context_data_empty_logs_dir(
         self,
         mock_settings,

@@ -16,6 +16,10 @@ CLUSTER_SIZE_THRESHOLD = 3
 MAX_ARTICLE_LENGTH_FALLBACK = 300
 MAX_ARTICLE_CONTENT_LENGTH = 4000  # Max length of article content to process
 
+# Max article content length for sentiment analysis (keeps under ~512
+# tokens for pysentimiento)
+SENTIMENT_MAX_CONTENT_LENGTH = 2048
+
 # Batch size for embedding generation
 # (optimized for Raspberry Pi 5 with 8GB RAM)
 EMBEDDING_BATCH_SIZE = 16

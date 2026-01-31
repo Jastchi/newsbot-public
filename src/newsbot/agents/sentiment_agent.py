@@ -15,7 +15,11 @@ import numpy as np
 from textblob import TextBlob
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
-from newsbot.constants import POLARITY_THRESHOLD, SENTIMENT_THRESHOLD
+from newsbot.constants import (
+    POLARITY_THRESHOLD,
+    SENTIMENT_MAX_CONTENT_LENGTH,
+    SENTIMENT_THRESHOLD,
+)
 from newsbot.models import (
     Article,
     SentimentAnalysisDict,
@@ -90,10 +94,11 @@ class SentimentAnalysisAgent:
 
         """
         try:
-            # Analyze title and content/summary
-            text_to_analyze = (
-                f"{article.title}. {article.summary or article.content}"
-            )
+            # Analyze title and truncated content (not summary)
+            content = article.content or article.summary or ""
+            if len(content) > SENTIMENT_MAX_CONTENT_LENGTH:
+                content = content[:SENTIMENT_MAX_CONTENT_LENGTH]
+            text_to_analyze = f"{article.title}. {content}"
 
             if self.method == "vader":
                 sentiment = self._analyze_vader(text_to_analyze)

@@ -115,7 +115,8 @@ def setup_logging(
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(tz_formatter)
 
-    # Configure logging (timestamps in configured TZ, same as scheduler)
+    # Configure logging, with force=True, so that loggers are
+    # reconfigured on each job run.
     logging.basicConfig(
         level=getattr(logging, level),
         format=log_format,
@@ -124,6 +125,7 @@ def setup_logging(
             stream_handler,
             *error_handlers,
         ],
+        force=True,
     )
 
     logger.info("Logging initialized")
