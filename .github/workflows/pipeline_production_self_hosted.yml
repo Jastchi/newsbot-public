@@ -133,7 +133,7 @@ jobs:
 
       - name: Update check run
         if: always() && steps.pr.outputs.pr_found == 'true'
-        uses: actions/github-script@v6
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
