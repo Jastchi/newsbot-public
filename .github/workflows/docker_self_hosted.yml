@@ -21,7 +21,7 @@ jobs:
           driver: docker-container
 
       - name: Build API image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.api
@@ -80,7 +80,7 @@ jobs:
           driver: docker-container
 
       - name: Build Web image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.web
