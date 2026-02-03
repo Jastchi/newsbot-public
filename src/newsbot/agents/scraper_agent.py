@@ -656,38 +656,52 @@ class NewsScraperAgent:
         articles = []
         cutoff_date = datetime.now(TZ) - timedelta(days=self.lookback_days)
 
-        try:
-            # Set socket timeout for feedparser
+        @retry(
+            stop=stop_after_attempt(self.max_retries),
+            wait=wait_exponential(multiplier=1, min=2, max=16),
+            retry=retry_if_exception_type((TimeoutError, URLError, OSError)),
+            before_sleep=before_sleep_log(logger, logging.WARNING),
+            reraise=False,
+        )
+        def _fetch_feed() -> FeedParserDict:
             socket.setdefaulttimeout(30)
-
-            # Use feedparser with agent parameter for User-Agent header
-            feed: FeedParserDict = feedparser.parse(
-                source["rss_url"],
-                agent=self.REQUEST_AGENT,
-            )
-
-            # Reset socket timeout
-            socket.setdefaulttimeout(None)
-
-            for entry in feed.entries:
-                article = self._process_rss_entry(
-                    entry,
-                    source["name"],
-                    cutoff_date,
+            try:
+                return feedparser.parse(
+                    source["rss_url"],
+                    agent=self.REQUEST_AGENT,
                 )
-                if article:
-                    articles.append(article)
+            finally:
+                socket.setdefaulttimeout(None)
 
-                # Add delay between articles from same source
-                time.sleep(1.5)
-
+        try:
+            feed = _fetch_feed()
+        except RetryError:
+            logger.warning(
+                "Max retries reached for RSS feed %s",
+                source["rss_url"],
+            )
+            return articles
         except (
             requests.exceptions.RequestException,
             OSError,
             URLError,
         ):
             logger.exception(
-                f"Error parsing RSS feed {source['rss_url']}",
+                "Error parsing RSS feed %s",
+                source["rss_url"],
             )
+            return articles
+
+        for entry in feed.entries:
+            article = self._process_rss_entry(
+                entry,
+                source["name"],
+                cutoff_date,
+            )
+            if article:
+                articles.append(article)
+
+            # Add delay between articles from same source
+            time.sleep(1.5)
 
         return articles
