@@ -30,7 +30,7 @@ def mock_scheduler():
 
 @pytest.fixture
 def sample_schedules_response():
-    """Sample API schedules response."""
+    """Sample API schedules response (daily scrape at fixed 00:05)."""
     return {
         "configs": [
             {
@@ -38,9 +38,7 @@ def sample_schedules_response():
                 "name": "Test Config",
                 "daily_scrape": {
                     "enabled": True,
-                    "hour": 2,
-                    "minute": 0,
-                    "cron": "0 2 * * *",
+                    "cron": "5 0 * * *",
                 },
                 "weekly_analysis": {
                     "enabled": True,
@@ -56,9 +54,7 @@ def sample_schedules_response():
                 "name": "Another Config",
                 "daily_scrape": {
                     "enabled": True,
-                    "hour": 3,
-                    "minute": 30,
-                    "cron": "30 3 * * *",
+                    "cron": "5 0 * * *",
                 },
                 "weekly_analysis": {
                     "enabled": False,
@@ -290,12 +286,20 @@ class TestRemoveStaleJobs:
 class TestRefreshAndScheduleTasks:
     """Tests for refresh_and_schedule_tasks function."""
 
+    @patch("scheduler.wait_for_job_completion")
+    @patch("scheduler.trigger_daily_scrape")
     @patch("scheduler.make_api_request")
     def test_fetches_and_schedules_tasks(
-        self, mock_api_request, mock_scheduler, sample_schedules_response
+        self,
+        mock_api_request,
+        mock_trigger_daily_scrape,
+        mock_wait_for_job,
+        mock_scheduler,
+        sample_schedules_response,
     ):
-        """Test that schedules are fetched and tasks are scheduled."""
+        """Test that schedules are fetched, weekly jobs scheduled, scrapes run in sequence."""
         mock_api_request.return_value = sample_schedules_response
+        mock_trigger_daily_scrape.return_value = {"job_id": "test-job-id"}
 
         api_base_url = "http://localhost:8000"
 
@@ -306,8 +310,21 @@ class TestRefreshAndScheduleTasks:
             "GET", f"{api_base_url}/schedules"
         )
 
-        # Verify jobs were added (2 daily scrapes + 1 weekly analysis)
-        assert mock_scheduler.add_job.call_count == 3
+        # Only weekly analysis is a separate job; daily scrapes run in refresh job
+        assert mock_scheduler.add_job.call_count == 1
+        call_args = mock_scheduler.add_job.call_args
+        assert call_args[0][0] == scheduler.trigger_weekly_analysis
+
+        # Daily scrapes triggered in sequence; we wait for each to complete
+        assert mock_trigger_daily_scrape.call_count == 2
+        mock_trigger_daily_scrape.assert_any_call(
+            api_base_url, "test_config"
+        )
+        mock_trigger_daily_scrape.assert_any_call(
+            api_base_url, "another_config"
+        )
+        assert mock_wait_for_job.call_count == 2
+        mock_wait_for_job.assert_any_call(api_base_url, "test-job-id")
 
     @patch("scheduler.make_api_request")
     def test_handles_api_failure(self, mock_api_request, mock_scheduler):
@@ -352,11 +369,15 @@ class TestRefreshAndScheduleTasks:
         # Should not add any jobs
         mock_scheduler.add_job.assert_not_called()
 
+    @patch("scheduler.trigger_daily_scrape")
     @patch("scheduler.make_api_request")
     def test_schedules_only_enabled_tasks(
-        self, mock_api_request, mock_scheduler
+        self,
+        mock_api_request,
+        mock_trigger_daily_scrape,
+        mock_scheduler,
     ):
-        """Test that only enabled tasks are scheduled."""
+        """Test that only enabled tasks are scheduled; no daily scrape when disabled."""
         mock_api_request.return_value = {
             "configs": [
                 {
@@ -380,6 +401,8 @@ class TestRefreshAndScheduleTasks:
         assert mock_scheduler.add_job.call_count == 1
         call_args = mock_scheduler.add_job.call_args
         assert call_args[0][0] == scheduler.trigger_weekly_analysis
+        # Daily scrape not triggered (disabled)
+        mock_trigger_daily_scrape.assert_not_called()
 
 
 class TestTriggerFunctions:

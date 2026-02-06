@@ -423,8 +423,8 @@ uv run python scripts/scheduler.py --host api.example.com --port 443
 **Options:**
 - `--host` - API server host (default: localhost)
 - `--port` - API server port (default: 8000)
-- `--refresh-hour` - Hour to refresh schedules (default: 0)
-- `--refresh-minute` - Minute to refresh schedules (default: 5)
+- `--refresh-hour` - Hour to refresh schedules (default from `newsbot.constants`)
+- `--refresh-minute` - Minute to refresh schedules (default from `newsbot.constants`)
 
 ### 4. Docker Deployment
 

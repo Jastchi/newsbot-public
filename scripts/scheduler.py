@@ -9,8 +9,8 @@ This script runs as a service that:
 Arguments:
     --host HOST         API server host (default: localhost)
     --port PORT         API server port (default: 8000)
-    --refresh-hour H    Hour to refresh schedules (0-23, default: 0)
-    --refresh-minute M  Minute to refresh schedules (0-59, default: 5)
+    --refresh-hour H    Hour to refresh schedules (0-23)
+    --refresh-minute M  Minute to refresh schedules (0-59)
 
 Examples:
     # Run with default settings (localhost:8000)
@@ -39,7 +39,12 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
-from newsbot.constants import TIMEZONE_STR, TZ
+from newsbot.constants import (
+    DAILY_SCRAPE_HOUR,
+    DAILY_SCRAPE_MINUTE,
+    TIMEZONE_STR,
+    TZ,
+)
 from newsbot.error_handling.email_handler import send_error_email_once
 
 # Configure logging
@@ -64,6 +69,10 @@ HEALTH_WAIT_TIMEOUT = 120
 HEALTH_POLL_INITIAL = 0.25
 HEALTH_POLL_CAP = 5.0
 HTTP_OK = 200
+
+# Wait for run job: max time per config, poll interval
+JOB_WAIT_TIMEOUT = 3600 # 1 hour
+JOB_POLL_INTERVAL = 60 # 1 minute
 
 
 def make_api_request(
@@ -160,13 +169,65 @@ def wait_for_api_healthy(
     return False
 
 
-def trigger_daily_scrape(api_base_url: str, config_key: str) -> None:
+def wait_for_job_completion(
+    api_base_url: str,
+    job_id: str,
+    *,
+    timeout_seconds: float = JOB_WAIT_TIMEOUT,
+    poll_interval: float = JOB_POLL_INTERVAL,
+) -> bool:
+    """
+    Poll job status until completed or failed or timeout.
+
+    Args:
+        api_base_url: Base URL of the API
+        job_id: Job ID returned from POST /run/{config_key}
+        timeout_seconds: Max time to wait
+        poll_interval: Seconds between polls
+
+    Returns:
+        True if job completed, False if failed or timeout
+
+    """
+    deadline = time.monotonic() + timeout_seconds
+    url = f"{api_base_url}/jobs/{job_id}"
+
+    while time.monotonic() < deadline:
+        result = make_api_request("GET", url, timeout=30)
+        if not result:
+            logger.warning(
+                "Job %s: could not get status, retrying in %ss",
+                job_id,
+                poll_interval,
+            )
+            time.sleep(poll_interval)
+            continue
+
+        status = result.get("status")
+        if status == "completed":
+            logger.info("Job %s completed", job_id)
+            return True
+        if status == "failed":
+            logger.warning("Job %s failed: %s", job_id, result.get("error"))
+            # Return True so the next config's scrape still runs
+            return True
+
+        time.sleep(poll_interval)
+
+    logger.error("Job %s did not complete within %ss", job_id, timeout_seconds)
+    return False
+
+
+def trigger_daily_scrape(api_base_url: str, config_key: str) -> dict | None:
     """
     Trigger daily scrape for a config via API.
 
     Args:
         api_base_url: Base URL of the API (e.g., http://localhost:8000)
         config_key: Configuration key to scrape
+
+    Returns:
+        Response dict with job_id etc., or None on error
 
     """
     url = f"{api_base_url}/run/{config_key}"
@@ -177,6 +238,7 @@ def trigger_daily_scrape(api_base_url: str, config_key: str) -> None:
         logger.info(f"Daily scrape triggered for '{config_key}': {result}")
     else:
         logger.error(f"Failed to trigger daily scrape for '{config_key}'")
+    return result
 
 
 def trigger_weekly_analysis(api_base_url: str, config_key: str) -> None:
@@ -283,6 +345,17 @@ def schedule_weekly_analysis(
     )
 
 
+def _run_daily_scrapes_sequentially(
+    api_base_url: str,
+    config_keys: list[str],
+) -> None:
+    """Trigger daily scrape per config; wait for each to complete."""
+    for config_key in config_keys:
+        result = trigger_daily_scrape(api_base_url, config_key)
+        if result and result.get("job_id"):
+            wait_for_job_completion(api_base_url, result["job_id"])
+
+
 def remove_stale_jobs(
     scheduler: BlockingScheduler,
     active_config_keys: set[str],
@@ -302,8 +375,8 @@ def remove_stale_jobs(
             continue
 
         # Extract config key from job ID
-        # Format: scheduler_daily_scrape_{config_key} or
-        #         scheduler_weekly_analysis_{config_key}
+        # Format: scheduler_weekly_analysis_{config_key}
+        # (daily scrape runs inside refresh job, no per-config job)
         parts = job.id.split("_", 3)
         if len(parts) >= MIN_JOB_ID_PARTS:
             config_key = parts[3]
@@ -342,6 +415,9 @@ def refresh_and_schedule_tasks(
         return False
 
     active_config_keys = set()
+    # Daily scrape config keys in API order (dependency order when API
+    # returns exclude-from configs first).
+    daily_scrape_config_keys: list[str] = []
 
     for config in configs:
         config_key = config.get("key")
@@ -360,16 +436,9 @@ def refresh_and_schedule_tasks(
 
         active_config_keys.add(config_key)
 
-        # Schedule daily scrape if enabled
         daily_scrape = config.get("daily_scrape", {})
         if daily_scrape.get("enabled"):
-            schedule_daily_scrape(
-                scheduler,
-                api_base_url,
-                config_key,
-                daily_scrape.get("hour", 2),
-                daily_scrape.get("minute", 0),
-            )
+            daily_scrape_config_keys.append(config_key)
 
         # Schedule weekly analysis if enabled
         weekly_analysis = config.get("weekly_analysis", {})
@@ -390,6 +459,16 @@ def refresh_and_schedule_tasks(
         f"Schedule refresh complete. "
         f"{len(active_config_keys)} active configs.",
     )
+
+    # Run daily scrapes in sequence (after refresh; no per-config cron).
+    # Wait for each scrape to finish before starting the next.
+    if daily_scrape_config_keys:
+        logger.info(
+            "Running daily scrapes (%s) after refresh.",
+            ", ".join(daily_scrape_config_keys),
+        )
+        _run_daily_scrapes_sequentially(api_base_url, daily_scrape_config_keys)
+
     return True
 
 
@@ -471,15 +550,18 @@ Examples:
     parser.add_argument(
         "--refresh-hour",
         type=int,
-        default=0,
-        help="Hour to refresh schedules (0-23, default: 0)",
+        default=DAILY_SCRAPE_HOUR,
+        help=f"Hour to refresh schedules (0-23, default: {DAILY_SCRAPE_HOUR})",
     )
 
     parser.add_argument(
         "--refresh-minute",
         type=int,
-        default=5,
-        help="Minute to refresh schedules (0-59, default: 5)",
+        default=DAILY_SCRAPE_MINUTE,
+        help=(
+            "Minute to refresh schedules (0-59, "
+            f"default: {DAILY_SCRAPE_MINUTE})"
+        ),
     )
 
     args = parser.parse_args()

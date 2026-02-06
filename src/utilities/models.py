@@ -156,6 +156,7 @@ class ConfigModel(BaseModel):
     )
     logging: LoggingConfigModel = Field(default_factory=LoggingConfigModel)
     database: DatabaseConfigModel = Field(default_factory=DatabaseConfigModel)
+    exclude_articles_from_config_keys: list[str] = Field(default_factory=list)
 
     class Config:
         """Pydantic configuration."""

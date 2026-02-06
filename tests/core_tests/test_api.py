@@ -128,8 +128,6 @@ class TestGetAllSchedules:
                 "display_name": "Test Schedules Config",
                 "is_active": True,
                 "scheduler_daily_scrape_enabled": True,
-                "scheduler_daily_scrape_hour": 2,
-                "scheduler_daily_scrape_minute": 0,
                 "scheduler_weekly_analysis_enabled": True,
                 "scheduler_weekly_analysis_day_of_week": "mon",
                 "scheduler_weekly_analysis_hour": 9,
@@ -148,7 +146,7 @@ class TestGetAllSchedules:
         assert test_schedule is not None
         assert test_schedule["name"] == "Test Schedules Config"
         assert test_schedule["daily_scrape"]["enabled"] is True
-        assert test_schedule["daily_scrape"]["cron"] == "0 2 * * *"
+        assert test_schedule["daily_scrape"]["cron"] == "5 0 * * *"
         assert test_schedule["weekly_analysis"]["enabled"] is True
         assert test_schedule["weekly_analysis"]["cron"] == "0 9 * * 1"
 
@@ -202,6 +200,38 @@ class TestGetAllSchedules:
         assert test_schedule["daily_scrape"]["cron"] is None
         assert test_schedule["weekly_analysis"]["enabled"] is False
         assert test_schedule["weekly_analysis"]["cron"] is None
+
+    @pytest.mark.django_db
+    def test_schedules_returned_in_dependency_order(self):
+        """Configs with exclude_articles_from_configs come after those configs."""
+        from utilities.django_models import NewsConfig
+
+        NewsConfig.objects.all().delete()
+
+        config_b, _ = NewsConfig.objects.get_or_create(
+            key="dep_config",
+            defaults={
+                "display_name": "Dependency Config",
+                "is_active": True,
+                "scheduler_daily_scrape_enabled": True,
+                "scheduler_weekly_analysis_enabled": False,
+            },
+        )
+        config_a, _ = NewsConfig.objects.get_or_create(
+            key="excluder_config",
+            defaults={
+                "display_name": "Excluder Config",
+                "is_active": True,
+                "scheduler_daily_scrape_enabled": True,
+                "scheduler_weekly_analysis_enabled": False,
+            },
+        )
+        config_a.exclude_articles_from_configs.add(config_b)
+
+        schedules = get_all_schedules()
+
+        keys = [s["key"] for s in schedules]
+        assert keys.index("dep_config") < keys.index("excluder_config")
 
 
 # ============================================================================
@@ -684,9 +714,7 @@ class TestFastAPIEndpoints:
                 "is_active": True,
                 "daily_scrape": {
                     "enabled": True,
-                    "hour": 2,
-                    "minute": 0,
-                    "cron": "0 2 * * *",
+                    "cron": "5 0 * * *",
                 },
                 "weekly_analysis": {
                     "enabled": True,
@@ -778,8 +806,6 @@ class TestAPIIntegration:
                 "llm_provider": "ollama",
                 "llm_model": "llama2",
                 "scheduler_daily_scrape_enabled": True,
-                "scheduler_daily_scrape_hour": 3,
-                "scheduler_daily_scrape_minute": 30,
                 "scheduler_weekly_analysis_enabled": True,
                 "scheduler_weekly_analysis_day_of_week": "fri",
                 "scheduler_weekly_analysis_hour": 10,
@@ -802,9 +828,8 @@ class TestAPIIntegration:
 
         assert test_schedule is not None
         assert test_schedule["name"] == "API Integration Test"
-        assert test_schedule["daily_scrape"]["hour"] == 3
-        assert test_schedule["daily_scrape"]["minute"] == 30
-        assert test_schedule["daily_scrape"]["cron"] == "30 3 * * *"
+        assert test_schedule["daily_scrape"]["enabled"] is True
+        assert test_schedule["daily_scrape"]["cron"] == "5 0 * * *"
         assert test_schedule["weekly_analysis"]["day_of_week"] == "fri"
         assert test_schedule["weekly_analysis"]["hour"] == 10
         assert test_schedule["weekly_analysis"]["minute"] == 15
@@ -888,7 +913,7 @@ class TestPydanticModels:
             key="test",
             name="Test",
             is_active=True,
-            daily_scrape={"enabled": True, "cron": "0 2 * * *"},
+            daily_scrape={"enabled": True, "cron": "5 0 * * *"},
             weekly_analysis={"enabled": True, "cron": "0 9 * * 1"},
         )
 

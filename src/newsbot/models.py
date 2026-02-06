@@ -6,7 +6,7 @@ Defines data classes and database models
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import TypedDict
 
 from pydantic import BaseModel, Field
@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from newsbot.constants import TZ
 
 
-class ViolationType(str, Enum):
+class ViolationType(StrEnum):
     """
     Categories of prompt violations detected by the judge.
 

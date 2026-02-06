@@ -5,8 +5,10 @@ from typing import cast
 from unittest.mock import Mock, patch
 
 import requests
+from feedparser.util import FeedParserDict
 
 from newsbot.agents.scraper_agent import NewsScraperAgent
+from newsbot.constants import TZ
 from newsbot.models import Article, NewsSource
 from utilities import models as config_models
 
@@ -35,6 +37,19 @@ class TestNewsScraperAgent:
         assert agent.country == "US"
         assert agent.language == "en"
         assert agent.lookback_days == 7
+
+    def test_init_with_exclude_url_check(self, sample_config):
+        """Test agent stores exclude_url_check when provided."""
+        exclude_check = Mock(return_value=False)
+        agent = NewsScraperAgent(
+            sample_config, exclude_url_check=exclude_check
+        )
+        assert agent.exclude_url_check is exclude_check
+
+    def test_init_without_exclude_url_check(self, sample_config):
+        """Test agent has exclude_url_check None when not provided."""
+        agent = NewsScraperAgent(sample_config)
+        assert agent.exclude_url_check is None
 
     @patch("newsbot.agents.scraper_agent.feedparser.parse")
     def test_scrape_rss_feed_success(
@@ -792,6 +807,73 @@ class TestNewsScraperAgent:
         articles = agent._scrape_rss_feed(source)
 
         assert len(articles) == 0
+
+    def test_process_rss_entry_excludes_when_exclude_url_check_returns_true(
+        self, sample_config
+    ):
+        """Test that _process_rss_entry returns None when exclude_url_check(link) is True."""
+        import time
+
+        exclude_check = Mock(return_value=True)
+        agent = NewsScraperAgent(
+            sample_config, exclude_url_check=exclude_check
+        )
+        cutoff_date = datetime.now(TZ) - timedelta(days=7)
+
+        class MockEntry:
+            def __init__(self):
+                self.title = "Excluded Article"
+                self.link = "https://example.com/excluded"
+                self.summary = "Summary"
+                self.published_parsed = time.struct_time(
+                    (datetime.now() - timedelta(days=1)).timetuple()
+                )
+
+            def get(self, key, default=None):
+                return getattr(self, key, default)
+
+        entry = MockEntry()
+        result = agent._process_rss_entry(
+            cast(FeedParserDict, entry), "Test Source", cutoff_date
+        )
+
+        assert result is None
+        exclude_check.assert_called_once_with("https://example.com/excluded")
+
+    def test_process_rss_entry_keeps_article_when_exclude_url_check_returns_false(
+        self, sample_config
+    ):
+        """Test that _process_rss_entry returns article when exclude_url_check returns False."""
+        import time
+
+        exclude_check = Mock(return_value=False)
+        agent = NewsScraperAgent(
+            sample_config, exclude_url_check=exclude_check
+        )
+        cutoff_date = datetime.now(TZ) - timedelta(days=7)
+
+        class MockEntry:
+            def __init__(self):
+                self.title = "Kept Article"
+                self.link = "https://example.com/kept"
+                self.summary = "Summary with content"
+                self.published_parsed = time.struct_time(
+                    (datetime.now() - timedelta(days=1)).timetuple()
+                )
+
+            def get(self, key, default=None):
+                return getattr(self, key, default)
+
+        entry = MockEntry()
+        with patch.object(agent, "_fetch_full_content", return_value=None):
+            result = agent._process_rss_entry(
+                cast(FeedParserDict, entry), "Test Source", cutoff_date
+            )
+
+        assert result is not None
+        assert result.title == "Kept Article"
+        assert result.url == "https://example.com/kept"
+        exclude_check.assert_called_once_with("https://example.com/kept")
 
     def test_parse_entry_date_published_parsed(self, sample_config):
         """Test parsing date from published_parsed"""

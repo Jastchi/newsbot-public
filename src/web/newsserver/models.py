@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
+from django.core.exceptions import ValidationError
 from django.db import models
 
+from newsbot.constants import DAILY_SCRAPE_HOUR, DAILY_SCRAPE_MINUTE
 from utilities import models as config_models
 
 if TYPE_CHECKING:
@@ -379,14 +381,6 @@ class NewsConfig(BaseModel):
         default=True,
         help_text="Whether daily scrape is enabled",
     )
-    scheduler_daily_scrape_hour = models.IntegerField(
-        default=2,
-        help_text="Hour for daily scrape (0-23)",
-    )
-    scheduler_daily_scrape_minute = models.IntegerField(
-        default=0,
-        help_text="Minute for daily scrape (0-59)",
-    )
     scheduler_weekly_analysis_enabled = models.BooleanField(
         default=True,
         help_text="Whether weekly analysis is enabled",
@@ -408,6 +402,18 @@ class NewsConfig(BaseModel):
     scheduler_weekly_analysis_lookback_days = models.IntegerField(
         default=7,
         help_text="Number of days to look back for weekly analysis",
+    )
+
+    # Exclude articles from other configs (scrape skips their URLs)
+    exclude_articles_from_configs = models.ManyToManyField(
+        "self",
+        symmetrical=False,
+        blank=True,
+        related_name="configs_excluding_my_articles",
+        help_text=(
+            "Optional. Exclude articles whose URL exists in any of these "
+            "configs' articles."
+        ),
     )
 
     # Logging Configuration fields
@@ -436,6 +442,20 @@ class NewsConfig(BaseModel):
     def __str__(self) -> str:
         """Represent the news configuration as a string."""
         return f"{self.display_name} - {self.key}"
+
+    def clean(self) -> None:
+        """Validate that a config does not exclude itself."""
+        super().clean()
+        if self.pk and self.exclude_articles_from_configs.filter(
+            pk=self.pk,
+        ).exists():
+            raise ValidationError(
+                {
+                    "exclude_articles_from_configs": (
+                        "A config cannot exclude articles from itself."
+                    ),
+                },
+            )
 
     def to_config_dict(self) -> config_models.ConfigModel:
         """
@@ -522,8 +542,8 @@ class NewsConfig(BaseModel):
             scheduler=config_models.SchedulerConfigModel(
                 daily_scrape=config_models.DailyScrapeConfigModel(
                     enabled=self.scheduler_daily_scrape_enabled,
-                    hour=self.scheduler_daily_scrape_hour,
-                    minute=self.scheduler_daily_scrape_minute,
+                    hour=DAILY_SCRAPE_HOUR, # for deprecated command
+                    minute=DAILY_SCRAPE_MINUTE, # newsbot schedule
                 ),
                 weekly_analysis=config_models.WeeklyAnalysisConfigModel(
                     enabled=self.scheduler_weekly_analysis_enabled,
@@ -539,6 +559,11 @@ class NewsConfig(BaseModel):
             ),
             database=config_models.DatabaseConfigModel(
                 url=self.database_url,
+            ),
+            exclude_articles_from_config_keys=list(
+                self.exclude_articles_from_configs.values_list(
+                    "key", flat=True,
+                ),
             ),
         )
 

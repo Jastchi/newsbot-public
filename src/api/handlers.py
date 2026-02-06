@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import logging
 import time
+from graphlib import CycleError, TopologicalSorter
 from typing import Any
 
 from django.db import close_old_connections
 
 from api.job_manager import JobStatus, job_manager
+from newsbot.constants import DAILY_SCRAPE_HOUR, DAILY_SCRAPE_MINUTE
 from newsbot.error_handling.email_handler import get_email_error_handler
 from newsbot.pipeline import PipelineOrchestrator
 from newsbot.summary_writer import SummaryWriter
@@ -358,35 +360,76 @@ def weekly_analysis_to_cron(day_of_week: str, hour: int, minute: int) -> str:
     return f"{minute} {hour} * * {day_num}"
 
 
+def _schedule_dependency_order(
+    configs: list[NewsConfig],
+) -> list[NewsConfig]:
+    """Order so exclude-from configs run before excluders."""
+    if not configs:
+        return []
+
+    key_to_config = {c.key: c for c in configs}
+    keys_set = set(key_to_config)
+
+    # Build graph: {node: {dependencies}}
+    # A config depends on the configs it excludes from.
+    graph = {
+        config.key: {
+            dep.key
+            for dep in config.exclude_articles_from_configs.all()
+            if dep.key in keys_set
+        }
+        for config in configs
+    }
+
+    ts = TopologicalSorter(graph)
+    try:
+        order = list(ts.static_order())
+    except CycleError:
+        logger.warning("Cycle detected in exclude_articles_from_configs.")
+        return configs
+
+    return [key_to_config[k] for k in order]
+
+
 def get_all_schedules() -> list[dict[str, Any]]:
     """
     Get all active config schedules in cron format.
+
+    Returns configs in dependency order (topological sort by
+    exclude_articles_from_configs) so the scheduler can run daily
+    scrapes sequentially with exclude-from configs first.
+
+    daily_scrape contains only enabled and optional cron (no per-config
+    hour/minute); scrape time is fixed after refresh (e.g. 00:05).
 
     Returns:
         List of schedule dictionaries with cron expressions
 
     """
+    # Prefetch exclude_articles_from_configs for active configs.
+    active_configs = list(
+        NewsConfig.objects.filter(is_active=True).prefetch_related(
+            "exclude_articles_from_configs",
+        ),
+    )
+    ordered_configs = _schedule_dependency_order(active_configs)
+
     schedules = []
-
-    # Query all active NewsConfig objects
-    active_configs = NewsConfig.objects.filter(is_active=True)
-
-
-    for news_config in active_configs:
+    for news_config in ordered_configs:
         schedule = {
             "key": news_config.key,
             "name": news_config.display_name,
             "is_active": news_config.is_active,
             "daily_scrape": {
                 "enabled": news_config.scheduler_daily_scrape_enabled,
-                "hour": news_config.scheduler_daily_scrape_hour,
-                "minute": news_config.scheduler_daily_scrape_minute,
-                "cron": daily_scrape_to_cron(
-                    news_config.scheduler_daily_scrape_hour,
-                    news_config.scheduler_daily_scrape_minute,
-                )
-                if news_config.scheduler_daily_scrape_enabled
-                else None,
+                "cron": (
+                    daily_scrape_to_cron(
+                        DAILY_SCRAPE_HOUR,
+                        DAILY_SCRAPE_MINUTE,
+                    )
+                    if news_config.scheduler_daily_scrape_enabled
+                    else None
+                ),
             },
             "weekly_analysis": {
                 "enabled": news_config.scheduler_weekly_analysis_enabled,

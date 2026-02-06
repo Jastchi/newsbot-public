@@ -47,6 +47,65 @@ class TestAgentManager:
         # Verify it was initialized with the config
         assert scraper.config == sample_config
 
+    @pytest.mark.django_db
+    def test_scraper_gets_exclude_url_check_when_config_has_exclude_and_db(
+        self, sample_config, db
+    ):
+        """Scraper gets exclude_url_check when config has exclude_articles_from_config_keys and database_manager is set."""
+        from utilities.django_models import NewsConfig
+
+        news_config, _ = NewsConfig.objects.get_or_create(
+            key="test_managers",
+            defaults={"display_name": "Test Managers Config"},
+        )
+        config_with_exclude = Mock(spec=sample_config)
+        config_with_exclude.exclude_articles_from_config_keys = ["other_config"]
+        # Copy other attributes from sample_config so scraper init works
+        for attr in (
+            "name",
+            "news_sources",
+            "country",
+            "language",
+            "report",
+            "topics",
+            "story_clustering",
+        ):
+            setattr(config_with_exclude, attr, getattr(sample_config, attr))
+        manager = AgentManager(
+            config_with_exclude,
+            database_manager=DatabaseManager(news_config),
+        )
+        scraper = manager.scraper
+        assert scraper.exclude_url_check is not None
+
+    def test_scraper_exclude_url_check_none_without_config_list(
+        self, sample_config
+    ):
+        """Scraper has exclude_url_check None when config has empty exclude list."""
+        manager = AgentManager(sample_config, database_manager=Mock())
+        scraper = manager.scraper
+        assert scraper.exclude_url_check is None
+
+    def test_scraper_exclude_url_check_none_without_database_manager(
+        self, sample_config
+    ):
+        """Scraper has exclude_url_check None when database_manager is None."""
+        config_with_exclude = Mock(spec=sample_config)
+        config_with_exclude.exclude_articles_from_config_keys = ["other"]
+        for attr in (
+            "name",
+            "news_sources",
+            "country",
+            "language",
+            "report",
+            "topics",
+            "story_clustering",
+        ):
+            setattr(config_with_exclude, attr, getattr(sample_config, attr))
+        manager = AgentManager(config_with_exclude, database_manager=None)
+        scraper = manager.scraper
+        assert scraper.exclude_url_check is None
+
     def test_story_clustering_lazy_initialization(
         self, agent_manager, sample_config
     ):
@@ -750,3 +809,68 @@ class TestDatabaseManager:
         # Should return False on exception
         assert database_manager.has_scraped_today() is False
         assert database_manager.has_scraped_today() is False
+
+    @pytest.mark.django_db
+    def test_url_exists_in_any_config_returns_false_when_empty(
+        self, database_manager
+    ):
+        """Test url_exists_in_any_config returns False when config_keys is empty."""
+        assert database_manager.url_exists_in_any_config(
+            "https://example.com/any", []
+        ) is False
+
+    @pytest.mark.django_db
+    def test_url_exists_in_any_config_returns_true_when_url_in_config(
+        self, database_manager, db
+    ):
+        """Test url_exists_in_any_config returns True when URL exists in one config."""
+        from utilities.django_models import Article as DjangoArticle
+        from utilities.django_models import NewsConfig
+
+        now = datetime.now(TZ)
+        other_config, _ = NewsConfig.objects.get_or_create(
+            key="other_exclude_config",
+            defaults={"display_name": "Other Exclude Config"},
+        )
+        DjangoArticle.objects.create(
+            config=other_config,
+            title="Other Article",
+            content="Content",
+            source="Source",
+            url="https://example.com/shared",
+            published_date=now,
+        )
+        DjangoArticle.objects.filter(
+            config=other_config, url="https://example.com/shared"
+        ).update(scraped_date=now)
+
+        # Our database_manager is for test_managers config; check across configs
+        assert database_manager.url_exists_in_any_config(
+            "https://example.com/shared", [database_manager.news_config.key, "other_exclude_config"]
+        ) is True
+
+    @pytest.mark.django_db
+    def test_url_exists_in_any_config_returns_false_when_url_not_in_any(
+        self, database_manager, db
+    ):
+        """Test url_exists_in_any_config returns False when URL in no config."""
+        assert database_manager.url_exists_in_any_config(
+            "https://example.com/nowhere", [database_manager.news_config.key]
+        ) is False
+
+    @pytest.mark.django_db
+    def test_url_exists_in_any_config_handles_exception(
+        self, database_manager, monkeypatch
+    ):
+        """Test that url_exists_in_any_config handles exceptions gracefully."""
+        from django.db import DatabaseError
+        from utilities.django_models import Article as DjangoArticle
+
+        def mock_filter(*args, **kwargs):
+            raise DatabaseError("Database error")
+
+        monkeypatch.setattr(DjangoArticle.objects, "filter", mock_filter)
+
+        assert database_manager.url_exists_in_any_config(
+            "https://example.com/any", ["some_config"]
+        ) is False

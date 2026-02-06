@@ -47,7 +47,27 @@ class AgentManager:
             url_check = None
             if self._database_manager is not None:
                 url_check = self._database_manager.url_exists
-            self._scraper = NewsScraperAgent(self.config, url_check=url_check)
+            # Exclude articles that exist in other configs
+            # when configured
+            exclude_url_check = None
+            if (
+                self.config.exclude_articles_from_config_keys
+                and self._database_manager is not None
+            ):
+                config_keys = self.config.exclude_articles_from_config_keys
+                db_manager = self._database_manager
+
+                def exclude_url_check(url: str) -> bool:
+                    return db_manager.url_exists_in_any_config(
+                        url,
+                        config_keys,
+                    )
+
+            self._scraper = NewsScraperAgent(
+                self.config,
+                url_check=url_check,
+                exclude_url_check=exclude_url_check,
+            )
             logger.info("Scraper agent initialized")
         return self._scraper
 

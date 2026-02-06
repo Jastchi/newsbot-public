@@ -264,11 +264,11 @@ def get_signed_url(
         response = client.storage.from_(bucket).create_signed_url(
             path=file_path, expires_in=expires_in,
         )
-        return response.get("signedURL")
-
     except Exception:
         logger.exception(f"Failed to generate signed URL for {file_path}")
         return None
+    else:
+        return response.get("signedURL")
 
 
 def download_from_supabase(

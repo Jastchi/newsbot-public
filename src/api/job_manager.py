@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from newsbot.constants import TZ
 
 
-class JobStatus(str, Enum):
+class JobStatus(StrEnum):
     """Status of a background job."""
 
     PENDING = "pending"
@@ -24,7 +24,7 @@ class JobStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
 
-class JobType(str, Enum):
+class JobType(StrEnum):
     """Type of a background job."""
 
     SCRAPE = "scrape"

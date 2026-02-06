@@ -219,6 +219,20 @@ def mock_environment_variables(monkeypatch):
     """Mock required environment variables for all tests."""
     # Set GEMINI_API_KEY to a mock value to prevent validation errors
     monkeypatch.setenv("GEMINI_API_KEY", "mock-gemini-api-key-for-testing")
+    # Disable email sending so tests never trigger real SMTP
+    monkeypatch.setenv("EMAIL_ENABLED", "false")
+
+
+@pytest.fixture(autouse=True)
+def mock_smtp(monkeypatch):
+    """Mock SMTP so no test can open a real email connection."""
+    smtp_context = MagicMock()
+    smtp_context.__enter__ = MagicMock(return_value=smtp_context)
+    smtp_context.__exit__ = MagicMock(return_value=False)
+    mock_smtp_class = MagicMock(return_value=smtp_context)
+    mock_smtp_ssl_class = MagicMock(return_value=smtp_context)
+    monkeypatch.setattr("smtplib.SMTP", mock_smtp_class)
+    monkeypatch.setattr("smtplib.SMTP_SSL", mock_smtp_ssl_class)
 
 
 @pytest.fixture(autouse=True)

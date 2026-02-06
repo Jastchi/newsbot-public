@@ -213,7 +213,7 @@ class LogService:
 
         # Extract base config name from rotated log
         # e.g., "technology.log.2026-01-11" -> "technology"
-        return log_name.split(".log")[0]
+        return log_name.split(".log", maxsplit=1)[0]
 
     @staticmethod
     def can_stream_log(log_name: str) -> bool:

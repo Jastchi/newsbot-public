@@ -129,7 +129,7 @@ class PipelineOrchestrator:
         self.email_receivers_override = email_receivers
         logger.info(
             f"Email receivers override set: "
-            f"{email_receivers if email_receivers else 'disabled'}",
+            f"{email_receivers or 'disabled'}",
         )
 
     def set_news_config(self, news_config: NewsConfigType) -> None:

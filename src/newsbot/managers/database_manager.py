@@ -242,6 +242,35 @@ class DatabaseManager:
             logger.exception("Database error checking if URL exists")
             return False
 
+    def url_exists_in_any_config(
+        self, url: str, config_keys: list[str],
+    ) -> bool:
+        """
+        Check if URL exists in any of the given configs.
+
+        Args:
+            url: Article URL to check
+            config_keys: List of config keys to check
+
+        Returns:
+            True if URL exists in any of the configs, False otherwise.
+            Returns False if config_keys is empty.
+
+        """
+        if not config_keys:
+            return False
+        try:
+            return DjangoArticle.objects.filter(
+                config__key__in=config_keys,
+                url=url,
+            ).exists()
+        except (DatabaseError, IntegrityError, OperationalError):
+            logger.exception(
+                "Database error checking if URL exists in configs %s",
+                config_keys,
+            )
+            return False
+
     def has_scraped_today(self) -> bool:
         """
         Check if articles have already been scraped today.

@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 
 from api.handlers import get_all_schedules, handle_analyze, handle_run
 from api.job_manager import Job, JobStatus, JobType, job_manager
-from newsbot.constants import TZ
+from newsbot.constants import DAILY_SCRAPE_HOUR, DAILY_SCRAPE_MINUTE, TZ
 from newsbot.error_handling.email_handler import send_error_email_once
 from utilities import ConfigNotFoundError, load_config, setup_django
 
@@ -376,7 +376,7 @@ def get_today_jobs_endpoint() -> TodayJobsResponse:
             config_key = schedule["key"]
             config_name = schedule["name"]
 
-            # Check daily scrape
+            # Daily scrape at fixed time (newsbot.constants)
             daily = schedule.get("daily_scrape", {})
             if daily.get("enabled") and not has_started(
                 config_key, JobType.SCRAPE,
@@ -386,7 +386,7 @@ def get_today_jobs_endpoint() -> TodayJobsResponse:
                         type=JobType.SCRAPE,
                         config_key=config_key,
                         config_name=config_name,
-                        scheduled_at=f"{daily['hour']:02d}:{daily['minute']:02d}",
+                        scheduled_at=f"{DAILY_SCRAPE_HOUR:02d}:{DAILY_SCRAPE_MINUTE:02d}",
                     ),
                 )
 

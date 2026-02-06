@@ -5,6 +5,10 @@ from pytz import timezone
 TIMEZONE_STR = "Europe/Vienna"
 TZ = timezone(TIMEZONE_STR)
 
+# Daily scrape / config refresh time (hour 0-23, minute 0-59)
+DAILY_SCRAPE_HOUR = 0
+DAILY_SCRAPE_MINUTE = 5
+
 SENTIMENT_THRESHOLD = 0.2 # Threshold for sentiment classification
 POLARITY_THRESHOLD = 0.1  # Threshold for polarity classification
 

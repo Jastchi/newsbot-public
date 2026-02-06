@@ -96,7 +96,8 @@ class TestWeeklyAnalysis:
         orchestrator._analyze_sentiment = Mock()
         orchestrator._generate_report = Mock(return_value="weekly.html")
 
-        out = orchestrator.run_weekly_analysis(days_back=3)
+        with patch("newsbot.pipeline.run_hooks", Mock()):
+            out = orchestrator.run_weekly_analysis(days_back=3)
 
         assert out.success is True
         assert out.report_path == "weekly.html"

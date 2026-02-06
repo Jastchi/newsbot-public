@@ -3,11 +3,16 @@
 from typing import TYPE_CHECKING, ClassVar, Protocol, cast
 
 from django.contrib import admin
+from django.db import models
+from django.forms import ModelMultipleChoiceField
+from django.http import HttpRequest
 
 from .models import Article, NewsConfig, NewsSource, Subscriber, Topic
 
 if TYPE_CHECKING:
     from datetime import datetime
+
+
 
 
 class DisplayMethod(Protocol):
@@ -67,6 +72,8 @@ class TopicInline(admin.TabularInline):
 @admin.register(NewsConfig)
 class NewsConfigAdmin(admin.ModelAdmin):
     """Admin for NewsConfig model."""
+
+    filter_horizontal = ("exclude_articles_from_configs",)
 
     list_display = (
         "display_name",
@@ -143,14 +150,16 @@ class NewsConfigAdmin(admin.ModelAdmin):
             "classes": ("collapse",),
             "fields": (
                 "scheduler_daily_scrape_enabled",
-                "scheduler_daily_scrape_hour",
-                "scheduler_daily_scrape_minute",
                 "scheduler_weekly_analysis_enabled",
                 "scheduler_weekly_analysis_day_of_week",
                 "scheduler_weekly_analysis_hour",
                 "scheduler_weekly_analysis_minute",
                 "scheduler_weekly_analysis_lookback_days",
             ),
+        }),
+        ("Filtering", {
+            "classes": ("collapse",),
+            "fields": ("exclude_articles_from_configs",),
         }),
         ("Logging", {
             "classes": ("collapse",),
@@ -164,6 +173,19 @@ class NewsConfigAdmin(admin.ModelAdmin):
             "fields": ("created_at", "updated_at"),
         }),
     )
+
+    def formfield_for_manytomany(
+        self,
+        db_field: models.ManyToManyField,
+        request: HttpRequest,
+        **kwargs: object,
+    ) -> ModelMultipleChoiceField | None:
+        """Exclude self from exclude_articles_from_configs choices."""
+        if db_field.name == "exclude_articles_from_configs":
+            match = request.resolver_match
+            if match and (obj_id := match.kwargs.get("object_id")):
+                kwargs["queryset"] = NewsConfig.objects.exclude(pk=obj_id)
+        return super().formfield_for_manytomany(db_field, request, **kwargs)
 
     def created_at_date(self, obj: NewsConfig) -> str:
         """Display created_at date."""

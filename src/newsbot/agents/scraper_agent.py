@@ -62,6 +62,7 @@ class NewsScraperAgent:
         self,
         config: ConfigModel,
         url_check: Callable[[str], bool] | None = None,
+        exclude_url_check: Callable[[str], bool] | None = None,
     ) -> None:
         """
         Initialize the News Scraper Agent.
@@ -72,6 +73,10 @@ class NewsScraperAgent:
                 already exists in the database. Should return True if
                 URL exists, False otherwise. Used to avoid fetching
                 full content for articles that are already stored.
+            exclude_url_check: Optional callback to check if a URL
+                should be excluded (e.g. exists in other configs).
+                Should return True if the article should be excluded.
+                Checked before topic filter and content extraction.
 
         """
         self.config = config
@@ -96,6 +101,7 @@ class NewsScraperAgent:
         self.request_timeout = 20  # seconds for request timeout
         self.max_retries = 3  # max retries for rate-limited requests
         self.url_check = url_check
+        self.exclude_url_check = exclude_url_check
 
         # Topic filtering configuration
         self.topics: list[TopicModel] = config.topics
@@ -148,7 +154,7 @@ class NewsScraperAgent:
             model = self._get_embedding_model()
             # Use topic description for semantic matching
             topic_texts = [
-                topic.description if topic.description else topic.name
+                topic.description or topic.name
                 for topic in self.topics
             ]
             self._topic_embeddings = model.encode(
@@ -565,6 +571,30 @@ class NewsScraperAgent:
             )
         return description, content
 
+    def _should_exclude_by_url(self, link: str) -> bool:
+        """Return True if article excluded (e.g. in other configs)."""
+        if not link or not self.exclude_url_check:
+            return False
+        return self.exclude_url_check(link)
+
+    def _passes_topic_filter(
+        self, title: str, description: str, link: str,
+    ) -> bool:
+        """Return True if article matches topic filter, else False."""
+        filter_text = f"{title}. {description}"
+        matches, matched_topic = self._matches_topics(filter_text)
+        if not matches:
+            logger.debug(
+                f"Article filtered out (no topic match): "
+                f"{title[:60]} - {link}",
+            )
+            return False
+        logger.debug(
+            f"Article matched topic '{matched_topic}': "
+            f"{title[:40]} - {link}",
+        )
+        return True
+
     def _process_rss_entry(
         self,
         entry: FeedParserDict,
@@ -585,22 +615,22 @@ class NewsScraperAgent:
             )
             link = entry.get("link", "")
 
+            # Exclude articles whose URL exists in other configs (check
+            # before topic filter and content extraction)
+            if self._should_exclude_by_url(link):
+                logger.debug(
+                    "Article excluded (URL exists in exclude configs): %s",
+                    link,
+                )
+                return None
+
             description, content = self._extract_content(entry)
 
             # Topic filtering: check before fetching full content
-            if self.topics:
-                filter_text = f"{title}. {description}"
-                matches, matched_topic = self._matches_topics(filter_text)
-                if not matches:
-                    logger.debug(
-                        f"Article filtered out (no topic match): "
-                        f"{title[:60]} - {link}",
-                    )
-                    return None
-                logger.debug(
-                    f"Article matched topic '{matched_topic}': "
-                    f"{title[:40]} - {link}",
-                )
+            if self.topics and not self._passes_topic_filter(
+                title, description, link,
+            ):
+                return None
 
             # Fetch full content from URL only if not already in
             # database

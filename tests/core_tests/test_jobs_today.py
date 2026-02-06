@@ -42,16 +42,12 @@ def test_jobs_today_endpoint_realized_and_scheduled(client, monkeypatch, clean_j
     monkeypatch.setattr("api.app.datetime", MockDatetime)
     monkeypatch.setattr("api.job_manager.datetime", MockDatetime)
     
-    # Mock get_all_schedules
+    # Mock get_all_schedules (daily scrape at fixed 00:05)
     mock_schedules = [
         {
             "key": "config1",
             "name": "Config 1",
-            "daily_scrape": {
-                "enabled": True,
-                "hour": 2,
-                "minute": 0,
-            },
+            "daily_scrape": {"enabled": True},
             "weekly_analysis": {
                 "enabled": True,
                 "day_of_week": "thu",  # Today
@@ -62,18 +58,14 @@ def test_jobs_today_endpoint_realized_and_scheduled(client, monkeypatch, clean_j
         {
             "key": "config2",
             "name": "Config 2",
-            "daily_scrape": {
-                "enabled": True,
-                "hour": 10,
-                "minute": 0,
-            },
+            "daily_scrape": {"enabled": True},
             "weekly_analysis": {
                 "enabled": True,
                 "day_of_week": "mon",  # Not today
                 "hour": 9,
                 "minute": 0,
             },
-        }
+        },
     ]
     monkeypatch.setattr("api.app.get_all_schedules", Mock(return_value=mock_schedules))
     
@@ -104,9 +96,9 @@ def test_jobs_today_endpoint_realized_and_scheduled(client, monkeypatch, clean_j
     c1_analysis = next(s for s in data["scheduled_jobs"] if s["config_key"] == "config1" and s["type"] == "analysis")
     assert c1_analysis["scheduled_at"] == "15:00"
     
-    # Find config2 scrape
+    # Find config2 scrape (fixed 00:05)
     c2_scrape = next(s for s in data["scheduled_jobs"] if s["config_key"] == "config2" and s["type"] == "scrape")
-    assert c2_scrape["scheduled_at"] == "10:00"
+    assert c2_scrape["scheduled_at"] == "00:05"
 
 
 def test_jobs_today_empty(client, monkeypatch, clean_job_manager):
@@ -183,19 +175,13 @@ def test_pending_jobs_excluded_from_scheduled(client, monkeypatch, clean_job_man
     monkeypatch.setattr("api.app.datetime", MockDatetime)
     monkeypatch.setattr("api.job_manager.datetime", MockDatetime)
     
-    # Mock schedules
+    # Mock schedules (daily scrape at fixed 00:05)
     mock_schedules = [
         {
             "key": "config1",
             "name": "Config 1",
-            "daily_scrape": {
-                "enabled": True,
-                "hour": 10,
-                "minute": 0,
-            },
-            "weekly_analysis": {
-                "enabled": False,
-            },
+            "daily_scrape": {"enabled": True},
+            "weekly_analysis": {"enabled": False},
         },
     ]
     monkeypatch.setattr("api.app.get_all_schedules", Mock(return_value=mock_schedules))
