@@ -28,7 +28,7 @@ newsbot = "newsbot.main:main"
 start = "api.app:start"
 
 [build-system]
-requires = ["uv_build>=0.9.8,<0.10.0"]
+requires = ["uv_build>=0.9.8,<0.11.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
