@@ -16,22 +16,30 @@ class TestNewsSchedulerDashboardView:
         self.url = reverse("newsserver:news_schedule")
         self.configs = sample_news_configs
 
-    def test_access_control_staff_required(self):
-        """Test that only staff users can access the dashboard."""
-        # Non-staff user
+    def test_access_control_authenticated_can_view(self):
+        """Test that any authenticated user can view the dashboard; staff can also edit."""
         from django.contrib.auth import get_user_model
         User = get_user_model()
-        user = User.objects.create_user(username="testuser", password="password")
+
+        # Non-staff user can view the schedule (read-only)
+        user = User.objects.create_user(
+            email="testuser@example.com",
+            password="password",
+        )
         self.client.force_login(user)
         response = self.client.get(self.url)
-        assert response.status_code == 403
+        assert response.status_code == 200
+        assert "newsserver/news_scheduler_calendar.html" in [t.name for t in response.templates]
+        # Template receives user_can_edit_schedule=False for non-staff
+        assert response.context["user_can_edit_schedule"] is False
 
-        # Staff user
+        # Staff user can view and edit the schedule
         self.admin_user.is_staff = True
         self.admin_user.save()
         self.client.force_login(self.admin_user)
         response = self.client.get(self.url)
         assert response.status_code == 200
+        assert response.context["user_can_edit_schedule"] is True
 
     def test_get_standard_request(self):
         """Test that a standard GET request returns the calendar page."""

@@ -2,12 +2,19 @@
 
 from typing import TYPE_CHECKING, ClassVar, Protocol, cast
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.db import models
 from django.forms import ModelMultipleChoiceField
 from django.http import HttpRequest
 
-from .models import Article, NewsConfig, NewsSource, Subscriber, Topic
+from .models import (
+    Article,
+    NewsConfig,
+    NewsSource,
+    Subscriber,
+    SubscriberRequest,
+    Topic,
+)
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -79,20 +86,32 @@ class NewsConfigAdmin(admin.ModelAdmin):
         "display_name",
         "key",
         "is_active",
+        "published_for_subscription",
         "country",
         "language",
         "subscriber_count",
         "article_count",
         "created_at_date",
     )
-    list_filter = ("is_active", "country", "language", "created_at")
+    list_filter = (
+        "is_active",
+        "published_for_subscription",
+        "country",
+        "language",
+        "created_at",
+    )
     search_fields = ("key", "display_name")
     readonly_fields = ("created_at", "updated_at")
     inlines: ClassVar[list] = [NewsSourceInline, TopicInline]
 
     fieldsets = (
         (None, {
-            "fields": ("key", "display_name", "is_active"),
+            "fields": (
+                "key",
+                "display_name",
+                "is_active",
+                "published_for_subscription",
+            ),
         }),
         ("Basic Settings", {
             "fields": ("country", "language"),
@@ -216,9 +235,22 @@ class NewsConfigAdmin(admin.ModelAdmin):
 class SubscriberAdmin(admin.ModelAdmin):
     """Admin for Subscriber model."""
 
-    list_display = ("full_name", "email", "is_active", "config_count")
+    list_display = (
+        "full_name",
+        "email",
+        "is_active",
+        "is_staff",
+        "is_superuser",
+        "config_count",
+    )
     list_editable = ("is_active",)
-    list_filter = ("is_active", "configs", "created_at")
+    list_filter = (
+        "is_active",
+        "is_staff",
+        "is_superuser",
+        "configs",
+        "created_at",
+    )
     search_fields = ("first_name", "last_name", "email")
     filter_horizontal = ("configs",)
     readonly_fields = (
@@ -238,6 +270,80 @@ class SubscriberAdmin(admin.ModelAdmin):
         return f"{count} config{'s' if count != 1 else ''}"
 
     cast("DisplayMethod", config_count).short_description = "Configs"
+
+
+@admin.register(SubscriberRequest)
+class SubscriberRequestAdmin(admin.ModelAdmin):
+    """Admin for SubscriberRequest (read-only list for processing)."""
+
+    list_display = (
+        "email",
+        "first_name",
+        "last_name",
+        "user",
+        "created_at",
+        "included_in_daily_email_at",
+    )
+    list_filter = ("created_at", "included_in_daily_email_at")
+    search_fields = ("email", "first_name", "last_name")
+    readonly_fields = (
+        "email",
+        "first_name",
+        "last_name",
+        "user",
+        "created_at",
+        "included_in_daily_email_at",
+    )
+    actions: ClassVar[list[str]] = ["accept_requests_create_subscriber"]
+
+    def included(self, obj: SubscriberRequest) -> str:
+        """Display whether request was included in daily email."""
+        return "Yes" if obj.included_in_daily_email_at else "No"
+
+    cast("DisplayMethod", included).short_description = "Included in digest"
+
+    @admin.action(description="Accept selected (create Subscriber)")
+    def accept_requests_create_subscriber(
+        self,
+        request: HttpRequest,
+        queryset: "models.QuerySet[SubscriberRequest]",
+    ) -> None:
+        """Create a Subscriber for each request, then remove it."""
+        created = 0
+        skipped = 0
+        for req in queryset:
+            if Subscriber.objects.filter(email__iexact=req.email).exists():
+                skipped += 1
+                continue
+            first = (req.first_name or "").strip() or "—"
+            last = (req.last_name or "").strip() or "—"
+            Subscriber.objects.create(
+                email=req.email,
+                first_name=first,
+                last_name=last,
+                is_active=True,
+            )
+            created += 1
+            req.delete()
+        if created:
+            self.message_user(
+                request,
+                f"Created {created} subscriber(s). "
+                "They can now use “My subscriptions”.",
+                level=messages.SUCCESS,
+            )
+        if skipped:
+            self.message_user(
+                request,
+                f"Skipped {skipped} request(s) (email already a subscriber).",
+                level=messages.WARNING,
+            )
+        if not created and not skipped:
+            self.message_user(
+                request,
+                "No requests selected or all already accepted.",
+                level=messages.WARNING,
+            )
 
 
 @admin.register(Article)

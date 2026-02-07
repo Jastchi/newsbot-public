@@ -24,12 +24,14 @@
         }
         
         header {
-            background: linear-gradient(135deg, #002fffff 0%, #05004aff 100%);
+            background: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-color: #667eea;
             color: white;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 20px 0;
+            padding: 20px 16px 24px;
         }
         
         header .container {
@@ -52,14 +54,15 @@
         }
         
         header h1 {
-            font-size: 2.5em;
-            font-weight: 600;
-            margin-bottom: 5px;
+            margin: 0 0 4px 0;
+            font-size: 2.2em;
+            font-weight: 700;
         }
         
         header p {
-            font-size: 1.1em;
-            opacity: 0.9;
+            font-size: 0.95em;
+            opacity: 0.95;
+            margin: 0;
         }
         
         .breadcrumb {
@@ -122,17 +125,30 @@
             <h1>📰 NewsBot Dashboard</h1>
             <p>Multi-Config News Analysis Reports</p>
         </div>
-        <div style="padding-right: 20px;">
+        <div style="padding-right: 20px; display: flex; align-items: center; gap: 12px;">
+            {% if user.is_authenticated %}
+            <span style="opacity: 0.95; font-size: 0.9em;">{{ user.email|default:user.username }}</span>
+            <a href="{% url 'account_logout' %}" class="admin-link">Log out</a>
+            {% else %}
+            <a href="{% url 'account_login' %}" class="admin-link">Log in</a>
+            {% endif %}
+            {% if user.is_authenticated and user.is_staff %}
             <a href="{% url 'admin:index' %}" class="admin-link">⚙️ Admin</a>
+            {% endif %}
         </div>
     </header>
     
     <div class="container">
         <div class="nav-tabs">
-            <a href="{% url 'newsserver:overview' %}" class="nav-tab {% if request.resolver_match.url_name == 'overview' or request.resolver_match.url_name == 'config_report' %}active{% endif %}">Configs</a>
-            <a href="{% url 'newsserver:runs_list' %}" class="nav-tab {% if request.resolver_match.url_name == 'runs_list' %}active{% endif %}">Runs</a>
             <a href="{% url 'newsserver:news_schedule' %}" class="nav-tab {% if request.resolver_match.url_name == 'news_schedule' %}active{% endif %}">Schedule</a>
+            <a href="{% url 'newsserver:overview' %}" class="nav-tab {% if request.resolver_match.url_name == 'overview' or request.resolver_match.url_name == 'config_report' %}active{% endif %}">Report archive</a>
+            <a href="{% url 'newsserver:runs_list' %}" class="nav-tab {% if request.resolver_match.url_name == 'runs_list' %}active{% endif %}">Runs</a>
+            {% if has_logs %}
             <a href="{% url 'newsserver:logs_list' %}" class="nav-tab {% if request.resolver_match.url_name == 'logs_list' %}active{% endif %}">Logs</a>
+            {% endif %}
+            {% if user.is_authenticated and user.is_staff %}
+            <a href="{% url 'newsserver:pending_subscription_requests' %}" class="nav-tab {% if request.resolver_match.url_name == 'pending_subscription_requests' %}active{% endif %}">Pending requests</a>
+            {% endif %}
         </div>
 
         {% block content %}{% endblock %}

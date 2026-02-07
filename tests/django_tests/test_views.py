@@ -427,6 +427,34 @@ class TestConfigReportView:
         assert "error" in context
         assert "not found" in context["error"]
 
+    @patch("web.newsserver.views.ReportService.get_report_content")
+    @patch("web.newsserver.services.report_service.should_use_supabase_for_config")
+    @patch("web.newsserver.services.report_service.settings")
+    def test_get_context_data_report_content_failed(
+        self,
+        mock_settings,
+        mock_should_use_supabase,
+        mock_get_report_content,
+        request_factory,
+        temp_reports_dir,
+        test_news_configs,
+    ):
+        """Test with get_report_content returning None shows error in context."""
+        mock_settings.REPORTS_DIR = temp_reports_dir
+        mock_should_use_supabase.return_value = False
+        mock_get_report_content.return_value = None
+
+        view = ConfigReportView()
+        view.request = request_factory.get("/config/technology/")
+
+        context = view.get_context_data(config_name="technology")
+
+        assert "error" in context
+        assert "Failed to load report content" in context["error"]
+        assert context["config_name"] == "Technology"
+        assert "reports" in context
+        assert context["current_report"] is not None
+
     @patch("web.newsserver.services.report_service.should_use_supabase_for_config")
     @patch("web.newsserver.services.report_service.settings")
     def test_get_context_data_no_reports(
@@ -817,6 +845,13 @@ class TestLogsView:
 class TestLogStreamView:
     """Test cases for LogStreamView."""
 
+    @pytest.fixture
+    def stream_view_user(self):
+        """Authenticated user for log_stream_view (RequestFactory does not run middleware)."""
+        u = Mock()
+        u.is_authenticated = True
+        return u
+
     @patch("web.newsserver.services.log_service.settings")
     @patch("web.newsserver.views._stream_log_file")
     def test_stream_active_log_file(
@@ -824,6 +859,7 @@ class TestLogStreamView:
         mock_stream,
         mock_settings,
         request_factory,
+        stream_view_user,
         temp_logs_dir,
     ):
         """Test streaming an active log file."""
@@ -838,6 +874,7 @@ class TestLogStreamView:
         mock_stream.return_value = mock_generator()
 
         request = request_factory.get("/logs/stream/?log=newsbot.log")
+        request.user = stream_view_user
 
         response = log_stream_view(request)
 
@@ -858,12 +895,14 @@ class TestLogStreamView:
         self,
         mock_settings,
         request_factory,
+        stream_view_user,
         temp_logs_dir,
     ):
         """Test streaming without log parameter returns 400."""
         mock_settings.BASE_DIR = temp_logs_dir.parent
 
         request = request_factory.get("/logs/stream/")
+        request.user = stream_view_user
 
         response = log_stream_view(request)
 
@@ -875,12 +914,14 @@ class TestLogStreamView:
         self,
         mock_settings,
         request_factory,
+        stream_view_user,
         temp_logs_dir,
     ):
         """Test streaming a non-existent log returns 404."""
         mock_settings.BASE_DIR = temp_logs_dir.parent
 
         request = request_factory.get("/logs/stream/?log=nonexistent.log")
+        request.user = stream_view_user
 
         response = log_stream_view(request)
 
@@ -892,6 +933,7 @@ class TestLogStreamView:
         self,
         mock_settings,
         request_factory,
+        stream_view_user,
         temp_logs_dir,
     ):
         """Test that streaming rotated log files is not allowed."""
@@ -900,6 +942,7 @@ class TestLogStreamView:
         request = request_factory.get(
             "/logs/stream/?log=newsbot.log.2025-12-22"
         )
+        request.user = stream_view_user
 
         response = log_stream_view(request)
 
@@ -914,12 +957,14 @@ class TestLogStreamView:
         self,
         mock_settings,
         request_factory,
+        stream_view_user,
         temp_logs_dir,
     ):
         """Test that path traversal attacks are prevented."""
         mock_settings.BASE_DIR = temp_logs_dir.parent
 
         request = request_factory.get("/logs/stream/?log=../../etc/passwd")
+        request.user = stream_view_user
 
         response = log_stream_view(request)
 
@@ -933,6 +978,7 @@ class TestLogStreamView:
         mock_settings,
         mock_sleep,
         request_factory,
+        stream_view_user,
         temp_logs_dir,
     ):
         """Test that stream sends initial_content with current tail then connected."""
@@ -947,6 +993,7 @@ class TestLogStreamView:
         mock_sleep.side_effect = sleep_raise
 
         request = request_factory.get("/logs/stream/?log=newsbot.log")
+        request.user = stream_view_user
         response = log_stream_view(request)
 
         assert response.status_code == 200
@@ -976,6 +1023,7 @@ class TestLogStreamView:
         mock_stream,
         mock_settings,
         request_factory,
+        stream_view_user,
         temp_logs_dir,
     ):
         """Test that new log lines are streamed correctly."""
@@ -992,6 +1040,7 @@ class TestLogStreamView:
         mock_stream.return_value = mock_generator()
 
         request = request_factory.get("/logs/stream/?log=newsbot.log")
+        request.user = stream_view_user
 
         response = log_stream_view(request)
 
@@ -1009,6 +1058,7 @@ class TestLogStreamView:
         mock_stream,
         mock_settings,
         request_factory,
+        stream_view_user,
         temp_logs_dir,
     ):
         """Test streaming detects and yields new log content."""
@@ -1025,6 +1075,7 @@ class TestLogStreamView:
         mock_stream.return_value = mock_generator()
 
         request = request_factory.get("/logs/stream/?log=newsbot.log")
+        request.user = stream_view_user
 
         response = log_stream_view(request)
         assert isinstance(response, StreamingHttpResponse)
@@ -1041,6 +1092,7 @@ class TestLogStreamView:
         mock_stream,
         mock_settings,
         request_factory,
+        stream_view_user,
         temp_logs_dir,
     ):
         """Test streaming handles file disappearing during stream."""
@@ -1059,6 +1111,7 @@ class TestLogStreamView:
         mock_stream.return_value = mock_generator()
 
         request = request_factory.get("/logs/stream/?log=newsbot.log")
+        request.user = stream_view_user
 
         response = log_stream_view(request)
         assert isinstance(response, StreamingHttpResponse)
@@ -1074,6 +1127,7 @@ class TestLogStreamView:
         mock_stream,
         mock_settings,
         request_factory,
+        stream_view_user,
         temp_logs_dir,
     ):
         """Test streaming handles outer exception."""
@@ -1091,6 +1145,7 @@ class TestLogStreamView:
         mock_stream.return_value = mock_generator()
 
         request = request_factory.get("/logs/stream/?log=newsbot.log")
+        request.user = stream_view_user
 
         response = log_stream_view(request)
         assert isinstance(response, StreamingHttpResponse)
@@ -1106,6 +1161,7 @@ class TestLogStreamView:
         mock_stream,
         mock_settings,
         request_factory,
+        stream_view_user,
         temp_logs_dir,
     ):
         """Test streaming handles file read errors."""
@@ -1124,6 +1180,7 @@ class TestLogStreamView:
         mock_stream.return_value = mock_generator()
 
         request = request_factory.get("/logs/stream/?log=newsbot.log")
+        request.user = stream_view_user
 
         response = log_stream_view(request)
         assert isinstance(response, StreamingHttpResponse)
@@ -1137,6 +1194,7 @@ class TestLogStreamView:
         self,
         mock_settings,
         request_factory,
+        stream_view_user,
         tmp_path,
     ):
         """Test streaming a log file that doesn't exist initially."""
@@ -1149,6 +1207,7 @@ class TestLogStreamView:
 
         # This should return 404 before streaming starts
         request = request_factory.get("/logs/stream/?log=nonexistent.log")
+        request.user = stream_view_user
 
         response = log_stream_view(request)
 

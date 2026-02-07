@@ -1,0 +1,32 @@
+{% extends "newsserver/base.html" %}
+
+{% block title %}Pending subscription requests – NewsBot{% endblock %}
+
+{% block content %}
+<div class="pending-requests-page" style="max-width: 800px; margin: 24px 0;">
+    <h2 style="margin: 0 0 8px 0; font-size: 1.5rem; color: #1a1d21;">Pending subscription requests</h2>
+    <p style="margin: 0 0 24px 0; color: #546e7a;">
+        These users have requested to be added as subscribers. Add them in Django Admin (Subscriber requests → convert to Subscriber and assign configs).
+    </p>
+    {% if pending_requests %}
+    <ul style="list-style: none; padding: 0; margin: 0;">
+        {% for req in pending_requests %}
+        <li style="padding: 14px 16px; margin-bottom: 8px; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <span>
+                <strong>{{ req.email }}</strong>
+                {% if req.first_name or req.last_name %}
+                <span style="color: #546e7a;"> – {{ req.first_name }} {{ req.last_name }}</span>
+                {% endif %}
+            </span>
+            <span style="font-size: 0.9rem; color: #78909c;">{{ req.created_at|date:"M j, Y H:i" }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+    <p style="margin-top: 16px;">
+        <a href="{% url 'admin:newsserver_subscriberrequest_changelist' %}" class="admin-link" style="display: inline-block; padding: 10px 20px; background: #002fff; color: #fff; border-radius: 8px; text-decoration: none;">Open in Django Admin</a>
+    </p>
+    {% else %}
+    <p style="color: #546e7a;">No pending requests.</p>
+    {% endif %}
+</div>
+{% endblock %}

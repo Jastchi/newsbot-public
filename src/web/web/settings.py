@@ -16,6 +16,8 @@ from pathlib import Path
 import dj_database_url
 from dotenv import load_dotenv
 
+from newsbot.constants import TIMEZONE_STR
+
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -48,6 +50,7 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # Application definition
+SITE_ID = 1
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -56,6 +59,11 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.sites",
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
     "web.newsserver",
 ]
 
@@ -66,6 +74,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -75,13 +84,14 @@ ROOT_URLCONF = "web.web.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [Path(__file__).resolve().parent / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "web.newsserver.context_processors.has_logs",
             ],
         },
     },
@@ -146,7 +156,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = TIMEZONE_STR
 
 USE_I18N = True
 
@@ -160,8 +170,6 @@ USE_TZ = True
 FORCE_SCRIPT_NAME = os.getenv("FORCE_SCRIPT_NAME", "")
 STATIC_URL = f"{FORCE_SCRIPT_NAME}/static/"
 STATIC_ROOT = os.getenv("STATIC_ROOT", BASE_DIR / "staticfiles")
-LOGIN_URL = f"{FORCE_SCRIPT_NAME}/admin/login/"
-LOGIN_REDIRECT_URL = f"{FORCE_SCRIPT_NAME}/admin/"
 
 # WhiteNoise configuration for serving static files in production
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
@@ -170,3 +178,64 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Auth: Subscriber is the user model; login only via Google
+AUTH_USER_MODEL = "newsserver.Subscriber"
+AUTHENTICATION_BACKENDS = [
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
+
+# Allauth: use app login (Google) instead of admin for protected pages
+LOGIN_URL = f"{FORCE_SCRIPT_NAME}/accounts/login/"
+LOGIN_REDIRECT_URL = f"{FORCE_SCRIPT_NAME}/"
+ACCOUNT_LOGOUT_ON_GET = True
+ACCOUNT_LOGOUT_REDIRECT_URL = f"{FORCE_SCRIPT_NAME}/accounts/login/"
+
+# Allauth: Subscriber uses email as USERNAME_FIELD, not username
+ACCOUNT_USER_MODEL_USERNAME_FIELD = "email"
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+ACCOUNT_EMAIL_VERIFICATION = "optional"
+# New users from Google get a SubscriberRequest, not a Subscriber;
+# redirected to subscription-requested page (see SocialAccountAdapter).
+SOCIALACCOUNT_AUTO_SIGNUP = False
+SOCIALACCOUNT_EMAIL_VERIFICATION = "optional"
+SOCIALACCOUNT_ADAPTER = "web.newsserver.adapters.SocialAccountAdapter"
+SOCIALACCOUNT_LOGIN_ON_GET = True
+
+# Google OAuth (client id/secret from env).
+# In Google Cloud Console → Credentials → OAuth 2.0 Client → add to
+# "Authorized redirect URIs" the exact callback URL your app uses, e.g.:
+#   http://localhost:8000/accounts/google/login/callback/
+#   http://127.0.0.1:8000/accounts/google/login/callback/
+# (Include trailing slash. If using FORCE_SCRIPT_NAME, include it, e.g.
+#   http://localhost:8000/newsbot/accounts/google/login/callback/ )
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "APP": {
+            "client_id": os.getenv("GOOGLE_OAUTH_CLIENT_ID", ""),
+            "secret": os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", ""),
+        },
+        "SCOPE": ["profile", "email"],
+    },
+}
+
+# Email (SMTP) for admin notifications (e.g. subscriber request digest)
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = os.getenv("EMAIL_SMTP_SERVER", "smtp.gmail.com")
+EMAIL_PORT = int(os.getenv("EMAIL_SMTP_PORT", "587"))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_SSL", "false").lower() not in (
+    "true",
+    "1",
+    "yes",
+)
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "false").lower() in (
+    "true",
+    "1",
+    "yes",
+)
+EMAIL_HOST_USER = os.getenv("EMAIL_SENDER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.getenv("EMAIL_SENDER", "")
+# Recipient for daily subscriber-request digest
+EMAIL_ADMIN_NOTIFICATION_TO = os.getenv("EMAIL_SENDER", "")

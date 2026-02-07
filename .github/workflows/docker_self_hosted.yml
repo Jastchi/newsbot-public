@@ -126,6 +126,9 @@ jobs:
             -e DJANGO_CSRF_TRUSTED_ORIGINS="${{ vars.DJANGO_CSRF_TRUSTED_ORIGINS }}" \
             -e FORCE_SCRIPT_NAME="${{ vars.FORCE_SCRIPT_NAME }}" \
             -e STATIC_ROOT="${{ vars.STATIC_ROOT }}" \
+            -e GOOGLE_OAUTH_CLIENT_ID="${{ vars.GOOGLE_OAUTH_CLIENT_ID }}" \
+            -e GOOGLE_OAUTH_CLIENT_SECRET="${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}" \
+            -e SITE_DOMAIN="${{ vars.SITE_DOMAIN }}" \
             -e DJANGO_SETTINGS_MODULE="web.web.settings" \
             newsbot-web:latest
 

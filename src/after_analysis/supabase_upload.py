@@ -28,13 +28,13 @@ def execute(report_path: Path, analysis_data: AnalysisData) -> None:
         logger.debug("Supabase client not available, skipping upload hook")
         return
 
-    config_name = analysis_data.get("config_name", "default")
+    config_key = analysis_data["config_key"]
     bucket = "Reports"
     filename = report_path.name
 
     try:
         # 1. Upload the main report
-        main_dest_path = f"{config_name}/{filename}"
+        main_dest_path = f"{config_key}/{filename}"
         logger.info(f"Uploading main report to Supabase: {main_dest_path}")
 
         success = upload_to_supabase(
@@ -54,7 +54,7 @@ def execute(report_path: Path, analysis_data: AnalysisData) -> None:
         email_report_path = report_path.parent / "email_reports" / filename
 
         if email_report_path.exists():
-            email_dest_path = f"{config_name}/email_reports/{filename}"
+            email_dest_path = f"{config_key}/email_reports/{filename}"
             logger.info(
                 f"Uploading email report to Supabase: {email_dest_path}",
             )

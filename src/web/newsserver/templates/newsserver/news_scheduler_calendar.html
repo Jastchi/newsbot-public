@@ -1,36 +1,231 @@
 {% extends "newsserver/base.html" %}
 
-{% block title %}Logs - NewsBot{% endblock %}
+{% block title %}Schedule – NewsBot{% endblock %}
 
 {% block extra_styles %}
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
     <style>
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-            padding: 30px; 
-            background: #f4f7f6; 
+        .schedule-page {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+            padding: 24px;
+            background: linear-gradient(160deg, #e8eef4 0%, #f0f4f8 100%);
+            min-height: 100%;
         }
-        #calendar-container { 
-            background: white; 
-            padding: 20px; 
-            border-radius: 8px; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+        .schedule-layout {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 24px;
+            align-items: start;
         }
-        .header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            margin-bottom: 20px; 
+        @media (max-width: 900px) {
+            .schedule-layout { grid-template-columns: 1fr; }
         }
-        #status-msg { 
-            padding: 10px 20px; 
-            border-radius: 4px; 
-            display: none; 
-            color: white; 
-            font-weight: bold; 
+        .schedule-main { min-width: 0; }
+        #calendar-container {
+            background: #fff;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            border: 1px solid rgba(0,0,0,0.06);
         }
-        .success { background-color: #28a745; }
-        .error { background-color: #dc3545; }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1a1d21;
+        }
+        #status-msg {
+            padding: 10px 16px;
+            border-radius: 8px;
+            display: none;
+            color: #fff;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        #status-msg.success { background: #2e7d32; }
+        #status-msg.error { background: #c62828; }
+        .calendar-legend {
+            display: flex;
+            gap: 20px;
+            margin-top: 12px;
+            font-size: 0.85rem;
+            color: #546e7a;
+        }
+        .calendar-legend span {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .calendar-legend .swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 4px;
+        }
+        .calendar-legend .swatch-subscribed { background: #2e7d32; border: 1px solid #1b5e20; }
+        .calendar-legend .swatch-other { background: #78909c; border: 1px solid #546e7a; }
+        .my-subscriptions-card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            border: 1px solid rgba(0,0,0,0.06);
+            padding: 20px;
+            position: sticky;
+            top: 24px;
+        }
+        .my-subscriptions-card h2 {
+            margin: 0 0 16px 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1a1d21;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .my-subscriptions-card h2::before {
+            content: "";
+            width: 4px;
+            height: 1.1em;
+            background: #2e7d32;
+            border-radius: 2px;
+        }
+        .my-subscriptions-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .my-subscriptions-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid #eceff1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .my-subscriptions-list li:last-child { border-bottom: none; }
+        .my-subscriptions-list label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            color: #37474f;
+            flex: 1;
+        }
+        .my-subscriptions-list input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #2e7d32;
+            cursor: pointer;
+        }
+        .my-subscriptions-list .config-key {
+            font-size: 0.8rem;
+            color: #78909c;
+            font-weight: 500;
+        }
+        .my-subscriptions-save-hint {
+            margin-top: 12px;
+            font-size: 0.8rem;
+            color: #78909c;
+        }
+        .my-subscriptions-saving {
+            margin-top: 8px;
+            font-size: 0.85rem;
+            color: #2e7d32;
+            display: none;
+        }
+        .subscriber-request-panel {
+            margin-top: 20px;
+            padding: 20px;
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #e0e0e0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .subscriber-request-panel .request-access-btn {
+            padding: 10px 18px;
+            background: #3788d8;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .subscriber-request-panel .request-access-btn:hover {
+            background: #2c6cb8;
+        }
+        .request-access-message { margin-top: 10px; font-weight: 500; }
+
+        /* Event click modal: Subscribe / Unsubscribe */
+        .event-subscribe-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .event-subscribe-overlay.is-open { display: flex; }
+        .event-subscribe-modal {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            padding: 24px;
+            max-width: 400px;
+            width: 100%;
+        }
+        .event-subscribe-modal h3 {
+            margin: 0 0 8px 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1a1d21;
+        }
+        .event-subscribe-modal .event-subscribe-hint {
+            margin: 0 0 16px 0;
+            font-size: 0.95rem;
+            color: #546e7a;
+        }
+        .event-subscribe-modal .modal-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+        .event-subscribe-modal .modal-actions button {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+        .event-subscribe-modal .btn-subscribe {
+            background: #2e7d32;
+            color: #fff;
+        }
+        .event-subscribe-modal .btn-subscribe:hover { background: #1b5e20; }
+        .event-subscribe-modal .btn-unsubscribe {
+            background: #fff;
+            color: #546e7a;
+            border: 1px solid #cfd8dc;
+        }
+        .event-subscribe-modal .btn-unsubscribe:hover {
+            background: #f5f5f5;
+            border-color: #b0bec5;
+        }
+        .event-subscribe-modal .btn-close {
+            background: #eceff1;
+            color: #37474f;
+        }
+        .event-subscribe-modal .btn-close:hover { background: #cfd8dc; }
     </style>
 
 {% endblock %}
@@ -40,13 +235,56 @@
     <div class="error-message">{{ error }}</div>
 {% else %}
 
+<div class="schedule-page" id="schedule-page" data-can-subscribe="{% if subscriber %}true{% else %}false{% endif %}">
+    <div id="event-subscribe-overlay" class="event-subscribe-overlay" aria-hidden="true">
+        <div class="event-subscribe-modal" role="dialog" aria-labelledby="event-subscribe-title" aria-modal="true">
+            <h3 id="event-subscribe-title">Report</h3>
+            <p class="event-subscribe-hint">Subscribe to receive this report by email.</p>
+            <div class="modal-actions">
+                <button type="button" class="btn-subscribe" id="event-subscribe-btn" style="display: none;">Subscribe</button>
+                <button type="button" class="btn-unsubscribe" id="event-unsubscribe-btn" style="display: none;">Unsubscribe</button>
+                <button type="button" class="btn-close" id="event-subscribe-close">Close</button>
+            </div>
+        </div>
+    </div>
     <div class="header">
         <h1>Weekly Analysis Schedule</h1>
         <div id="status-msg"></div>
     </div>
 
+    <div class="schedule-layout">
+        <div class="schedule-main">
     <div id="calendar-container">
         <div id='calendar'></div>
+    </div>
+    <div class="calendar-legend" aria-hidden="true">
+        <span><span class="swatch swatch-subscribed" aria-hidden="true"></span> Your reports</span>
+        <span><span class="swatch swatch-other" aria-hidden="true"></span> Other reports</span>
+    </div>
+        </div>
+
+    {% if subscriber and subscribable_configs %}
+    <aside class="my-subscriptions-aside" aria-label="My subscriptions">
+        <div class="my-subscriptions-card" id="my-subscriptions-card">
+            <h2>My subscriptions</h2>
+            <p class="my-subscriptions-save-hint">Choose which reports you receive. Changes save automatically.</p>
+            <ul class="my-subscriptions-list" id="my-subscriptions-list">
+                {% for config in subscribable_configs %}
+                <li>
+                    <label>
+                        <input type="checkbox" name="config_id" value="{{ config.pk }}"
+                               {% if config.pk in subscribed_config_ids %}checked{% endif %}
+                               data-display-name="{{ config.display_name }}"
+                               data-key="{{ config.key }}">
+                        <span>{{ config.display_name }} <span class="config-key">[{{ config.key }}]</span></span>
+                    </label>
+                </li>
+                {% endfor %}
+            </ul>
+            <p class="my-subscriptions-saving" id="my-subscriptions-saving">Saving…</p>
+        </div>
+    </aside>
+    {% endif %}
     </div>
 
     {% csrf_token %}
@@ -65,19 +303,146 @@
                 headerToolbar: { left: '', center: 'title', right: '' },
                 dayHeaderFormat: { weekday: 'long' },
                 
-                // Call the same URL as the page, but with X-Requested-With header
-                events: {
-                    url: window.location.href,
-                    extraParams: { 'ajax': '1' }
+                // Fetch events with credentials so session cookie is sent (required after Google-only auth)
+                events: function(info, successCallback, failureCallback) {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('ajax', '1');
+                    if (info.start) url.searchParams.set('start', info.start.toISOString());
+                    if (info.end) url.searchParams.set('end', info.end.toISOString());
+                    fetch(url.toString(), {
+                        method: 'GET',
+                        credentials: 'same-origin',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    })
+                    .then(function(r) {
+                        if (!r.ok) throw new Error('Events request failed');
+                        return r.json();
+                    })
+                    .then(successCallback)
+                    .catch(failureCallback);
                 },
                 
-                editable: true,
+                editable: {{ user_can_edit_schedule|yesno:"true,false" }},
+                {% if user_can_edit_schedule %}
                 eventDrop: function(info) {
                     updateSchedule(info.event);
+                },
+                {% endif %}
+                eventClick: function(info) {
+                    info.jsEvent.preventDefault();
+                    openEventSubscribeModal(info.event);
                 }
             });
 
             calendar.render();
+
+            var subscriptionsUrl = "{% url 'newsserver:subscriber_subscriptions' %}";
+            var canSubscribe = document.getElementById('schedule-page').getAttribute('data-can-subscribe') === 'true';
+
+            function openEventSubscribeModal(event) {
+                var overlay = document.getElementById('event-subscribe-overlay');
+                var titleEl = document.getElementById('event-subscribe-title');
+                var subscribeBtn = document.getElementById('event-subscribe-btn');
+                var unsubscribeBtn = document.getElementById('event-unsubscribe-btn');
+                var hint = document.querySelector('.event-subscribe-hint');
+                titleEl.textContent = event.title;
+                overlay.classList.add('is-open');
+                overlay.setAttribute('aria-hidden', 'false');
+                var subscribed = event.extendedProps && event.extendedProps.subscribed;
+                if (canSubscribe) {
+                    subscribeBtn.style.display = subscribed ? 'none' : 'inline-block';
+                    unsubscribeBtn.style.display = subscribed ? 'inline-block' : 'none';
+                    if (hint) hint.textContent = subscribed ? 'Stop receiving this report.' : 'Subscribe to receive this report by email.';
+                } else {
+                    subscribeBtn.style.display = 'none';
+                    unsubscribeBtn.style.display = 'none';
+                    if (hint) hint.textContent = 'Request to be added as a subscriber to choose which reports you receive.';
+                }
+                subscribeBtn.onclick = function() { doSubscribe(event); };
+                unsubscribeBtn.onclick = function() { doUnsubscribe(event); };
+            }
+
+            function closeEventSubscribeModal() {
+                var overlay = document.getElementById('event-subscribe-overlay');
+                overlay.classList.remove('is-open');
+                overlay.setAttribute('aria-hidden', 'true');
+            }
+
+            function syncCheckboxForConfig(configId, checked) {
+                var id = String(configId);
+                var cb = document.querySelector('input[name=config_id][value="' + id + '"]');
+                if (cb) cb.checked = checked;
+            }
+
+            function doSubscribe(event) {
+                var headers = {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                };
+                fetch(subscriptionsUrl, { method: 'GET', headers: headers })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        var ids = data.config_ids || [];
+                        if (ids.indexOf(event.id) === -1) ids.push(event.id);
+                        return fetch(subscriptionsUrl, {
+                            method: 'POST',
+                            headers: headers,
+                            body: JSON.stringify({ config_ids: ids })
+                        });
+                    })
+                    .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+                    .then(function(result) {
+                        if (result.ok) {
+                            calendar.refetchEvents();
+                            syncCheckboxForConfig(event.id, true);
+                            closeEventSubscribeModal();
+                            showStatus('Subscribed.');
+                        } else {
+                            showStatus(result.data.message || 'Failed to subscribe.', true);
+                        }
+                    })
+                    .catch(function() {
+                        showStatus('Network error.', true);
+                    });
+            }
+
+            function doUnsubscribe(event) {
+                var headers = {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                };
+                fetch(subscriptionsUrl, { method: 'GET', headers: headers })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        var ids = (data.config_ids || []).filter(function(id) { return id !== event.id; });
+                        return fetch(subscriptionsUrl, {
+                            method: 'POST',
+                            headers: headers,
+                            body: JSON.stringify({ config_ids: ids })
+                        });
+                    })
+                    .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+                    .then(function(result) {
+                        if (result.ok) {
+                            calendar.refetchEvents();
+                            syncCheckboxForConfig(event.id, false);
+                            closeEventSubscribeModal();
+                            showStatus('Unsubscribed.');
+                        } else {
+                            showStatus(result.data.message || 'Failed to unsubscribe.', true);
+                        }
+                    })
+                    .catch(function() {
+                        showStatus('Network error.', true);
+                    });
+            }
+
+            document.getElementById('event-subscribe-close').onclick = closeEventSubscribeModal;
+            document.getElementById('event-subscribe-overlay').onclick = function(e) {
+                if (e.target === e.currentTarget) closeEventSubscribeModal();
+            };
 
             function showStatus(text, isError = false) {
                 statusMsg.innerText = text;
@@ -110,6 +475,43 @@
                 .catch(() => {
                     showStatus("Network error.", true);
                     calendar.refetchEvents();
+                });
+            }
+
+            // My subscriptions: save on checkbox change and refetch calendar
+            const subscriptionsList = document.getElementById('my-subscriptions-list');
+            const savingEl = document.getElementById('my-subscriptions-saving');
+            if (subscriptionsList && savingEl) {
+                let saveTimeout = null;
+                function saveSubscriptions() {
+                    const checked = Array.from(subscriptionsList.querySelectorAll('input[name=config_id]:checked'))
+                        .map(function(inp) { return parseInt(inp.value, 10); })
+                        .filter(function(n) { return !isNaN(n); });
+                    savingEl.style.display = 'block';
+                    savingEl.textContent = 'Saving…';
+                    fetch(subscriptionsUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrftoken,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ config_ids: checked })
+                    })
+                    .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data }; }); })
+                    .then(function(result) {
+                        savingEl.textContent = result.ok ? 'Saved.' : (result.data.message || 'Failed to save.');
+                        if (result.ok) calendar.refetchEvents();
+                        setTimeout(function() { savingEl.style.display = 'none'; }, 2000);
+                    })
+                    .catch(function() {
+                        savingEl.textContent = 'Network error.';
+                        setTimeout(function() { savingEl.style.display = 'none'; }, 2000);
+                    });
+                }
+                subscriptionsList.addEventListener('change', function() {
+                    if (saveTimeout) clearTimeout(saveTimeout);
+                    saveTimeout = setTimeout(saveSubscriptions, 400);
                 });
             }
         });

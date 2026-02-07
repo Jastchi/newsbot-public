@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
+from django.conf import settings
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils.crypto import get_random_string
 
 from newsbot.constants import DAILY_SCRAPE_HOUR, DAILY_SCRAPE_MINUTE
 from utilities import models as config_models
@@ -206,6 +209,13 @@ class NewsConfig(BaseModel):
     is_active = models.BooleanField(
         default=True,
         help_text="Enable/disable this configuration",
+    )
+    published_for_subscription = models.BooleanField(
+        default=False,
+        help_text=(
+            'If set, this config appears in "My subscriptions" and can be '
+            "chosen by subscribers. Only published configs are subscribable."
+        ),
     )
 
     # LLM Configuration fields
@@ -568,13 +578,66 @@ class NewsConfig(BaseModel):
         )
 
 
-class Subscriber(BaseModel):
-    """Model representing a subscriber to news configurations."""
+class SubscriberManager(BaseUserManager["Subscriber"]):
+    """Manager for Subscriber used as the auth user model."""
+
+    def create_user(
+        self,
+        email: str,
+        first_name: str = "",
+        last_name: str = "",
+        password: str | None = None,
+        **extra_fields,
+    ) -> Subscriber:
+        """
+        Create and return a subscriber with given email and password.
+
+        Normalises email; sets a random password if none given.
+        """
+        if not email:
+            raise ValueError("Email is required")
+        email = self.normalize_email(email).lower()
+        subscriber = self.model(
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            **extra_fields,
+        )
+        subscriber.set_password(password or get_random_string(12))
+        subscriber.save(using=self._db)
+        return subscriber
+
+    def create_superuser(
+        self,
+        email: str,
+        password: str | None = None,
+        **extra_fields,
+    ) -> Subscriber:
+        """
+        Create and return a subscriber with staff/superuser rights.
+
+        Sets is_staff and is_superuser; delegates to create_user.
+        """
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("first_name", "")
+        extra_fields.setdefault("last_name", "")
+        return self.create_user(email, password=password, **extra_fields)
+
+
+class Subscriber(AbstractBaseUser, BaseModel):
+    """
+    Subscriber to news configurations; also the auth user model.
+
+    Subscribers log in with email + password (or Google via allauth).
+    """
 
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
     is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+    is_superuser = models.BooleanField(default=False)
     configs = models.ManyToManyField(
         NewsConfig,
         blank=True,
@@ -583,9 +646,24 @@ class Subscriber(BaseModel):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS: ClassVar[list[str]] = ["first_name", "last_name"]
+
+    objects = SubscriberManager()
+
     def __str__(self) -> str:
-        """Represent the subscriber as a string."""
+        """Return string representation of the subscriber."""
         return f"{self.first_name} {self.last_name} <{self.email}>"
+
+    @property
+    def username(self) -> str:
+        """Alias for email; allauth and .username use it."""
+        return self.email
+
+    @username.setter
+    def username(self, value: str) -> None:
+        """Store value in email so allauth can assign username."""
+        self.email = (value or "").strip().lower()
 
     def subscribed_config_keys(self) -> list[str]:
         """
@@ -595,6 +673,62 @@ class Subscriber(BaseModel):
         subscriber is subscribed to.
         """
         return list(self.configs.values_list("key", flat=True))
+
+    def has_perm(self, _perm: str, _obj: object | None = None) -> bool:
+        """Whether user has the permission (superuser has all)."""
+        return self.is_superuser
+
+    def has_module_perms(self, _app_label: str) -> bool:
+        """Return whether user has perms for app (superuser has all)."""
+        return self.is_superuser
+
+
+class SubscriberRequest(BaseModel):
+    """
+    Pending request from a logged-in user to be added as a subscriber.
+
+    Stored when a user without a Subscriber record submits
+    "Request to be added". Admin is notified daily; once converted to
+    Subscriber, the request can remain for audit or be ignored in the
+    digest.
+    """
+
+    email = models.EmailField(unique=True)
+    first_name = models.CharField(max_length=100, blank=True)
+    last_name = models.CharField(max_length=100, blank=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="subscriber_requests",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    admin_notified_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the immediate admin notification email was sent.",
+    )
+    included_in_daily_email_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When this request was included in a daily admin digest.",
+    )
+
+    if TYPE_CHECKING:
+        objects: Manager[SubscriberRequest]
+
+    class Meta:
+        """Meta options for SubscriberRequest."""
+
+        verbose_name = "Subscriber request"
+        verbose_name_plural = "Subscriber requests"
+        ordering: ClassVar[list[str]] = ["-created_at"]
+
+    def __str__(self) -> str:
+        """Represent the request as a string."""
+        name = f"{self.first_name} {self.last_name}".strip() or self.email
+        return f"{name} <{self.email}>"
 
 
 class ScrapeSummary(BaseModel):

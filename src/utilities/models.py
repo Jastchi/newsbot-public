@@ -1,6 +1,6 @@
 """Utility models for the newsbot application."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class NewsSourceModel(BaseModel):
@@ -158,10 +158,7 @@ class ConfigModel(BaseModel):
     database: DatabaseConfigModel = Field(default_factory=DatabaseConfigModel)
     exclude_articles_from_config_keys: list[str] = Field(default_factory=list)
 
-    class Config:
-        """Pydantic configuration."""
-
-        # Allow dictionary-style access
-        populate_by_name = True
-        # Allow extra fields for backward compatibility
-        extra = "allow"
+    model_config = ConfigDict(
+        populate_by_name=True,
+        extra="allow",
+    )

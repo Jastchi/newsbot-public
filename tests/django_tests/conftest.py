@@ -32,15 +32,22 @@ def django_db_setup(django_db_setup, django_db_blocker):
 
 @pytest.fixture
 def admin_user(db):
-    """Create a superuser for admin access."""
+    """Create or get a superuser (Subscriber with is_staff/is_superuser) for admin access."""
     from django.contrib.auth import get_user_model
 
     User = get_user_model()
-    user = User.objects.create_superuser(
-        username="admin",
+    user, created = User.objects.get_or_create(
         email="admin@example.com",
-        password="admin123",
+        defaults={
+            "is_staff": True,
+            "is_superuser": True,
+            "first_name": "",
+            "last_name": "",
+        },
     )
+    if created:
+        user.set_password("admin123")
+        user.save()
     return user
 
 
@@ -259,11 +266,12 @@ def sample_subscribers(db, sample_news_configs):
     ]
 
     for i, data in enumerate(subscriber_data):
-        subscriber = Subscriber.objects.create(
+        subscriber = Subscriber.objects.create_user(
+            email=data["email"],
             first_name=data["first_name"],
             last_name=data["last_name"],
-            email=data["email"],
-            is_active=True,
+            password="testpass",
+            is_staff=False,
         )
         # Subscribe to different configs
         if i == 0:
@@ -369,16 +377,251 @@ def all_sample_data(
 
 
 @pytest.fixture
-def django_live_server(db, all_sample_data, live_server):
+def all_sample_data_idempotent(db, admin_user):
+    """
+    Same as all_sample_data but uses get_or_create so it is safe to use
+    with live_server when the test DB is reused (TransactionTestCase, no rollback).
+    """
+    from django.utils import timezone
+
+    from web.newsserver.models import (
+        AnalysisSummary,
+        Article,
+        NewsConfig,
+        NewsSource,
+        ScrapeSummary,
+        Subscriber,
+        SubscriberRequest,
+    )
+    config_data = [
+        {
+            "key": "technology",
+            "display_name": "Technology News",
+            "country": "US",
+            "scheduler_weekly_analysis_day_of_week": NewsConfig.DayOfWeek.MONDAY,
+            "scheduler_weekly_analysis_hour": 12,
+            "scheduler_weekly_analysis_minute": 0,
+        },
+        {
+            "key": "world",
+            "display_name": "World News",
+            "country": "US",
+            "scheduler_weekly_analysis_day_of_week": NewsConfig.DayOfWeek.TUESDAY,
+            "scheduler_weekly_analysis_hour": 12,
+            "scheduler_weekly_analysis_minute": 0,
+        },
+    ]
+    configs = []
+    for data in config_data:
+        day = data.pop("scheduler_weekly_analysis_day_of_week")
+        hour = data.pop("scheduler_weekly_analysis_hour")
+        minute = data.pop("scheduler_weekly_analysis_minute")
+        obj, _ = NewsConfig.objects.get_or_create(
+            key=data["key"],
+            defaults={
+                "display_name": data["display_name"],
+                "country": data["country"],
+                "language": "en",
+                "is_active": True,
+                "published_for_subscription": True,
+                "scheduler_weekly_analysis_enabled": True,
+                "scheduler_weekly_analysis_day_of_week": day,
+                "scheduler_weekly_analysis_hour": hour,
+                "scheduler_weekly_analysis_minute": minute,
+            },
+        )
+        if not obj.published_for_subscription:
+            obj.published_for_subscription = True
+            obj.save()
+        # Ensure schedule: noon on different days (idempotent)
+        if (
+            not obj.scheduler_weekly_analysis_enabled
+            or obj.scheduler_weekly_analysis_hour != 12
+            or obj.scheduler_weekly_analysis_minute != 0
+        ):
+            obj.scheduler_weekly_analysis_enabled = True
+            obj.scheduler_weekly_analysis_day_of_week = day
+            obj.scheduler_weekly_analysis_hour = 12
+            obj.scheduler_weekly_analysis_minute = 0
+            obj.save()
+        configs.append(obj)
+
+    source_data = [
+        ("Example News Source 1", "https://example.com/feed1"),
+        ("Example News Source 2", "https://example.com/feed2"),
+        ("Example News Source 3", "https://example.com/feed3"),
+        ("Example News Source 4", "https://example.com/feed4"),
+        ("Example News Source 5", "https://example.com/feed5"),
+    ]
+    sources = []
+    for name, url in source_data:
+        obj, _ = NewsSource.objects.get_or_create(
+            url=url,
+            defaults={"name": name, "type": "rss"},
+        )
+        sources.append(obj)
+    if configs:
+        configs[0].news_sources.add(sources[0], sources[1], sources[2], sources[3])
+        if len(configs) > 1:
+            configs[1].news_sources.add(sources[4])
+
+    now = timezone.now()
+    article_data = [
+        ("technology", "AI Startup Raises $100M in Series B", 0),
+        ("technology", "New CPU Architecture Promises 50% Speed Boost", 1),
+        ("technology", "Quantum Computing Breakthrough Achieved", 2),
+        ("world", "Global Summit Addresses Climate Change", 3),
+    ]
+    articles = []
+    for i, (cfg_key, title, idx) in enumerate(article_data):
+        config = next((c for c in configs if c.key == cfg_key), configs[0])
+        url = f"https://example.com/article-idempotent-{idx + 1}"
+        article, _ = Article.objects.get_or_create(
+            url=url,
+            config=config,
+            defaults={
+                "config_file": cfg_key,
+                "title": title,
+                "content": f"Full content for article: {title}",
+                "summary": f"Summary of {title}",
+                "source": f"Example Source {min(idx + 1, 5)}",
+                "published_date": now - timedelta(days=idx),
+                "sentiment_label": "positive" if cfg_key == "technology" else "neutral",
+                "sentiment_score": 0.8 if cfg_key == "technology" else 0.1,
+            },
+        )
+        articles.append(article)
+
+    summaries_scrape = []
+    for config in configs:
+        for days_ago in [0, 1, 2]:
+            ts = now - timedelta(days=days_ago)
+            summary = ScrapeSummary.objects.create(
+                config=config,
+                success=True,
+                duration=45.5 + days_ago * 10,
+                articles_scraped=15 - days_ago * 2,
+                articles_saved=12 - days_ago * 2,
+                error_count=0,
+                errors="",
+            )
+            summary.timestamp = ts
+            summary.save()
+            summaries_scrape.append(summary)
+
+    summaries_analysis = []
+    for config in configs:
+        ts = now - timedelta(days=7)
+        summary = AnalysisSummary.objects.create(
+            config=config,
+            success=True,
+            duration=120.5,
+            articles_analyzed=25,
+            stories_identified=5,
+            top_stories=json.dumps([
+                "Story 1: Major development",
+                "Story 2: Economic impact",
+                "Story 3: Regional update",
+            ]),
+            error_count=0,
+            errors="",
+        )
+        summary.timestamp = ts
+        summary.save()
+        summaries_analysis.append(summary)
+
+    subscriber_data = [
+        ("John", "Doe", "john.doe@example.com"),
+        ("Jane", "Smith", "jane.smith@example.com"),
+        ("Bob", "Johnson", "bob.johnson@example.com"),
+    ]
+    subscribers = []
+    for i, (first_name, last_name, email) in enumerate(subscriber_data):
+        sub, created = Subscriber.objects.get_or_create(
+            email=email,
+            defaults={
+                "first_name": first_name,
+                "last_name": last_name,
+                "is_staff": False,
+            },
+        )
+        if created:
+            sub.set_password("testpass")
+            sub.save()
+        # Two published configs (technology, world); only technology is subscribed
+        if configs:
+            if i == 0:
+                sub.configs.set([configs[0]])  # John: technology only
+            elif i == 1:
+                sub.configs.set([configs[0]])  # Jane: technology only
+            else:
+                sub.configs.set([])  # Bob: no configs (world is published but unsubscribed)
+        subscribers.append(sub)
+
+    log_files = []
+    try:
+        from django.conf import settings as django_settings
+        logs_dir = django_settings.BASE_DIR / "logs"
+        logs_dir.mkdir(exist_ok=True)
+        for config_name in ["technology", "world"]:
+            log_file = logs_dir / f"{config_name}.log"
+            log_file.write_text(f"2026-01-17 10:00:00 [INFO] Test log for {config_name}\n")
+            log_files.append(log_file)
+    except Exception:
+        pass
+
+    report_dirs = []
+    try:
+        from django.conf import settings as django_settings
+        reports_dir = getattr(django_settings, "REPORTS_DIR", Path(django_settings.BASE_DIR) / "reports")
+        reports_dir = Path(reports_dir)
+        reports_dir.mkdir(exist_ok=True)
+        for config_name in ["technology", "world"]:
+            config_dir = reports_dir / config_name
+            config_dir.mkdir(exist_ok=True)
+            (config_dir / "news_report_20260117_100000.html").write_text("<html><body>Report</body></html>")
+            report_dirs.append(config_dir)
+    except Exception:
+        pass
+
+    # One pending subscriber request (no admin_notified_at / included_in_daily_email_at)
+    pending_request, _ = SubscriberRequest.objects.get_or_create(
+        email="pending.subscriber@example.com",
+        defaults={
+            "first_name": "Pending",
+            "last_name": "Subscriber",
+        },
+    )
+
+    # Logged-in user (admin) is subscribed to one config so schedule screenshot shows one subscribed
+    if configs:
+        admin_user.configs.set([configs[0]])
+
+    return {
+        "admin_user": admin_user,
+        "news_configs": configs,
+        "news_sources": sources,
+        "articles": articles,
+        "scrape_summaries": summaries_scrape,
+        "analysis_summaries": summaries_analysis,
+        "subscribers": subscribers,
+        "subscriber_requests": [pending_request],
+        "log_files": log_files,
+        "report_dirs": report_dirs,
+    }
+
+
+@pytest.fixture
+def django_live_server(db, all_sample_data_idempotent, live_server):
     """
     Start a live Django development server for screenshot tests.
     
-    Uses pytest-django's live_server fixture which properly shares
-    the test database with the server process.
+    Uses idempotent sample data (get_or_create) so the test works when
+    the DB is reused with TransactionTestCase (no rollback).
     """
     yield {
         "url": live_server.url,
-        "sample_data": all_sample_data,
+        "sample_data": all_sample_data_idempotent,
     }
 
 

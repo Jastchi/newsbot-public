@@ -5,8 +5,12 @@ from unittest.mock import Mock
 import pytest
 from django.contrib.admin.sites import AdminSite
 from django.test import RequestFactory
-from web.newsserver.admin import NewsConfigAdmin, SubscriberAdmin
-from web.newsserver.models import NewsConfig, Subscriber
+from web.newsserver.admin import (
+    NewsConfigAdmin,
+    SubscriberAdmin,
+    SubscriberRequestAdmin,
+)
+from web.newsserver.models import NewsConfig, Subscriber, SubscriberRequest
 
 
 @pytest.fixture
@@ -59,10 +63,11 @@ class TestNewsConfigAdmin:
             key="test",
             display_name="Test Config",
         )
-        subscriber = Subscriber.objects.create(
+        subscriber = Subscriber.objects.create_user(
+            email="john@example.com",
             first_name="John",
             last_name="Doe",
-            email="john@example.com",
+            password="testpass",
         )
         subscriber.configs.add(config)
 
@@ -77,10 +82,11 @@ class TestNewsConfigAdmin:
             display_name="Test Config",
         )
         for i in range(3):
-            subscriber = Subscriber.objects.create(
+            subscriber = Subscriber.objects.create_user(
+                email=f"user{i}@example.com",
                 first_name=f"User{i}",
                 last_name="Test",
-                email=f"user{i}@example.com",
+                password="testpass",
             )
             subscriber.configs.add(config)
 
@@ -173,3 +179,41 @@ class TestSubscriberAdmin:
         """Test that configs uses filter_horizontal widget."""
         admin = SubscriberAdmin(Subscriber, admin_site)
         assert "configs" in admin.filter_horizontal
+
+
+@pytest.mark.django_db
+class TestSubscriberRequestAdmin:
+    """Test cases for SubscriberRequestAdmin."""
+
+    def test_list_display(self, admin_site):
+        """Test that list_display is configured correctly."""
+        admin = SubscriberRequestAdmin(SubscriberRequest, admin_site)
+        assert "email" in admin.list_display
+        assert "first_name" in admin.list_display
+        assert "last_name" in admin.list_display
+        assert "created_at" in admin.list_display
+        assert "included_in_daily_email_at" in admin.list_display
+
+    def test_included_display_not_sent(self, admin_site):
+        """Test included method when not yet in digest."""
+        req = SubscriberRequest.objects.create(
+            email="req@example.com",
+            first_name="Req",
+            last_name="User",
+        )
+        admin = SubscriberRequestAdmin(SubscriberRequest, admin_site)
+        result = admin.included(req)
+        assert result == "No"
+
+    def test_included_display_sent(self, admin_site):
+        """Test included method when already in digest."""
+        from django.utils import timezone
+        req = SubscriberRequest.objects.create(
+            email="sent@example.com",
+            first_name="Sent",
+            last_name="User",
+            included_in_daily_email_at=timezone.now(),
+        )
+        admin = SubscriberRequestAdmin(SubscriberRequest, admin_site)
+        result = admin.included(req)
+        assert result == "Yes"

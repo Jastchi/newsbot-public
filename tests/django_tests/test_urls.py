@@ -2,10 +2,13 @@
 
 import pytest
 from django.urls import resolve, reverse
+from django.test import Client
+
 from web.newsserver.views import (
     ConfigOverviewView,
     ConfigReportView,
     LogsView,
+    NewsSchedulerDashboardView,
     log_stream_view,
 )
 
@@ -16,9 +19,23 @@ class TestNewsserverUrls:
     def test_overview_url_resolves(self):
         """Test that overview URL resolves correctly."""
         url = reverse("newsserver:overview")
-        assert url == "/"
+        assert url == "/report-archive/"
         resolved = resolve(url)
         assert resolved.func.view_class == ConfigOverviewView
+
+    def test_news_schedule_url_resolves(self):
+        """Test that news_schedule (root) URL resolves correctly."""
+        url = reverse("newsserver:news_schedule")
+        assert url == "/"
+        resolved = resolve(url)
+        assert resolved.func.view_class == NewsSchedulerDashboardView
+
+    def test_news_schedule_redirect(self):
+        """Test that /news-schedule/ redirects to /."""
+        client = Client()
+        response = client.get("/news-schedule/", follow=False)
+        assert response.status_code == 302
+        assert response["Location"] == "/"
 
     def test_config_report_url_resolves(self):
         """Test that config report URL resolves correctly."""

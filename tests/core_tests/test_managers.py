@@ -58,19 +58,9 @@ class TestAgentManager:
             key="test_managers",
             defaults={"display_name": "Test Managers Config"},
         )
-        config_with_exclude = Mock(spec=sample_config)
-        config_with_exclude.exclude_articles_from_config_keys = ["other_config"]
-        # Copy other attributes from sample_config so scraper init works
-        for attr in (
-            "name",
-            "news_sources",
-            "country",
-            "language",
-            "report",
-            "topics",
-            "story_clustering",
-        ):
-            setattr(config_with_exclude, attr, getattr(sample_config, attr))
+        config_with_exclude = sample_config.model_copy(
+            update={"exclude_articles_from_config_keys": ["other_config"]}
+        )
         manager = AgentManager(
             config_with_exclude,
             database_manager=DatabaseManager(news_config),
@@ -90,18 +80,9 @@ class TestAgentManager:
         self, sample_config
     ):
         """Scraper has exclude_url_check None when database_manager is None."""
-        config_with_exclude = Mock(spec=sample_config)
-        config_with_exclude.exclude_articles_from_config_keys = ["other"]
-        for attr in (
-            "name",
-            "news_sources",
-            "country",
-            "language",
-            "report",
-            "topics",
-            "story_clustering",
-        ):
-            setattr(config_with_exclude, attr, getattr(sample_config, attr))
+        config_with_exclude = sample_config.model_copy(
+            update={"exclude_articles_from_config_keys": ["other"]}
+        )
         manager = AgentManager(config_with_exclude, database_manager=None)
         scraper = manager.scraper
         assert scraper.exclude_url_check is None

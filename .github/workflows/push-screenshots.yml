@@ -74,7 +74,7 @@ jobs:
         
         # 6. Push with retry/rebase logic
         git add "$TARGET_DIR"
-        git commit -m "Add screenshots for run ${{ github.run_id }} [skip ci]"
+        git commit -m "Add screenshots for run ${{ github.run_id }}"
         
         for i in {1..5}; do
           git pull --rebase origin screenshots

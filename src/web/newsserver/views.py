@@ -5,9 +5,12 @@ from collections.abc import Generator
 from datetime import UTC, datetime, time, timedelta
 from pathlib import Path
 from time import sleep
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import ClassVar, cast
 
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.conf import settings
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.mail import send_mail
 from django.http import (
     FileResponse,
     Http404,
@@ -16,23 +19,62 @@ from django.http import (
     JsonResponse,
     StreamingHttpResponse,
 )
+from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.generic import TemplateView
 
 from newsbot.constants import TZ
 
-from .models import AnalysisSummary, NewsConfig, ScrapeSummary
+from .adapters import SESSION_KEY_SUBSCRIPTION_REQUEST_FROM_SOCIAL
+from .models import (
+    AnalysisSummary,
+    NewsConfig,
+    ScrapeSummary,
+    Subscriber,
+    SubscriberRequest,
+)
 from .services.config_service import ConfigService
 from .services.log_service import LogService
 from .services.report_service import ReportService
 from .utils import get_date_range, parse_date_or_default
 
-if TYPE_CHECKING:
-    from django.contrib.auth.models import AbstractUser
+
+def _notify_admin_subscriber_request(req: SubscriberRequest) -> None:
+    """
+    Send immediate email to admin when new subscriber request created.
+
+    Only sends once per request (skips if admin_notified_at is already
+    set).
+    Uses EMAIL_ADMIN_NOTIFICATION_TO; no-op if unset.
+    """
+    if req.admin_notified_at is not None:
+        return
+    to = getattr(settings, "EMAIL_ADMIN_NOTIFICATION_TO", "").strip()
+    if not to:
+        return
+    name = f"{req.first_name} {req.last_name}".strip() or "(no name)"
+    subject = "NewsBot: New subscription request"
+    message = (
+        f"A user has requested to be added as a subscriber.\n\n"
+        f"Email: {req.email}\n"
+        f"Name: {name}\n\n"
+        "Process in Django Admin: Subscriber requests → add as Subscriber and "
+        "assign configs, or use the Pending requests page."
+    )
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL or None,
+        recipient_list=[to],
+        fail_silently=True,
+    )
+    req.admin_notified_at = timezone.now()
+    req.save(update_fields=["admin_notified_at"])
 
 
-class ConfigOverviewView(TemplateView):
+class ConfigOverviewView(LoginRequiredMixin, TemplateView):
     """Overview page showing all available configs."""
 
     template_name = "newsserver/config_overview.html"
@@ -56,7 +98,7 @@ class ConfigOverviewView(TemplateView):
         return context
 
 
-class ConfigReportView(TemplateView):
+class ConfigReportView(LoginRequiredMixin, TemplateView):
     """
     Page showing a specific config report.
 
@@ -178,7 +220,7 @@ class ConfigReportView(TemplateView):
         return context
 
 
-class RunListView(TemplateView):
+class RunListView(LoginRequiredMixin, TemplateView):
     """View for displaying run summaries."""
 
     template_name = "newsserver/runs_list.html"
@@ -232,7 +274,7 @@ class RunListView(TemplateView):
         return context
 
 
-class LogsView(TemplateView):
+class LogsView(LoginRequiredMixin, TemplateView):
     """View for displaying log files."""
 
     template_name = "newsserver/logs_list.html"
@@ -418,6 +460,7 @@ def _stream_log_file(log_path: Path) -> Generator[str, None, None]:
         yield f"data: {error_payload}\n\n"
 
 
+@login_required
 def log_stream_view(
     request: HttpRequest,
 ) -> HttpResponse | StreamingHttpResponse:
@@ -460,12 +503,13 @@ def log_stream_view(
     response["X-Accel-Buffering"] = "no"  # Disable nginx buffering
     return response
 
-class NewsSchedulerDashboardView(
-    LoginRequiredMixin,
-    UserPassesTestMixin,
-    TemplateView,
-):
-    """View for displaying the news scheduler dashboard."""
+class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
+    """
+    View for displaying the news scheduler dashboard.
+
+    Any authenticated user can view the schedule. Only staff can update
+    the schedule (POST / drag-and-drop).
+    """
 
     template_name = "newsserver/news_scheduler_calendar.html"
 
@@ -477,12 +521,47 @@ class NewsSchedulerDashboardView(
     # Reverse map for saving back to DB
     REV_DAY_MAP: ClassVar[dict[int, str]] = {v: k for k, v in DAY_MAP.items()}
 
-    def test_func(self) -> bool:
-        """Test if the user is staff for access."""
+    def get_context_data(self, **kwargs) -> dict:
+        """Add subscriber, request state, and edit flag for template."""
+        context = super().get_context_data(**kwargs)
         user = self.request.user
-        if user.is_authenticated:
-            return cast("AbstractUser", user).is_staff
-        return False
+        context["user_can_edit_schedule"] = (
+            user.is_authenticated and getattr(user, "is_staff", False)
+        )
+        subscriber = (
+            cast("Subscriber", user) if user.is_authenticated else None
+        )
+        # Show "request to be added" when subscriber has no configs
+        subscriber_request_pending = False
+        if subscriber is not None:
+            has_configs = subscriber.configs.filter(
+                is_active=True,
+                published_for_subscription=True,
+            ).exists()
+            subscriber_request_pending = not has_configs
+        context["subscriber"] = subscriber
+        context["subscriber_request_pending"] = subscriber_request_pending
+        context["subscriber_request_already_sent"] = False
+        if subscriber is not None and subscriber_request_pending:
+            context["subscriber_request_already_sent"] = (
+                SubscriberRequest.objects.filter(
+                    email__iexact=subscriber.email,
+                ).exists()
+            )
+        context["subscribable_configs"] = NewsConfig.objects.filter(
+            is_active=True,
+            published_for_subscription=True,
+        ).order_by("display_name")
+        if subscriber is not None:
+            context["subscribed_config_ids"] = set(
+                subscriber.configs.filter(
+                    is_active=True,
+                    published_for_subscription=True,
+                ).values_list("pk", flat=True),
+            )
+        else:
+            context["subscribed_config_ids"] = set()
+        return context
 
     def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         """Handle GET request."""
@@ -519,11 +598,26 @@ class NewsSchedulerDashboardView(
         now = timezone.now()
         return now - timedelta(days=7), now + timedelta(days=14)
 
+    def _get_subscribed_config_ids(self) -> set[int]:
+        """Return subscribed config PKs (published only)."""
+        user = self.request.user
+        subscriber = (
+            cast("Subscriber", user) if user.is_authenticated else None
+        )
+        if subscriber is None:
+            return set()
+        return set(
+            subscriber.configs.filter(
+                is_active=True,
+                published_for_subscription=True,
+            ).values_list("pk", flat=True),
+        )
+
     def _generate_calendar_events(
         self,
         start_limit: datetime,
         end_limit: datetime,
-    ) -> list[dict[str, str | int]]:
+    ) -> list[dict[str, str | int | bool | dict[str, bool]]]:
         """
         Generate calendar events for the given date range.
 
@@ -532,11 +626,21 @@ class NewsSchedulerDashboardView(
             end_limit: End of the date range
 
         Returns:
-            List of event dictionaries for FullCalendar
+            List of event dictionaries for FullCalendar.
 
         """
         events = []
-        configs = NewsConfig.objects.filter(is_active=True)
+        # Staff see all configs; others only published-for-subscription.
+        if self.request.user.is_authenticated and getattr(
+            self.request.user, "is_staff", False,
+        ):
+            configs = NewsConfig.objects.filter(is_active=True)
+        else:
+            configs = NewsConfig.objects.filter(
+                is_active=True,
+                published_for_subscription=True,
+            )
+        subscribed_ids = self._get_subscribed_config_ids()
 
         # Generate events for each week in the visible range
         # We start at the beginning of the week for start_limit
@@ -547,7 +651,11 @@ class NewsSchedulerDashboardView(
                 if not config.scheduler_weekly_analysis_enabled:
                     continue
 
-                event = self._create_analysis_event(config, curr_week_start)
+                event = self._create_analysis_event(
+                    config,
+                    curr_week_start,
+                    is_subscribed=config.pk in subscribed_ids,
+                )
                 if event:
                     events.append(event)
 
@@ -559,13 +667,16 @@ class NewsSchedulerDashboardView(
         self,
         config: NewsConfig,
         week_start: datetime,
-    ) -> dict[str, str | int] | None:
+        *,
+        is_subscribed: bool = False,
+    ) -> dict[str, str | int | bool | dict[str, bool]] | None:
         """
         Create a calendar event for a config's weekly analysis.
 
         Args:
             config: NewsConfig instance
             week_start: Start of the week (Monday)
+            is_subscribed: True if the user is subscribed to this config
 
         Returns:
             Event dictionary for FullCalendar, or None if invalid
@@ -589,12 +700,20 @@ class NewsSchedulerDashboardView(
             analysis_ev_time,
         )).isoformat()
 
+        if is_subscribed:
+            bg_color = "#2e7d32"
+            border_color = "#1b5e20"
+        else:
+            bg_color = "#78909c"
+            border_color = "#546e7a"
+
         return {
             "id": config.pk,
             "title": f"{config.display_name} [{config.key}]",
             "start": analysis_start_iso,
-            "backgroundColor": "#3788d8",
-            "borderColor": "#2c3e50",
+            "backgroundColor": bg_color,
+            "borderColor": border_color,
+            "extendedProps": {"subscribed": is_subscribed},
         }
 
     def _get_calendar_data(self) -> JsonResponse:
@@ -608,7 +727,14 @@ class NewsSchedulerDashboardView(
         return JsonResponse(events, safe=False)
 
     def post(self, request: HttpRequest, *_args, **_kwargs) -> JsonResponse:
-        """Update the specific scheduler fields."""
+        """Update the specific scheduler fields (staff only)."""
+        if not request.user.is_authenticated or not getattr(
+            request.user, "is_staff", False,
+        ):
+            return JsonResponse(
+                {"status": "error", "message": "Forbidden"},
+                status=403,
+            )
         try:
             data = json.loads(request.body)
             config_id = data.get("id")
@@ -651,5 +777,190 @@ class NewsSchedulerDashboardView(
 
         return JsonResponse(
             {"status": "error", "message": "Invalid data"},
+            status=400,
+        )
+
+
+def signup_google_only(request: HttpRequest) -> HttpResponse:
+    """
+    Signup page: only Google signup is allowed (no email/password form).
+
+    GET: show the signup page with "Sign up with Google".
+    POST: return 405 (email/password signup is disabled).
+    """
+    if request.method != "GET":
+        return HttpResponse(
+            "Sign up is only available with Google.",
+            status=405,
+        )
+    return render(
+        request,
+        "account/signup.html",
+        {
+            "redirect_field_name": "next",
+            "redirect_field_value": request.GET.get("next", ""),
+        },
+    )
+
+
+class SubscriptionRequestedView(LoginRequiredMixin, TemplateView):
+    """Page after user submitted a subscription request (logged in)."""
+
+    template_name = "newsserver/subscription_requested.html"
+
+
+def subscription_request_from_social(request: HttpRequest) -> HttpResponse:
+    """
+    Handle first-time social login: create SubscriberRequest, confirm.
+
+    Called after Google (or other) login when no Subscriber exists. Data
+    is stashed in session by SocialAccountAdapter; we create
+    SubscriberRequest, notify admin, show "request received" (user not
+    logged in).
+    """
+    key = SESSION_KEY_SUBSCRIPTION_REQUEST_FROM_SOCIAL
+    data = request.session.pop(key, None)
+    if not data:
+        return redirect("newsserver:news_schedule")
+    email = (data.get("email") or "").strip().lower()
+    if not email:
+        return redirect("newsserver:news_schedule")
+    first_name = (data.get("first_name") or "").strip()
+    last_name = (data.get("last_name") or "").strip()
+    obj = SubscriberRequest.objects.filter(email__iexact=email).first()
+    if obj:
+        obj.first_name = first_name
+        obj.last_name = last_name
+        obj.save(update_fields=["first_name", "last_name"])
+    else:
+        obj = SubscriberRequest.objects.create(
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+        )
+        _notify_admin_subscriber_request(obj)
+    return render(request, "newsserver/subscription_requested.html", {})
+
+
+def _staff_required(user: object) -> bool:
+    return bool(
+        getattr(user, "is_authenticated", False)
+        and getattr(user, "is_staff", False),
+    )
+
+
+@user_passes_test(_staff_required, login_url=None)
+def pending_subscription_requests(request: HttpRequest) -> HttpResponse:
+    """
+    Staff-only page listing users who want to subscribe.
+
+    Informs the admin so they can add the user as a Subscriber and
+    assign configs.
+    """
+    pending = list(
+        SubscriberRequest.objects.all().order_by("-created_at")[:100],
+    )
+    return render(
+        request,
+        "newsserver/pending_subscription_requests.html",
+        {"pending_requests": pending},
+    )
+
+
+@login_required
+def subscriber_request_create(request: HttpRequest) -> JsonResponse:
+    """
+    Create or refresh a subscriber request for the current subscriber.
+
+    Logged-in subscribers with no configs can submit a request; admin is
+    notified and can add configs. If a request exists, we refresh it.
+    """
+    if request.method != "POST":
+        return JsonResponse(
+            {"status": "error", "message": "Method not allowed"},
+            status=405,
+        )
+    subscriber = cast("Subscriber", request.user)
+    email = (getattr(subscriber, "email", None) or "").strip().lower()
+    if not email:
+        return JsonResponse(
+            {"status": "error", "message": "No email on account"},
+            status=400,
+        )
+    has_configs = subscriber.configs.filter(
+        is_active=True,
+        published_for_subscription=True,
+    ).exists()
+    if has_configs:
+        return JsonResponse(
+            {"status": "error", "message": "Already have subscriptions"},
+            status=400,
+        )
+    obj = SubscriberRequest.objects.filter(email__iexact=email).first()
+    if obj:
+        obj.first_name = getattr(subscriber, "first_name", "") or ""
+        obj.last_name = getattr(subscriber, "last_name", "") or ""
+        obj.user = subscriber
+        obj.save(update_fields=["first_name", "last_name", "user"])
+    else:
+        obj = SubscriberRequest.objects.create(
+            email=email,
+            first_name=getattr(subscriber, "first_name", "") or "",
+            last_name=getattr(subscriber, "last_name", "") or "",
+            user=subscriber,
+        )
+        _notify_admin_subscriber_request(obj)
+    redirect_url = reverse("newsserver:subscription_requested")
+    return JsonResponse({
+        "status": "success",
+        "message": "We've received your request; the admin will add you.",
+        "redirect_url": redirect_url,
+    })
+
+
+@login_required
+def subscriber_subscriptions(request: HttpRequest) -> JsonResponse:
+    """
+    Get or update the current subscriber's config subscriptions.
+
+    GET: return subscribed config IDs (published only).
+    POST: set configs to given config_ids (published only).
+    """
+    subscriber = cast("Subscriber", request.user)
+    published = NewsConfig.objects.filter(
+        is_active=True,
+        published_for_subscription=True,
+    )
+    if request.method == "GET":
+        ids = list(
+            subscriber.configs.filter(
+                is_active=True,
+                published_for_subscription=True,
+            ).values_list("pk", flat=True),
+        )
+        return JsonResponse({"config_ids": ids})
+    if request.method != "POST":
+        return JsonResponse(
+            {"status": "error", "message": "Method not allowed"},
+            status=405,
+        )
+    try:
+        data = json.loads(request.body)
+        raw_ids = data.get("config_ids", [])
+        if not isinstance(raw_ids, list):
+            return JsonResponse(
+                {"status": "error", "message": "config_ids must be a list"},
+                status=400,
+            )
+        valid_ids = [x for x in raw_ids if isinstance(x, int)]
+        valid_configs = list(published.filter(pk__in=valid_ids))
+        subscriber.configs.set(valid_configs)
+        return JsonResponse({
+            "status": "success",
+            "config_ids": [c.pk for c in valid_configs],
+        })
+    except json.JSONDecodeError as e:
+        return JsonResponse(
+            {"status": "error", "message": str(e)},
             status=400,
         )

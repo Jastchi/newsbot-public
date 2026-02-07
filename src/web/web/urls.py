@@ -19,10 +19,35 @@ Including another URLconf
 
 """
 
+from typing import Any
+
 from django.contrib import admin
-from django.urls import include, path
+from django.contrib.admin import AdminSite
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.urls import include, path, reverse
+
+from web.newsserver.views import signup_google_only
+
+
+def _admin_login_redirect(
+    self: AdminSite,
+    request: HttpRequest,
+    extra_context: dict[str, Any] | None = None,
+) -> HttpResponse:
+    """Redirect admin login to app login (Google-only)."""
+    next_url = request.GET.get("next", "/admin/")
+    login_url = reverse("account_login")
+    if next_url:
+        login_url = f"{login_url}?next={next_url}"
+    return HttpResponseRedirect(login_url)
+
+
+# Use app login (Google) for admin; no separate admin password
+admin.site.login = _admin_login_redirect
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("accounts/signup/", signup_google_only, name="account_signup"),
+    path("accounts/", include("allauth.urls")),
     path("", include("web.newsserver.urls")),
 ]

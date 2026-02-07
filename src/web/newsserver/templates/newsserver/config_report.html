@@ -145,12 +145,12 @@
 
 {% block content %}
 <div class="breadcrumb">
-    <a href="{% url 'newsserver:overview' %}">Home</a>
+    <a href="{% url 'newsserver:news_schedule' %}">Home</a>
     <span>/</span>
     <strong>{{ config_name }}</strong>
 </div>
 
-<a href="{% url 'newsserver:overview' %}" class="back-button">← Back to Configs</a>
+<a href="{% url 'newsserver:overview' %}" class="back-button">← Back to Report archive</a>
 
 {% if error %}
 <div class="error-message">

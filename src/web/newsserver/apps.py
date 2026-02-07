@@ -8,3 +8,6 @@ class NewsserverConfig(AppConfig):
 
     default_auto_field = "django.db.models.BigAutoField"
     name = "web.newsserver"
+
+    def ready(self) -> None:
+        """Run when Django starts; used for signal registration etc."""

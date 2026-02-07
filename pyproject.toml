@@ -64,14 +64,17 @@ newsbot = [
 ]
 serve = [
     "django>=5.2.8",
+    "django-allauth>=65.0.0",
     "gunicorn>=23.0.0",
     "psycopg2-binary>=2.9.9",
     "dj-database-url>=2.3.0",
+    "requests>=2.31.0",
     "supabase>=2.0.0",
     "whitenoise>=6.8.0",
 ]
 api = [
     { include-group = "newsbot" },
+    "django-allauth>=65.0.0",  # required: API loads Django settings which include allauth in INSTALLED_APPS
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
 ]
@@ -133,6 +136,8 @@ docstring-code-line-length = 72
 "src/web/web/__init__.py" = ["ALL"]
 "src/web/newsserver/migrations/*" = ["ALL"]
 "src/web/*" = ["TID253"]  # allow django/newsserver imports in Django app
+"src/web/newsserver/adapters.py" = ["ARG002"]  # request required by base class signature
+"src/web/web/urls.py" = ["ARG001"]  # admin login replacement must match method signature
 "src/web/web/*sgi.py" = ["E402"] # import path manipulation is intentional
 "src/utilities/django_setup.py" = ["TID252", "TID253", "E402"]  # allow django import in setup module
 "src/utilities/django_models.py" = ["TID252", "TID253", "E402", "F401"]  # allow web import in model proxy
@@ -151,6 +156,12 @@ python_functions = ["test_*"]
 addopts = "-v --strict-markers --log-cli-level=INFO --reuse-db"
 pythonpath = ["src"]
 DJANGO_SETTINGS_MODULE = "web.web.settings"
+
+# Suppress third-party and environment warnings we cannot fix
+filterwarnings = [
+    "ignore::DeprecationWarning:pyiceberg.*",
+    "ignore:No directory at.*staticfiles:UserWarning",
+]
 
 # Markers for different test suites
 markers = [
@@ -171,5 +182,14 @@ include = ["tests/**"]
 rules = { unresolved-import = "ignore", unresolved-attribute = "ignore" }
 
 [[tool.ty.overrides]]
-include = ["src/newsbot/summary_writer.py", "src/after_analysis/email_sender.py"]
+include = [
+    "src/newsbot/summary_writer.py",
+    "src/after_analysis/email_sender.py",
+    "src/web/newsserver/management/commands/create_test_user.py",
+    "src/web/newsserver/management/commands/create_staff_subscriber.py",
+]
 rules = { unresolved-attribute = "ignore" }  # Django ORM manager is added at runtime
+
+[[tool.ty.overrides]]
+include = ["src/web/web/urls.py"]
+rules = { invalid-assignment = "ignore" }  # admin.site.login replaced with redirect view

@@ -36,6 +36,16 @@
                 "--test"
             ],
             "console": "integratedTerminal",
+        },
+        {
+            "name": "Run Server",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/web/manage.py",
+            "args": ["runserver"],
+            "django": true,
+            "cwd": "${workspaceFolder}/src/web",
+            "console": "integratedTerminal"
         }
     ]
 }
