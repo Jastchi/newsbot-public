@@ -16,7 +16,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Find open PR for branch
         id: pr
@@ -41,7 +41,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build API Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.api
@@ -59,8 +59,9 @@ jobs:
           # Pre-pull the model (adjust model name as needed)
           docker exec ollama-svc ollama pull llama3:8b
 
+      # Scrape once
       # ===== GEMINI TEST =====
-      - name: Run Pipeline (Gemini)
+      - name: Run Pipeline (Gemini) — scrape + analyze
         id: gemini_run
         continue-on-error: true
         run: |
@@ -77,7 +78,7 @@ jobs:
             -e EMAIL_RECIPIENT="${{ vars.EMAIL_RECIPIENT }}" \
             -e EMAIL_PASSWORD="${{ secrets.EMAIL_PASSWORD }}" \
             newsbot-pipeline:latest \
-            bash -c "newsbot run --config test && newsbot analyze --config test --test --email-receivers" | tee gemini_output.log
+            bash -c "newsbot run --config test --force && newsbot analyze --config test --test --email-receivers" | tee gemini_output.log
 
       - name: Verify Email (Gemini)
         id: email_check_gemini
@@ -90,7 +91,8 @@ jobs:
           fi
 
       # ===== OLLAMA TEST =====
-      - name: Run Pipeline (Ollama)
+      # No second scrape: analyze --test inserts deterministic test articles per config
+      - name: Run Pipeline (Ollama) — analyze only
         id: ollama_run
         continue-on-error: true
         run: |
@@ -108,7 +110,7 @@ jobs:
             -e EMAIL_RECIPIENT="${{ vars.EMAIL_RECIPIENT }}" \
             -e EMAIL_PASSWORD="${{ secrets.EMAIL_PASSWORD }}" \
             newsbot-pipeline:latest \
-            bash -c "newsbot run --config test_ollama && newsbot analyze --config test_ollama --test --email-receivers" | tee ollama_output.log
+            bash -c "newsbot analyze --config test_ollama --test --email-receivers" | tee ollama_output.log
 
       - name: Verify Email (Ollama)
         id: email_check_ollama

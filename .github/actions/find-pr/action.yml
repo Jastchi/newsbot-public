@@ -22,7 +22,7 @@ runs:
   steps:
     - name: Find open PR for branch
       id: find-pr
-      uses: actions/github-script@v6
+      uses: actions/github-script@v8
       with:
         github-token: ${{ inputs.github-token }}
         script: |

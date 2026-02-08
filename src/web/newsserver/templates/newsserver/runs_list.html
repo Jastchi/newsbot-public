@@ -150,6 +150,55 @@
         border-radius: 12px;
         border: 2px dashed #e2e8f0;
     }
+
+    @media (max-width: 768px) {
+        .date-nav {
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 12px;
+            margin-bottom: 20px;
+        }
+        .date-nav h2 {
+            order: -1;
+            width: 100%;
+            margin: 0;
+            min-width: 0;
+            font-size: 1.25em;
+        }
+        .date-nav .nav-btn {
+            flex: 1;
+            text-align: center;
+        }
+        .run-card {
+            padding: 16px;
+        }
+        .run-header {
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .run-config {
+            font-size: 1em;
+        }
+        .run-time {
+            font-size: 0.85em;
+        }
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        .section-title {
+            flex-wrap: wrap;
+        }
+    }
+    @media (max-width: 480px) {
+        .date-nav .nav-btn {
+            padding: 8px 12px;
+            font-size: 0.9em;
+        }
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 {% endblock %}
 

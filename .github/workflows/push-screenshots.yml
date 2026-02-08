@@ -17,12 +17,12 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
     
     - name: Download screenshots from test workflow
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v7
       with:
         name: screenshots-${{ github.run_id }}
         path: tests/screenshots/

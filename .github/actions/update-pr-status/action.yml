@@ -40,7 +40,7 @@ runs:
   steps:
     - name: Update PR status
       id: update-status
-      uses: actions/github-script@v6
+      uses: actions/github-script@v8
       with:
         github-token: ${{ inputs.github-token }}
         script: |

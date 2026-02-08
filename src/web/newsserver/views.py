@@ -561,6 +561,7 @@ class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
             )
         else:
             context["subscribed_config_ids"] = set()
+        context["calendar_timezone"] = settings.TIME_ZONE
         return context
 
     def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
@@ -617,7 +618,7 @@ class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
         self,
         start_limit: datetime,
         end_limit: datetime,
-    ) -> list[dict[str, str | int | bool | dict[str, bool]]]:
+    ) -> list[dict[str, str | int | bool | dict[str, bool | list[str]]]]:
         """
         Generate calendar events for the given date range.
 
@@ -640,6 +641,7 @@ class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
                 is_active=True,
                 published_for_subscription=True,
             )
+        configs = configs.prefetch_related("news_sources")
         subscribed_ids = self._get_subscribed_config_ids()
 
         # Generate events for each week in the visible range
@@ -669,7 +671,7 @@ class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
         week_start: datetime,
         *,
         is_subscribed: bool = False,
-    ) -> dict[str, str | int | bool | dict[str, bool]] | None:
+    ) -> dict[str, str | int | bool | dict[str, bool | list[str]]] | None:
         """
         Create a calendar event for a config's weekly analysis.
 
@@ -707,13 +709,17 @@ class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
             bg_color = "#78909c"
             border_color = "#546e7a"
 
+        source_names = sorted({s.name for s in config.news_sources.all()})
         return {
             "id": config.pk,
-            "title": f"{config.display_name} [{config.key}]",
+            "title": config.display_name,
             "start": analysis_start_iso,
             "backgroundColor": bg_color,
             "borderColor": border_color,
-            "extendedProps": {"subscribed": is_subscribed},
+            "extendedProps": {
+                "subscribed": is_subscribed,
+                "sourceNames": source_names,
+            },
         }
 
     def _get_calendar_data(self) -> JsonResponse:

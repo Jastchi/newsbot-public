@@ -20,7 +20,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -52,10 +52,10 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
       
-      # ===== Gemini (Cloud LLM) Test =====
-      - name: Run scraper (Gemini)
+      # Scrape once
+      - name: Run scraper
         id: scraper
-        run: uv run newsbot run --config test
+        run: uv run newsbot run --config test --force
         env:
           EMAIL_ENABLED: 'true'
           EMAIL_SMTP_SERVER: ${{ vars.EMAIL_SMTP_SERVER }}
@@ -68,6 +68,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
+      # ===== Gemini (Cloud LLM) Test =====
       - name: Run analysis with test data (Gemini)
         id: analysis
         run: uv run newsbot analyze --config test --test --email-receivers 2>&1 | tee analysis_output.log
@@ -99,20 +100,6 @@ jobs:
           fi
 
       # ===== Ollama (Local LLM) Test =====
-      - name: Run scraper (Ollama)
-        id: scraper_ollama
-        run: uv run newsbot run --config test_ollama
-        env:
-          EMAIL_ENABLED: 'true'
-          EMAIL_SMTP_SERVER: ${{ vars.EMAIL_SMTP_SERVER }}
-          EMAIL_SMTP_PORT: ${{ vars.EMAIL_SMTP_PORT }}
-          EMAIL_USE_SSL: ${{ vars.EMAIL_USE_SSL }}
-          EMAIL_SENDER: ${{ vars.EMAIL_SENDER }}
-          EMAIL_RECIPIENT: ${{ vars.EMAIL_RECIPIENT }}
-          EMAIL_FOR_CANCELLATION: ${{ vars.EMAIL_FOR_CANCELLATION }}
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
       - name: Run analysis with test data (Ollama)
         id: analysis_ollama
         run: uv run newsbot analyze --config test_ollama --test --email-receivers 2>&1 | tee analysis_output_ollama.log
@@ -147,37 +134,28 @@ jobs:
         id: calculate_status
         if: always() && steps.pr.outputs.pr_found == 'true'
         run: |
-          # Check Gemini outcomes
-          GEMINI_PASSED="false"
-          if [[ "${{ steps.scraper.outcome }}" == "success" && \
-                "${{ steps.analysis.outcome }}" == "success" && \
-                "${{ steps.email_check.outcome }}" == "success" ]]; then
-            GEMINI_PASSED="true"
-          fi
+          # Scraper runs once; both analyses use --test (insert_test_articles per config)
+          SCRAPER_PASSED=false
+          [[ "${{ steps.scraper.outcome }}" == "success" ]] && SCRAPER_PASSED=true
 
-          # Check Ollama outcomes
-          OLLAMA_PASSED="false"
-          if [[ "${{ steps.scraper_ollama.outcome }}" == "success" && \
-                "${{ steps.analysis_ollama.outcome }}" == "success" && \
-                "${{ steps.email_check_ollama.outcome }}" == "success" ]]; then
-            OLLAMA_PASSED="true"
-          fi
+          GEMINI_PASSED=false
+          [[ "${{ steps.analysis.outcome }}" == "success" && "${{ steps.email_check.outcome }}" == "success" ]] && GEMINI_PASSED=true
 
-          # Determine overall status
-          if [[ "$GEMINI_PASSED" == "true" && "$OLLAMA_PASSED" == "true" ]]; then
+          OLLAMA_PASSED=false
+          [[ "${{ steps.analysis_ollama.outcome }}" == "success" && "${{ steps.email_check_ollama.outcome }}" == "success" ]] && OLLAMA_PASSED=true
+
+          if [[ "$SCRAPER_PASSED" == "true" && "$GEMINI_PASSED" == "true" && "$OLLAMA_PASSED" == "true" ]]; then
             echo "state=success" >> $GITHUB_OUTPUT
-            echo "description=All tests passed (Gemini + Ollama)" >> $GITHUB_OUTPUT
+            echo "description=All tests passed (scrape + Gemini + Ollama)" >> $GITHUB_OUTPUT
           else
             echo "state=failure" >> $GITHUB_OUTPUT
-            # Build failure message
             FAILED=""
-            [[ "${{ steps.scraper.outcome }}" != "success" ]] && FAILED="${FAILED}Scraper (Gemini), "
+            [[ "${{ steps.scraper.outcome }}" != "success" ]] && FAILED="${FAILED}Scraper, "
             [[ "${{ steps.analysis.outcome }}" != "success" ]] && FAILED="${FAILED}Analysis (Gemini), "
             [[ "${{ steps.email_check.outcome }}" != "success" ]] && FAILED="${FAILED}Email (Gemini), "
-            [[ "${{ steps.scraper_ollama.outcome }}" != "success" ]] && FAILED="${FAILED}Scraper (Ollama), "
             [[ "${{ steps.analysis_ollama.outcome }}" != "success" ]] && FAILED="${FAILED}Analysis (Ollama), "
             [[ "${{ steps.email_check_ollama.outcome }}" != "success" ]] && FAILED="${FAILED}Email (Ollama), "
-            FAILED="${FAILED%, }"  # Remove trailing comma and space
+            FAILED="${FAILED%, }"
             echo "description=Failed: ${FAILED}" >> $GITHUB_OUTPUT
           fi
 

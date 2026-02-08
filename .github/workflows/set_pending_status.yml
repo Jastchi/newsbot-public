@@ -16,31 +16,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - name: Set placeholder status checks
+      - name: Set placeholder status check for self-hosted pipeline
         uses: ./.github/actions/set-pending-status
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           sha: ${{ github.event.pull_request.head.sha }}
-          context: "Docker Pipeline Test (Docker, Self-hosted)"
-          workflow-file: "pipeline_test_self_hosted_docker.yml"
-          description: "Docker pipeline test workflow not yet run"
-
-      - name: Set placeholder status check for Docker tests (self-hosted)
-        uses: ./.github/actions/set-pending-status
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ github.event.pull_request.head.sha }}
-          context: "Tests (Docker, Self-hosted)"
-          workflow-file: "tests_self_hosted_docker.yml"
-          description: "Docker tests (self-hosted) workflow not yet run"
-
-      - name: Set placeholder status check for Docker tests
-        uses: ./.github/actions/set-pending-status
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ github.event.pull_request.head.sha }}
-          context: "Tests (Docker)"
-          workflow-file: "tests_docker.yml"
-          description: "Docker tests workflow not yet run"
+          context: "Test Pipeline (Self-hosted)"
+          workflow-file: "pipeline_test_self_hosted.yml"
+          description: "Self-hosted pipeline test workflow not yet run"

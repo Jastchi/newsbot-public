@@ -62,7 +62,7 @@ jobs:
           check-run-name: 'Check Scrape and Analyze'
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       
@@ -76,7 +76,7 @@ jobs:
 
       - name: Run scraper
         id: scraper
-        run: uv run newsbot run --config ${{ inputs.config }}
+        run: uv run newsbot run --config ${{ inputs.config }} --force
         env:
           EMAIL_ENABLED: 'true'
           EMAIL_SMTP_SERVER: ${{ vars.EMAIL_SMTP_SERVER }}
@@ -133,7 +133,7 @@ jobs:
 
       - name: Update check run
         if: always() && steps.pr.outputs.pr_found == 'true'
-        uses: actions/github-script@v6
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

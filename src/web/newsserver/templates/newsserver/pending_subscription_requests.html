@@ -2,6 +2,25 @@
 
 {% block title %}Pending subscription requests – NewsBot{% endblock %}
 
+{% block extra_styles %}
+<style>
+    @media (max-width: 768px) {
+        .pending-requests-page {
+            margin: 16px 0 !important;
+        }
+        .pending-requests-page li {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 6px !important;
+        }
+        .pending-requests-page .admin-link {
+            display: block;
+            text-align: center;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="pending-requests-page" style="max-width: 800px; margin: 24px 0;">
     <h2 style="margin: 0 0 8px 0; font-size: 1.5rem; color: #1a1d21;">Pending subscription requests</h2>

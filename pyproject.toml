@@ -28,7 +28,7 @@ newsbot = "newsbot.main:main"
 start = "api.app:start"
 
 [build-system]
-requires = ["uv_build>=0.9.8,<0.10.0"]
+requires = ["uv_build>=0.9.8,<0.11.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
@@ -46,8 +46,8 @@ newsbot = [
     "google-genai>=1.56.0",
     "ollama>=0.1.0",
     "torch>=2.1.0",
-    "transformers>=4.35.0",
-    "sentence-transformers[onnx]>=2.2.0",
+    "transformers>=4.41.0",
+    "sentence-transformers[onnx]>=5.0.0",
     "sentencepiece>=0.1.99",
     "spacy>=3.7.0",
     "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
@@ -63,7 +63,7 @@ newsbot = [
     "typer>=0.21.1",
 ]
 serve = [
-    "django>=5.2.8",
+    "django>=6.0.2",
     "django-allauth>=65.0.0",
     "gunicorn>=23.0.0",
     "psycopg2-binary>=2.9.9",
@@ -94,8 +94,8 @@ test = [
 dev = [
     "django-stubs>=5.2.8",
     "pre-commit>=4.5.1",
-    "ruff>=0.14.5",
-    "ty>=0.0.1a26",
+    "ruff>=0.15.0",
+    "ty>=0.0.15",
 ]
 
 [tool.uv]

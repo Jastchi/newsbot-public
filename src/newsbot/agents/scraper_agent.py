@@ -9,6 +9,7 @@ import socket
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, cast
 from urllib.error import URLError
 
 import feedparser
@@ -27,6 +28,9 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
+
+if TYPE_CHECKING:
+    from tenacity._utils import LoggerProtocol
 
 from newsbot.constants import EMBEDDING_BATCH_SIZE, TZ
 from newsbot.model_cache import get_sentence_transformer
@@ -469,7 +473,9 @@ class NewsScraperAgent:
                     RateLimitError,
                 ),
             ),
-            before_sleep=before_sleep_log(logger, logging.WARNING),
+            before_sleep=before_sleep_log(
+                cast("LoggerProtocol", logger), logging.WARNING,
+            ),
             reraise=True,
         )
         def fetch() -> requests.Response:
@@ -690,7 +696,9 @@ class NewsScraperAgent:
             stop=stop_after_attempt(self.max_retries),
             wait=wait_exponential(multiplier=1, min=2, max=16),
             retry=retry_if_exception_type((TimeoutError, URLError, OSError)),
-            before_sleep=before_sleep_log(logger, logging.WARNING),
+            before_sleep=before_sleep_log(
+                cast("LoggerProtocol", logger), logging.WARNING,
+            ),
             reraise=False,
         )
         def _fetch_feed() -> FeedParserDict:

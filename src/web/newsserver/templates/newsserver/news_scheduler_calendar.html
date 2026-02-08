@@ -19,6 +19,18 @@
         }
         @media (max-width: 900px) {
             .schedule-layout { grid-template-columns: 1fr; }
+            .my-subscriptions-aside { order: -1; }
+            .schedule-main { order: 0; }
+        }
+        @media (max-width: 768px) {
+            .schedule-page { padding: 16px; }
+            #calendar-container { padding: 16px; }
+            .header h1 { font-size: 1.25rem; }
+            .calendar-legend { gap: 12px; margin-top: 8px; font-size: 0.8rem; }
+        }
+        @media (max-width: 640px) {
+            .schedule-page { padding: 12px; }
+            #calendar-container { padding: 12px; }
         }
         .schedule-main { min-width: 0; }
         #calendar-container {
@@ -188,6 +200,27 @@
             font-weight: 600;
             color: #1a1d21;
         }
+        .event-subscribe-modal .event-sources-wrap {
+            margin: 0 0 12px 0;
+            font-size: 0.9rem;
+            color: #37474f;
+        }
+        .event-subscribe-modal .event-sources-label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .event-subscribe-modal .event-sources {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .event-subscribe-modal .event-sources li {
+            margin-bottom: 6px;
+        }
+        .event-subscribe-modal .event-sources li:last-child {
+            margin-bottom: 0;
+        }
         .event-subscribe-modal .event-subscribe-hint {
             margin: 0 0 16px 0;
             font-size: 0.95rem;
@@ -226,6 +259,83 @@
             color: #37474f;
         }
         .event-subscribe-modal .btn-close:hover { background: #cfd8dc; }
+
+        /* Wrapping weekday labels in schedule calendar (works on all display sizes) */
+        #calendar .fc-scrollgrid-section-header .fc-col-header-cell:not(.fc-timegrid-axis) {
+            min-width: 0;
+            vertical-align: bottom;
+        }
+        #calendar .fc-scrollgrid-section-header .fc-col-header-cell:not(.fc-timegrid-axis) .fc-col-header-cell-cushion {
+            display: block;
+            white-space: normal;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
+            line-height: 1.2;
+            padding: 6px 4px;
+            text-align: center;
+        }
+
+        /* Calendar appearance: grid, colors, typography */
+        #calendar {
+            --fc-border-color: #e2e8f0;
+            --fc-page-bg-color: #fafbfc;
+            --fc-neutral-bg-color: rgba(226, 232, 240, 0.25);
+            --fc-today-bg-color: rgba(102, 126, 234, 0.08);
+            --fc-now-indicator-color: #667eea;
+            --fc-event-bg-color: #78909c;
+            --fc-event-border-color: #607d8b;
+            --fc-event-text-color: #fff;
+            --fc-highlight-color: rgba(102, 126, 234, 0.12);
+        }
+        #calendar .fc-scrollgrid {
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        #calendar .fc-col-header-cell {
+            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: #475569;
+            border-color: #e2e8f0;
+        }
+        #calendar .fc-timegrid-slot {
+            border-color: #e2e8f0;
+        }
+        #calendar .fc-timegrid-slot-label {
+            font-size: 0.8rem;
+            color: #64748b;
+            font-weight: 500;
+        }
+        #calendar .fc-timegrid-axis-cushion {
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+        #calendar .fc-timegrid-col.fc-day-today {
+            background: rgba(102, 126, 234, 0.04);
+        }
+        #calendar .fc-event {
+            border-radius: 6px;
+            font-weight: 500;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            overflow: visible;
+            min-height: 2.25em;
+        }
+        #calendar .fc-event:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+        }
+        #calendar .fc-event .fc-event-main {
+            overflow: visible;
+        }
+        #calendar .fc-event .fc-event-main *,
+        #calendar .fc-event .fc-event-main-frame,
+        #calendar .fc-event .fc-event-title {
+            white-space: normal !important;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            overflow: visible;
+            line-height: 1.25;
+        }
     </style>
 
 {% endblock %}
@@ -239,6 +349,9 @@
     <div id="event-subscribe-overlay" class="event-subscribe-overlay" aria-hidden="true">
         <div class="event-subscribe-modal" role="dialog" aria-labelledby="event-subscribe-title" aria-modal="true">
             <h3 id="event-subscribe-title">Report</h3>
+            <div class="event-sources-wrap" id="event-sources-wrap" aria-live="polite">
+                <ul class="event-sources" id="event-sources"></ul>
+            </div>
             <p class="event-subscribe-hint">Subscribe to receive this report by email.</p>
             <div class="modal-actions">
                 <button type="button" class="btn-subscribe" id="event-subscribe-btn" style="display: none;">Subscribe</button>
@@ -276,7 +389,7 @@
                                {% if config.pk in subscribed_config_ids %}checked{% endif %}
                                data-display-name="{{ config.display_name }}"
                                data-key="{{ config.key }}">
-                        <span>{{ config.display_name }} <span class="config-key">[{{ config.key }}]</span></span>
+                        <span>{{ config.display_name }}</span>
                     </label>
                 </li>
                 {% endfor %}
@@ -297,12 +410,18 @@
 
             const calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'timeGridWeek',
+                firstDay: 1,
+                weekends: false,
+                timeZone: '{{ calendar_timezone|escapejs }}',
+                scrollTime: '07:00:00',
                 slotMinTime: "00:00:00",
                 slotMaxTime: "24:00:00",
                 allDaySlot: false,
-                headerToolbar: { left: '', center: 'title', right: '' },
-                dayHeaderFormat: { weekday: 'long' },
-                
+                displayEventTime: false,
+                eventMinHeight: 44,
+                headerToolbar: false,
+                dayHeaderFormat: { weekday: 'short' },
+
                 // Fetch events with credentials so session cookie is sent (required after Google-only auth)
                 events: function(info, successCallback, failureCallback) {
                     const url = new URL(window.location.href);
@@ -331,10 +450,25 @@
                 eventClick: function(info) {
                     info.jsEvent.preventDefault();
                     openEventSubscribeModal(info.event);
+                },
+                eventDidMount: function(info) {
+                    var sourceNames = info.event.extendedProps && info.event.extendedProps.sourceNames;
+                    if (sourceNames && Array.isArray(sourceNames) && sourceNames.length > 0) {
+                        info.el.setAttribute('title', sourceNames.join(', '));
+                    }
                 }
             });
 
             calendar.render();
+
+            // Responsive height: set contentHeight by viewport (FullCalendar 6 accepts number or "auto", not a function)
+            function applyContentHeight() {
+                var w = window.innerWidth;
+                var h = (w < 576) ? 450 : (w < 768) ? 550 : null;
+                calendar.setOption('contentHeight', h === null ? 'auto' : h);
+            }
+            applyContentHeight();
+            window.addEventListener('resize', applyContentHeight);
 
             var subscriptionsUrl = "{% url 'newsserver:subscriber_subscriptions' %}";
             var canSubscribe = document.getElementById('schedule-page').getAttribute('data-can-subscribe') === 'true';
@@ -342,10 +476,26 @@
             function openEventSubscribeModal(event) {
                 var overlay = document.getElementById('event-subscribe-overlay');
                 var titleEl = document.getElementById('event-subscribe-title');
+                var sourcesWrap = document.getElementById('event-sources-wrap');
+                var sourcesList = document.getElementById('event-sources');
                 var subscribeBtn = document.getElementById('event-subscribe-btn');
                 var unsubscribeBtn = document.getElementById('event-unsubscribe-btn');
                 var hint = document.querySelector('.event-subscribe-hint');
                 titleEl.textContent = event.title;
+                var sourceNames = event.extendedProps && event.extendedProps.sourceNames;
+                if (sourcesWrap && sourcesList) {
+                    sourcesList.innerHTML = '';
+                    if (sourceNames && Array.isArray(sourceNames) && sourceNames.length > 0) {
+                        sourceNames.forEach(function(name) {
+                            var li = document.createElement('li');
+                            li.textContent = name;
+                            sourcesList.appendChild(li);
+                        });
+                        sourcesWrap.style.display = 'block';
+                    } else {
+                        sourcesWrap.style.display = 'none';
+                    }
+                }
                 overlay.classList.add('is-open');
                 overlay.setAttribute('aria-hidden', 'false');
                 var subscribed = event.extendedProps && event.extendedProps.subscribed;

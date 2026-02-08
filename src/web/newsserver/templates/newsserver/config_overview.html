@@ -86,6 +86,34 @@
     .empty-state p {
         color: #95a5a6;
     }
+
+    @media (max-width: 768px) {
+        .configs-grid {
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .config-card {
+            padding: 18px;
+        }
+        .config-icon {
+            font-size: 2em;
+            margin-right: 12px;
+        }
+        .config-title {
+            font-size: 1.25em;
+        }
+        .config-info {
+            font-size: 0.9em;
+        }
+        .empty-state {
+            padding: 40px 16px;
+        }
+    }
+    @media (max-width: 480px) {
+        .configs-grid {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 {% endblock %}
 

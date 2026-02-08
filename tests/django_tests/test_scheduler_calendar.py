@@ -50,19 +50,19 @@ class TestNewsSchedulerDashboardView:
         assert response.status_code == 200
         assert "newsserver/news_scheduler_calendar.html" in [t.name for t in response.templates]
 
-    def test_get_ajax_data(self):
-        """Test that an AJAX GET request returns JSON event data."""
+    def test_get_ajax_data(self, sample_news_sources):
+        """Test that an AJAX GET request returns JSON event data with extendedProps.sourceNames."""
         self.admin_user.is_staff = True
         self.admin_user.save()
         self.client.force_login(self.admin_user)
         
-        # Enable scheduler for one config
-        config = self.configs[0]
-        config.scheduler_weekly_analysis_enabled = True
-        config.scheduler_weekly_analysis_day_of_week = "mon"
-        config.scheduler_weekly_analysis_hour = 10
-        config.scheduler_weekly_analysis_minute = 0
-        config.save()
+        # Enable scheduler for both configs (technology has 4 sources, world has 1)
+        for config in self.configs:
+            config.scheduler_weekly_analysis_enabled = True
+            config.scheduler_weekly_analysis_day_of_week = "mon"
+            config.scheduler_weekly_analysis_hour = 10
+            config.scheduler_weekly_analysis_minute = 0
+            config.save()
 
         # Mock start and end params as FullCalendar would send them
         now = timezone.now()
@@ -81,6 +81,48 @@ class TestNewsSchedulerDashboardView:
         assert "id" in event
         assert "title" in event
         assert "start" in event
+
+        # Every event must have extendedProps.sourceNames (list)
+        for ev in data:
+            ext = ev.get("extendedProps", {})
+            assert "sourceNames" in ext
+            assert isinstance(ext["sourceNames"], list)
+
+        # sample_news_sources: technology (configs[0]) has 4 sources, world (configs[1]) has 1
+        tech_event = next((e for e in data if e["id"] == self.configs[0].pk), None)
+        world_event = next((e for e in data if e["id"] == self.configs[1].pk), None)
+        assert tech_event is not None
+        assert world_event is not None
+        tech_names = tech_event.get("extendedProps", {}).get("sourceNames", [])
+        world_names = world_event.get("extendedProps", {}).get("sourceNames", [])
+        # NewsSource ordering is by name
+        expected_tech = ["Example News Source 1", "Example News Source 2", "Example News Source 3", "Example News Source 4"]
+        expected_world = ["Example News Source 5"]
+        assert tech_names == expected_tech
+        assert world_names == expected_world
+
+    def test_get_ajax_data_config_without_sources(self):
+        """Configs with no news_sources get extendedProps.sourceNames: []."""
+        self.admin_user.is_staff = True
+        self.admin_user.save()
+        self.client.force_login(self.admin_user)
+        # Do not use sample_news_sources; configs have no sources
+        config = self.configs[0]
+        config.scheduler_weekly_analysis_enabled = True
+        config.scheduler_weekly_analysis_day_of_week = "mon"
+        config.scheduler_weekly_analysis_hour = 10
+        config.scheduler_weekly_analysis_minute = 0
+        config.save()
+        now = timezone.now()
+        start = (now - timezone.timedelta(days=7)).isoformat()
+        end = (now + timezone.timedelta(days=7)).isoformat()
+        response = self.client.get(self.url, {"ajax": "1", "start": start, "end": end})
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+        assert len(data) > 0
+        event = data[0]
+        assert event.get("extendedProps", {}).get("sourceNames") == []
 
     def test_post_update_config(self):
         """Test that a POST request updates the NewsConfig scheduler settings."""

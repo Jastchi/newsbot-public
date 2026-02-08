@@ -116,6 +116,58 @@
             color: #3182ce;
             border-bottom-color: #3182ce;
         }
+
+        /* Responsive: mobile and small screens */
+        @media (max-width: 768px) {
+            .container {
+                padding: 12px 16px;
+            }
+            header {
+                flex-wrap: wrap;
+                padding: 16px 12px 20px;
+                gap: 12px;
+            }
+            header .container {
+                flex: 1 1 100%;
+                min-width: 0;
+            }
+            header h1 {
+                font-size: 1.5em;
+            }
+            header p {
+                font-size: 0.85em;
+            }
+            .header-actions {
+                padding-right: 0;
+                gap: 8px;
+                justify-content: flex-end;
+            }
+            .admin-link {
+                padding: 8px 14px;
+                font-size: 0.9em;
+            }
+            .nav-tabs {
+                flex-wrap: wrap;
+                gap: 6px;
+                margin-bottom: 16px;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 2px;
+            }
+            .nav-tab {
+                padding: 8px 14px;
+                font-size: 0.9em;
+                white-space: nowrap;
+            }
+        }
+        @media (max-width: 480px) {
+            .container {
+                padding: 10px 12px;
+            }
+            header h1 {
+                font-size: 1.35em;
+            }
+        }
     </style>
     {% block extra_styles %}{% endblock %}
 </head>
@@ -125,7 +177,7 @@
             <h1>📰 NewsBot Dashboard</h1>
             <p>Multi-Config News Analysis Reports</p>
         </div>
-        <div style="padding-right: 20px; display: flex; align-items: center; gap: 12px;">
+        <div class="header-actions" style="padding-right: 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
             {% if user.is_authenticated %}
             <span style="opacity: 0.95; font-size: 0.9em;">{{ user.email|default:user.username }}</span>
             <a href="{% url 'account_logout' %}" class="admin-link">Log out</a>

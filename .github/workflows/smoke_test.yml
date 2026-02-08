@@ -35,10 +35,11 @@ jobs:
           fi
 
       - name: Check Web UI (Port 9000)
+        if: false  # Web is hosted elsewhere; set to true to re-enable
         id: web_check
         run: |
-          echo "Testing Web UI Home Page..."
-          HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}" http://localhost:9000/)
+          echo "Testing Web UI (login page)..."
+          HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}" http://localhost:9000/accounts/login/)
           
           if [ "$HTTP_STATUS" -eq 200 ]; then
             echo "✅ Web UI is Up (200 OK)"
@@ -54,5 +55,9 @@ jobs:
           docker ps -a --filter "name=newsbot"
           echo "--- API Logs (Last 20 lines) ---"
           docker logs newsbot-api --tail 20
+
+      - name: Web Logs (Last 20 lines)
+        if: false  # Web is hosted elsewhere; set to true to re-enable
+        run: |
           echo "--- Web Logs (Last 20 lines) ---"
           docker logs newsbot-web --tail 20

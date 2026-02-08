@@ -21,7 +21,7 @@ import os
 import subprocess
 import sys
 import time
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from tenacity import (
     before_sleep_log,
@@ -30,6 +30,9 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
+
+if TYPE_CHECKING:
+    from tenacity._utils import LoggerProtocol
 
 from utilities.models import ConfigModel
 
@@ -73,7 +76,9 @@ _gemini_retry = retry(
         min=GEMINI_BACKOFF_MIN,
         max=GEMINI_BACKOFF_MAX,
     ),
-    before_sleep=before_sleep_log(logger, logging.WARNING),
+    before_sleep=before_sleep_log(
+        cast("LoggerProtocol", logger), logging.WARNING,
+    ),
     reraise=True,
 )
 
