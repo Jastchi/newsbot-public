@@ -107,7 +107,7 @@ class TestSubscriberRequestCreateView:
         response = client.get(url)
         assert response.status_code == 405
 
-    @patch("web.newsserver.views.send_mail")
+    @patch("web.newsserver.auth_helpers.send_mail")
     def test_post_notifies_admin_when_email_configured(
         self, mock_send_mail, client, url
     ):
@@ -138,7 +138,7 @@ class TestSubscriberRequestCreateView:
         assert "New subscription request" in call_kw["subject"]
         assert "notify@example.com" in call_kw["message"]
 
-    @patch("web.newsserver.views.send_mail")
+    @patch("web.newsserver.auth_helpers.send_mail")
     def test_post_skips_notify_when_admin_already_notified(
         self, mock_send_mail, client, url
     ):
@@ -166,7 +166,7 @@ class TestSubscriberRequestCreateView:
         assert response.status_code == 200
         mock_send_mail.assert_not_called()
 
-    @patch("web.newsserver.views.send_mail")
+    @patch("web.newsserver.auth_helpers.send_mail")
     def test_post_no_notify_when_email_admin_unset(self, mock_send_mail, client, url):
         """When EMAIL_ADMIN_NOTIFICATION_TO is unset, send_mail is not called."""
         with patch.object(settings, "EMAIL_ADMIN_NOTIFICATION_TO", ""):

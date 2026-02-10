@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+from email.utils import formataddr
 from pathlib import Path
 
 import dj_database_url
@@ -122,6 +123,18 @@ if DATABASES["default"].get("ENGINE") == "django.db.backends.postgresql":
     if "pooler" in database_url.lower():
         DATABASES["default"]["CONN_MAX_AGE"] = 0
 
+
+# Cache (in-memory). Used for magic-link rate limiting (see
+# newsserver.auth_helpers for window and limits).
+# LocMemCache is process-local; with multiple gunicorn workers each has
+# its own cache. For single-process dev or one worker this is
+# sufficient.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "newsbot-default",
+    },
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -236,6 +249,11 @@ EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "false").lower() in (
 )
 EMAIL_HOST_USER = os.getenv("EMAIL_SENDER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_PASSWORD", "")
-DEFAULT_FROM_EMAIL = os.getenv("EMAIL_SENDER", "")
+# Sender format like report emails: "Display Name <email>"
+_email_sender = os.getenv("EMAIL_SENDER", "")
+_email_sender_name = os.getenv("EMAIL_SENDER_NAME", "NewsBot")
+DEFAULT_FROM_EMAIL = (
+    formataddr((_email_sender_name, _email_sender)) if _email_sender else ""
+)
 # Recipient for daily subscriber-request digest
 EMAIL_ADMIN_NOTIFICATION_TO = os.getenv("EMAIL_SENDER", "")

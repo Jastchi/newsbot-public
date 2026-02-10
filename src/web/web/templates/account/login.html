@@ -70,6 +70,59 @@
         .signup-link { margin-top: 1.25rem; font-size: 0.95rem; color: #64748b; }
         .signup-link a { color: #1e3a5f; font-weight: 500; text-decoration: none; }
         .signup-link a:hover { text-decoration: underline; }
+        .signup-footer {
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+        .signup-footer a { color: #1e3a5f; font-weight: 500; text-decoration: none; }
+        .signup-footer a:hover { text-decoration: underline; }
+        .email-form { text-align: left; margin-bottom: 1.25rem; }
+        .email-form label { display: block; font-weight: 500; color: #374151; margin-bottom: 0.5rem; }
+        .email-form input[type="email"] {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        .email-form input[type="email"]:focus {
+            outline: none;
+            border-color: #1e3a5f;
+            box-shadow: 0 0 0 2px rgba(30, 58, 95, 0.2);
+        }
+        .btn-magic {
+            width: 100%;
+            padding: 12px 20px;
+            background: #1e3a5f;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .btn-magic:hover { background: #0d1b2a; }
+        .or-divider {
+            display: flex;
+            align-items: center;
+            margin: 1.25rem 0;
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+        .or-divider::before,
+        .or-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e2e8f0;
+        }
+        .or-divider::before { margin-right: 1rem; }
+        .or-divider::after { margin-left: 1rem; }
     </style>
 </head>
 <body>
@@ -86,6 +139,17 @@
         {% if form.non_field_errors %}
         <ul class="errorlist">{{ form.non_field_errors }}</ul>
         {% endif %}
+        {% if request.GET.error == 'magic_link_invalid' %}
+        <p class="errorlist">That login link is invalid or has expired. Request a new one below.</p>
+        {% endif %}
+        <form method="post" action="{% url 'magic_link_request' %}" class="email-form">
+            {% csrf_token %}
+            {% if request.GET.next %}<input type="hidden" name="next" value="{{ request.GET.next }}">{% endif %}
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@example.com">
+            <button type="submit" class="btn-magic">Send magic link</button>
+        </form>
+        <p class="or-divider">Or</p>
         {% get_providers as socialaccount_providers %}
         {% if socialaccount_providers %}
         {% for provider in socialaccount_providers %}
@@ -99,7 +163,7 @@
         {% else %}
         <p class="errorlist">Google sign-in is not configured. Contact the administrator.</p>
         {% endif %}
-        <p class="signup-link">Don't have an account? <a href="{% url 'account_signup' %}">Sign up</a></p>
+        <p class="signup-footer">Don't have an account? <a href="{% url 'account_signup' %}">Sign up</a></p>
     </div>
 </body>
 </html>

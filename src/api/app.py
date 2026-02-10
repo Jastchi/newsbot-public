@@ -10,14 +10,19 @@ import logging
 import os
 import traceback
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
+    from fastapi.responses import Response
+    from starlette.middleware.base import RequestResponseEndpoint
+
 from datetime import datetime
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from django.db import close_old_connections
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from api.handlers import get_all_schedules, handle_analyze, handle_run
@@ -152,13 +157,38 @@ app = FastAPI(
 )
 
 
+@app.middleware("http")
+async def close_old_db_connections_middleware(
+    request: Request,
+    call_next: RequestResponseEndpoint,
+) -> Response:
+    """Close stale Django DB connections before each request."""
+    close_old_connections()
+    return await call_next(request)
+
+
 def _get_scheduler_status() -> tuple[bool, int | None]:
     """Check if the scheduler process is running."""
-    scheduler_pid = os.environ.get("SCHEDULER_PID")
-    if scheduler_pid is None:
+    scheduler_pid_str = os.environ.get("SCHEDULER_PID")
+    if scheduler_pid_str is None:
+        # API started before scheduler (e.g. Docker); read PID file path
+        # from env (set by entrypoint so child processes inherit it).
+        pid_file = os.environ.get("SCHEDULER_PID_FILE")
+        if pid_file is None:
+            return False, None
+        try:
+            scheduler_pid_str = Path(pid_file).read_text().strip()
+        except OSError:
+            return False, None
+
+    if not scheduler_pid_str:
         return False, None
 
-    pid = int(scheduler_pid)
+    try:
+        pid = int(scheduler_pid_str)
+    except ValueError:
+        return False, None
+
     try:
         # Check if process is still running (signal 0)
         os.kill(pid, 0)

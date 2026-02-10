@@ -1,57 +1,86 @@
 #!/bin/bash
-# Docker entrypoint script for NewsBot API container.
-#
-# This script optionally starts the scheduler service alongside the API server
-# when the ENABLE_SCHEDULER environment variable is set to true.
-#
-# Usage:
-#   ENABLE_SCHEDULER=true  - Start scheduler in background, then API server
-#   ENABLE_SCHEDULER=false - Start API server only (default)
+# Docker entrypoint for NewsBot API.
+# ENABLE_SCHEDULER=true: start API first, wait for healthy, then scheduler.
+# Monitoring loop exits if either process dies.
 
 set -e
 
-# Function to handle shutdown signals
+API_HOST="${API_HOST:-0.0.0.0}"
+API_PORT="${API_PORT:-8000}"
+API_URL="http://localhost:${API_PORT}"
+ENABLE_SCHEDULER="${ENABLE_SCHEDULER:-false}"
+SCHEDULER_PID_FILE="${SCHEDULER_PID_FILE:-/tmp/scheduler.pid}"
+# Export so child processes (uvicorn/API) inherit it and can read the PID file path.
+export SCHEDULER_PID_FILE
+
 cleanup() {
     echo "Received shutdown signal..."
-    if [ -n "$SCHEDULER_PID" ]; then
-        echo "Stopping scheduler (PID: $SCHEDULER_PID)..."
-        kill -TERM "$SCHEDULER_PID" 2>/dev/null || true
-        wait "$SCHEDULER_PID" 2>/dev/null || true
-    fi
+    [ -n "$SCHEDULER_PID" ] && kill -TERM "$SCHEDULER_PID" 2>/dev/null && wait "$SCHEDULER_PID" 2>/dev/null || true
+    [ -n "$SCHEDULER_PID_FILE" ] && rm -f "$SCHEDULER_PID_FILE"
+    [ -n "$UVICORN_PID" ] && kill -TERM "$UVICORN_PID" 2>/dev/null && wait "$UVICORN_PID" 2>/dev/null || true
     exit 0
 }
 
-# Set up signal handlers
 trap cleanup SIGTERM SIGINT
 
-# Check if scheduler should be enabled
-ENABLE_SCHEDULER="${ENABLE_SCHEDULER:-false}"
+check_health() {
+    python3 -c "
+import urllib.request, json, sys
+try:
+    with urllib.request.urlopen('${API_URL}/health', timeout=5) as r:
+        if r.getcode() == 200 and json.loads(r.read().decode()).get('status') == 'ok':
+            sys.exit(0)
+except Exception:
+    pass
+sys.exit(1)
+" 2>/dev/null
+}
 
-if [ "$ENABLE_SCHEDULER" = "true" ] || [ "$ENABLE_SCHEDULER" = "1" ] || [ "$ENABLE_SCHEDULER" = "yes" ]; then
-    echo "Starting scheduler service..."
-    
-    # Start scheduler in background, connecting to localhost API
-    python scripts/scheduler.py --host localhost --port 8000 &
-    SCHEDULER_PID=$!
-    
-    # Export PID to environment variables
-    export SCHEDULER_PID=$SCHEDULER_PID
-    
-    echo "Scheduler started with PID: $SCHEDULER_PID"
-    
-    # Give scheduler a moment to initialize
-    sleep 2
-    
-    # Check if scheduler is still running
-    if ! kill -0 "$SCHEDULER_PID" 2>/dev/null; then
-        echo "WARNING: Scheduler process may have exited unexpectedly"
+if [[ "$ENABLE_SCHEDULER" =~ ^(true|1|yes)$ ]]; then
+    echo "Starting API server..."
+    uvicorn api.app:app --host "$API_HOST" --port "$API_PORT" &
+    UVICORN_PID=$!
+
+    echo "Waiting for API to be healthy..."
+    HEALTHY=false
+    for i in $(seq 1 60); do
+        if check_health; then
+            HEALTHY=true
+            break
+        fi
+        if ! kill -0 "$UVICORN_PID" 2>/dev/null; then
+            echo "ERROR: API process exited unexpectedly."
+            exit 1
+        fi
+        sleep 2
+    done
+
+    if [ "$HEALTHY" = false ]; then
+        echo "ERROR: API failed health check."
+        kill -TERM "$UVICORN_PID"
+        exit 1
     fi
+
+    echo "Starting scheduler service..."
+    python scripts/scheduler.py --host localhost --port "$API_PORT" &
+    SCHEDULER_PID=$!
+    echo "$SCHEDULER_PID" > "$SCHEDULER_PID_FILE"
+
+    # Exits if either process dies
+    while true; do
+        if ! kill -0 "$UVICORN_PID" 2>/dev/null; then
+            echo "API server stopped. Exiting..."
+            break
+        fi
+        if ! kill -0 "$SCHEDULER_PID" 2>/dev/null; then
+            echo "Scheduler stopped. Exiting..."
+            break
+        fi
+        sleep 5
+    done
+
+    cleanup
 else
-    echo "Scheduler disabled (set ENABLE_SCHEDULER=true to enable)"
+    echo "Starting API server (Standalone)..."
+    exec uvicorn api.app:app --host "$API_HOST" --port "$API_PORT"
 fi
-
-echo "Starting API server..."
-
-# Start API server in foreground
-# Using exec to replace this script process with uvicorn
-exec uvicorn api.app:app --host 0.0.0.0 --port 8000

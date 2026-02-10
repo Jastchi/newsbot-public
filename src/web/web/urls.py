@@ -26,6 +26,12 @@ from django.contrib.admin import AdminSite
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import include, path, reverse
 
+from web.newsserver.auth_helpers import (
+    magic_link_sent,
+    magic_link_signup_requested,
+    request_magic_link,
+    verify_magic_link,
+)
 from web.newsserver.views import signup_google_only
 
 
@@ -48,6 +54,26 @@ admin.site.login = _admin_login_redirect
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/signup/", signup_google_only, name="account_signup"),
+    path(
+        "accounts/login-by-email/",
+        request_magic_link,
+        name="magic_link_request",
+    ),
+    path(
+        "accounts/login-by-email/sent/",
+        magic_link_sent,
+        name="magic_link_sent",
+    ),
+    path(
+        "accounts/login-by-email/verify/<str:token>/",
+        verify_magic_link,
+        name="magic_link_verify",
+    ),
+    path(
+        "accounts/login-by-email/signup-requested/",
+        magic_link_signup_requested,
+        name="magic_link_signup_requested",
+    ),
     path("accounts/", include("allauth.urls")),
     path("", include("web.newsserver.urls")),
 ]

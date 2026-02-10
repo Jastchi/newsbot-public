@@ -10,7 +10,6 @@ from typing import ClassVar, cast
 from django.conf import settings
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.mail import send_mail
 from django.http import (
     FileResponse,
     Http404,
@@ -28,6 +27,7 @@ from django.views.generic import TemplateView
 from newsbot.constants import TZ
 
 from .adapters import SESSION_KEY_SUBSCRIPTION_REQUEST_FROM_SOCIAL
+from .auth_helpers import notify_admin_subscriber_request
 from .models import (
     AnalysisSummary,
     NewsConfig,
@@ -39,39 +39,6 @@ from .services.config_service import ConfigService
 from .services.log_service import LogService
 from .services.report_service import ReportService
 from .utils import get_date_range, parse_date_or_default
-
-
-def _notify_admin_subscriber_request(req: SubscriberRequest) -> None:
-    """
-    Send immediate email to admin when new subscriber request created.
-
-    Only sends once per request (skips if admin_notified_at is already
-    set).
-    Uses EMAIL_ADMIN_NOTIFICATION_TO; no-op if unset.
-    """
-    if req.admin_notified_at is not None:
-        return
-    to = getattr(settings, "EMAIL_ADMIN_NOTIFICATION_TO", "").strip()
-    if not to:
-        return
-    name = f"{req.first_name} {req.last_name}".strip() or "(no name)"
-    subject = "NewsBot: New subscription request"
-    message = (
-        f"A user has requested to be added as a subscriber.\n\n"
-        f"Email: {req.email}\n"
-        f"Name: {name}\n\n"
-        "Process in Django Admin: Subscriber requests → add as Subscriber and "
-        "assign configs, or use the Pending requests page."
-    )
-    send_mail(
-        subject=subject,
-        message=message,
-        from_email=settings.DEFAULT_FROM_EMAIL or None,
-        recipient_list=[to],
-        fail_silently=True,
-    )
-    req.admin_notified_at = timezone.now()
-    req.save(update_fields=["admin_notified_at"])
 
 
 class ConfigOverviewView(LoginRequiredMixin, TemplateView):
@@ -844,7 +811,7 @@ def subscription_request_from_social(request: HttpRequest) -> HttpResponse:
             first_name=first_name,
             last_name=last_name,
         )
-        _notify_admin_subscriber_request(obj)
+        notify_admin_subscriber_request(obj)
     return render(request, "newsserver/subscription_requested.html", {})
 
 
@@ -915,7 +882,7 @@ def subscriber_request_create(request: HttpRequest) -> JsonResponse:
             last_name=getattr(subscriber, "last_name", "") or "",
             user=subscriber,
         )
-        _notify_admin_subscriber_request(obj)
+        notify_admin_subscriber_request(obj)
     redirect_url = reverse("newsserver:subscription_requested")
     return JsonResponse({
         "status": "success",
