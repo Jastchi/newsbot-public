@@ -64,6 +64,7 @@ jobs:
           EMAIL_SENDER: ${{ vars.EMAIL_SENDER }}
           EMAIL_RECIPIENT: ${{ vars.EMAIL_RECIPIENT }}
           EMAIL_FOR_CANCELLATION: ${{ vars.EMAIL_FOR_CANCELLATION }}
+          NEWSSERVER_BASE_URL: ${{ vars.NEWSSERVER_BASE_URL }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -80,6 +81,7 @@ jobs:
           EMAIL_SENDER: ${{ vars.EMAIL_SENDER }}
           EMAIL_RECIPIENT: ${{ vars.EMAIL_RECIPIENT }}
           EMAIL_FOR_CANCELLATION: ${{ vars.EMAIL_FOR_CANCELLATION }}
+          NEWSSERVER_BASE_URL: ${{ vars.NEWSSERVER_BASE_URL }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -111,6 +113,7 @@ jobs:
           EMAIL_SENDER: ${{ vars.EMAIL_SENDER }}
           EMAIL_RECIPIENT: ${{ vars.EMAIL_RECIPIENT }}
           EMAIL_FOR_CANCELLATION: ${{ vars.EMAIL_FOR_CANCELLATION }}
+          NEWSSERVER_BASE_URL: ${{ vars.NEWSSERVER_BASE_URL }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}

@@ -1,0 +1,63 @@
+substitutions:
+  _REGION: europe-west1
+  _SERVICE: newsbot
+  _IMAGE: newsbot-web
+
+steps:
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: create-repo
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        gcloud artifacts repositories describe ${_SERVICE} --location=${_REGION} || \
+        gcloud artifacts repositories create ${_SERVICE} --repository-format=docker --location=${_REGION}
+  
+  # 1. Build the image
+  - name: "gcr.io/cloud-builders/docker"
+    id: build
+    env:
+      - "DOCKER_BUILDKIT=1"
+    args:
+      - "build"
+      - "-f"
+      - "Dockerfile.web"
+      - "--target"
+      - "production"
+      - "-t"
+      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_SERVICE}/${_IMAGE}:${SHORT_SHA}"
+      - "-t"
+      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_SERVICE}/${_IMAGE}:latest"
+      - "."
+
+  # 2. PUSH the image explicitly before deploying
+  - name: "gcr.io/cloud-builders/docker"
+    id: push
+    waitFor: ["build"]
+    args:
+      - "push"
+      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_SERVICE}/${_IMAGE}:${SHORT_SHA}"
+
+  # 3. Deploy to Cloud Run
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: deploy
+    entrypoint: "gcloud"
+    waitFor: ["push"] # Wait for the PUSH, not the build
+    args:
+      - "run"
+      - "deploy"
+      - "${_SERVICE}"
+      - "--image"
+      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_SERVICE}/${_IMAGE}:${SHORT_SHA}"
+      - "--region"
+      - "${_REGION}"
+      - "--platform"
+      - "managed"
+
+# Keeps the images tagged in the build history
+images:
+  - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_SERVICE}/${_IMAGE}:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_SERVICE}/${_IMAGE}:latest"
+
+options:
+  logging: CLOUD_LOGGING_ONLY

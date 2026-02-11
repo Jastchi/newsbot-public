@@ -85,7 +85,13 @@ jobs:
           EMAIL_SENDER: ${{ vars.EMAIL_SENDER }}
           EMAIL_RECIPIENT: ${{ vars.EMAIL_RECIPIENT }}
           EMAIL_FOR_CANCELLATION: ${{ vars.EMAIL_FOR_CANCELLATION }}
+          NEWSSERVER_BASE_URL: ${{ vars.NEWSSERVER_BASE_URL }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER }}
+          EMAILJS_SERVICE_ID: ${{ vars.EMAILJS_SERVICE_ID }}
+          EMAILJS_TEMPLATE_ID: ${{ vars.EMAILJS_TEMPLATE_ID }}
+          EMAILJS_USER_ID: ${{ vars.EMAILJS_USER_ID }}
+          EMAILJS_PRIVATE_KEY: ${{ secrets.EMAILJS_PRIVATE_KEY }}
           GEMINI_API_KEY: ${{ inputs.llm_provider == 'gemini' && secrets.GEMINI_API_KEY || '' }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
@@ -101,7 +107,13 @@ jobs:
           EMAIL_SENDER: ${{ vars.EMAIL_SENDER }}
           EMAIL_RECIPIENT: ${{ vars.EMAIL_RECIPIENT }}
           EMAIL_FOR_CANCELLATION: ${{ vars.EMAIL_FOR_CANCELLATION }}
+          NEWSSERVER_BASE_URL: ${{ vars.NEWSSERVER_BASE_URL }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER }}
+          EMAILJS_SERVICE_ID: ${{ vars.EMAILJS_SERVICE_ID }}
+          EMAILJS_TEMPLATE_ID: ${{ vars.EMAILJS_TEMPLATE_ID }}
+          EMAILJS_USER_ID: ${{ vars.EMAILJS_USER_ID }}
+          EMAILJS_PRIVATE_KEY: ${{ secrets.EMAILJS_PRIVATE_KEY }}
           GEMINI_API_KEY: ${{ inputs.llm_provider == 'gemini' && secrets.GEMINI_API_KEY || '' }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}

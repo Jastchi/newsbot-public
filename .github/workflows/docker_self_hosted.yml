@@ -59,6 +59,12 @@ jobs:
             -e EMAIL_SMTP_PORT="${{ vars.EMAIL_SMTP_PORT }}" \
             -e EMAIL_USE_SSL="${{ vars.EMAIL_USE_SSL }}" \
             -e EMAIL_FOR_CANCELLATION="${{ vars.EMAIL_FOR_CANCELLATION }}" \
+            -e NEWSSERVER_BASE_URL="${{ vars.NEWSSERVER_BASE_URL }}" \
+            -e EMAIL_PROVIDER="${{ vars.EMAIL_PROVIDER }}" \
+            -e EMAILJS_SERVICE_ID="${{ vars.EMAILJS_SERVICE_ID }}" \
+            -e EMAILJS_TEMPLATE_ID="${{ vars.EMAILJS_TEMPLATE_ID }}" \
+            -e EMAILJS_USER_ID="${{ vars.EMAILJS_USER_ID }}" \
+            -e EMAILJS_PRIVATE_KEY="${{ secrets.EMAILJS_PRIVATE_KEY }}" \
             -e ENABLE_SCHEDULER="true" \
             newsbot-api:latest
 
@@ -130,6 +136,11 @@ jobs:
             -e GOOGLE_OAUTH_CLIENT_ID="${{ vars.GOOGLE_OAUTH_CLIENT_ID }}" \
             -e GOOGLE_OAUTH_CLIENT_SECRET="${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}" \
             -e SITE_DOMAIN="${{ vars.SITE_DOMAIN }}" \
+            -e EMAIL_PROVIDER="${{ vars.EMAIL_PROVIDER }}" \
+            -e EMAILJS_SERVICE_ID="${{ vars.EMAILJS_SERVICE_ID }}" \
+            -e EMAILJS_TEMPLATE_ID="${{ vars.EMAILJS_TEMPLATE_ID }}" \
+            -e EMAILJS_USER_ID="${{ vars.EMAILJS_USER_ID }}" \
+            -e EMAILJS_PRIVATE_KEY="${{ secrets.EMAILJS_PRIVATE_KEY }}" \
             -e DJANGO_SETTINGS_MODULE="web.web.settings" \
             newsbot-web:latest
 

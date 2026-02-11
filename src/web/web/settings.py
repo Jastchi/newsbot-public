@@ -50,6 +50,11 @@ CSRF_TRUSTED_ORIGINS = [
     if host
 ]
 
+# Behind a reverse proxy (e.g. Cloud Run): trust X-Forwarded-Proto so
+# Django and django-allauth use https for redirect_uri and other
+# absolute URLs.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 # Application definition
 SITE_ID = 1
 

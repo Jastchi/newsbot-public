@@ -160,6 +160,8 @@ SUPABASE_SERVICE_KEY=your-service-role-key-here # For report storage - only if u
 
 # Email Configuration (for error handling and report sending)
 EMAIL_ENABLED=true
+EMAIL_PROVIDER=smtp
+# SMTP (default)
 EMAIL_SMTP_SERVER=smtp.gmail.com
 EMAIL_SMTP_PORT=587
 EMAIL_USE_SSL=false
@@ -167,6 +169,9 @@ EMAIL_SENDER=yourbot@yourdomain.com
 EMAIL_PASSWORD=your_app_password
 EMAIL_RECIPIENT=admin@yourdomain.com
 EMAIL_FOR_CANCELLATION=cancellation@yourdomain.com
+# If the web app is hosted, set this so report footers and List-Unsubscribe point to self-service:
+NEWSSERVER_BASE_URL=https://yourdomain.com
+# Or use EmailJS: set EMAIL_PROVIDER=emailjs and EMAILJS_* (see Email Sender section)
 
 # Django Web Interface (only needed in Production)
 DJANGO_SECRET_KEY=your-secret-key-here
@@ -457,14 +462,22 @@ When `ENABLE_SCHEDULER=true`:
 
 #### Email Sender
 
-Sends generated reports via email. Recipients are managed through the Django web interface.
+Sends generated reports via email. Recipients are managed through the Django web interface. You can send via **SMTP** (Gmail, etc.) or **EmailJS**.
 
-**Setup:**
+**Setup (SMTP – default):**
 
-1. Configure SMTP settings in environment variables (see [Configuration](#configuration))
+1. Set `EMAIL_PROVIDER=smtp` (or omit) and configure SMTP in environment (see [Configuration](#configuration))
 2. Create superuser: `uv run src/web/manage.py createsuperuser`
 3. Log in to Django admin: http://localhost:8000/admin/
 4. Add email subscribers in "Subscribers" section
 5. Assign configs to each subscriber
+
+**Setup (EmailJS):**
+
+1. Set `EMAIL_PROVIDER=emailjs` and in your EmailJS dashboard: add an email service, create a template with variables `{{subject}}`, `{{{content}}}` (triple braces so HTML renders), `{{to_email}}` (sender), `{{bcc}}` (comma-separated recipients), `{{from_name}}`, `{{from_email}}`, `{{sender_name}}`, `{{topic}}`
+2. Set in `.env`: `EMAILJS_SERVICE_ID`, `EMAILJS_TEMPLATE_ID`, `EMAILJS_USER_ID`, `EMAIL_SENDER`; optionally `EMAILJS_PRIVATE_KEY` for server-side auth
+3. Subscribers and configs as for SMTP (steps 2–5 above)
+
+**Sender display name (“NewsBot”):** With personal email services (e.g. GMX), EmailJS often does not show the From display name. To have “NewsBot” (or `EMAIL_SENDER_NAME`) as the sender, use **SMTP** instead: set `EMAIL_PROVIDER=smtp` and your GMX SMTP details (including `EMAIL_SENDER_NAME=NewsBot`).
 
 The email hook automatically triggers after report generation when enabled.

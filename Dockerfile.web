@@ -74,7 +74,8 @@ RUN --mount=type=cache,target=/home/appuser/.cache/uv,uid=999 \
 COPY --chown=appuser:appuser . /app
 
 # Final sync to install the project itself
-RUN uv sync --frozen --no-default-groups --group serve
+RUN --mount=type=cache,target=/home/appuser/.cache/uv,uid=999 \
+    uv sync --frozen --no-default-groups --group serve
 
 ## Django specific: collectstatic (must match path used at runtime, e.g. migrate)
 RUN mkdir -p $STATIC_ROOT
