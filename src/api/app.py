@@ -27,7 +27,12 @@ from pydantic import BaseModel, Field
 
 from api.handlers import get_all_schedules, handle_analyze, handle_run
 from api.job_manager import Job, JobStatus, JobType, job_manager
-from newsbot.constants import DAILY_SCRAPE_HOUR, DAILY_SCRAPE_MINUTE, TZ
+from newsbot.constants import (
+    DAILY_SCRAPE_HOUR,
+    DAILY_SCRAPE_MINUTE,
+    DAY_NAME_TO_PYTHON_WEEKDAY,
+    TZ,
+)
 from newsbot.error_handling.email_handler import send_error_email_once
 from utilities import ConfigNotFoundError, load_config, setup_django
 
@@ -426,16 +431,7 @@ def get_today_jobs_endpoint() -> TodayJobsResponse:
                 config_key, JobType.ANALYSIS,
             ):
                 # Check if today is the scheduled day
-                day_map = {
-                    "mon": 0,
-                    "tue": 1,
-                    "wed": 2,
-                    "thu": 3,
-                    "fri": 4,
-                    "sat": 5,
-                    "sun": 6,
-                }
-                scheduled_day = day_map.get(
+                scheduled_day = DAY_NAME_TO_PYTHON_WEEKDAY.get(
                     weekly.get("day_of_week", "").lower(),
                 )
                 if scheduled_day == today.weekday():
@@ -513,3 +509,13 @@ def get_schedules_endpoint() -> SchedulesResponse:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+def start() -> None:
+    """Run the API server with uvicorn (used by `uv run start`)."""
+    import uvicorn
+
+    uvicorn.run(
+        "api.app:app",
+        host="localhost",
+        port=8000,
+        reload=True,
+    )

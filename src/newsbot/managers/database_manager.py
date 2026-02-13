@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from django.db import DatabaseError, IntegrityError, OperationalError
 
@@ -13,6 +13,8 @@ from newsbot.models import Article
 from utilities.django_models import Article as DjangoArticle
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from utilities.django_models import NewsConfig as NewsConfigType
 
 logger = logging.getLogger(__name__)
@@ -61,10 +63,13 @@ class DatabaseManager:
 
             # 2. Find which URLs already exist
             existing_urls = set(
-                DjangoArticle.objects.filter(
-                    config=self._news_config,
-                    url__in=urls,
-                ).values_list("url", flat=True),
+                cast(
+                    "Iterable[str]",
+                    DjangoArticle.objects.filter(
+                        config=self._news_config,
+                        url__in=urls,
+                    ).values_list("url", flat=True),
+                ),
             )
 
             # 3. Create new Article objects for non-existing URLs
@@ -102,11 +107,55 @@ class DatabaseManager:
             else:
                 logger.info("No new articles to save")
 
+            self._backfill_empty_content(
+                articles_by_url, urls, existing_urls,
+            )
+
         except (DatabaseError, IntegrityError, OperationalError):
             logger.exception("Database error saving articles")
             saved_count = 0
 
         return saved_count
+
+    def _backfill_empty_content(
+        self,
+        articles_by_url: dict[str, Article],
+        urls: list[str],
+        existing_urls: set[str],
+    ) -> None:
+        """
+        Backfill content for existing rows that have no content.
+
+        Only when URL is in existing_urls, DB content is blank, and the
+        incoming article for that URL has non-empty content.
+        """
+        existing_rows = DjangoArticle.objects.filter(
+            config=self._news_config,
+            url__in=urls,
+        ).only("id", "url", "content", "scraped_date")
+
+        to_backfill = []
+        for db_art in existing_rows:
+            if db_art.url not in existing_urls:
+                continue
+            incoming = articles_by_url.get(db_art.url)
+            if not incoming or not (incoming.content or "").strip():
+                continue
+            if not (db_art.content or "").strip():
+                db_art.content = incoming.content or ""
+                db_art.scraped_date = incoming.scraped_date
+                to_backfill.append(db_art)
+
+        if to_backfill:
+            count = DjangoArticle.objects.bulk_update(
+                to_backfill,
+                ["content", "scraped_date"],
+                batch_size=100,
+            )
+            logger.info(
+                f"Backfilled content for {count} existing "
+                "articles that had no content",
+            )
 
     def load_articles(self, days_back: int) -> list[Article]:
         """
@@ -240,6 +289,35 @@ class DatabaseManager:
             ).exists()
         except (DatabaseError, IntegrityError, OperationalError):
             logger.exception("Database error checking if URL exists")
+            return False
+
+    def url_exists_with_content(self, url: str) -> bool:
+        """
+        Check if an article with the given URL exists and has content.
+
+        Used by the scraper to decide whether to skip fetching full
+        content: only skip when the URL exists and already has content
+        (so we re-fetch
+        when the stored article has no content).
+
+        Args:
+            url: Article URL to check
+
+        Returns:
+            True if article exists for this config and has non-blank
+            content, False otherwise
+
+        """
+        try:
+            obj = DjangoArticle.objects.filter(
+                url=url,
+                config=self._news_config,
+            ).first()
+            return obj is not None and bool((obj.content or "").strip())
+        except (DatabaseError, IntegrityError, OperationalError):
+            logger.exception(
+                "Database error checking if URL exists with content",
+            )
             return False
 
     def url_exists_in_any_config(

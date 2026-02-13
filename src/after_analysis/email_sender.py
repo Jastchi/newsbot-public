@@ -565,7 +565,7 @@ def execute(report_path: Path, analysis_data: AnalysisData) -> None:
         return
 
     topic = config_name
-    sender_name = f"{topic} NewsBot"
+    sender_name = f"The {topic} NewsBot"
 
     recipient_emails = _get_recipient_emails(analysis_data, config_key)
 

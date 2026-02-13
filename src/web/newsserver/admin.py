@@ -242,6 +242,7 @@ class SubscriberAdmin(admin.ModelAdmin):
         "is_staff",
         "is_superuser",
         "config_count",
+        "last_login",
     )
     list_editable = ("is_active",)
     list_filter = (
@@ -256,6 +257,7 @@ class SubscriberAdmin(admin.ModelAdmin):
     readonly_fields = (
         "created_at",
         "updated_at",
+        "last_login",
     )
 
     def full_name(self, obj: Subscriber) -> str:

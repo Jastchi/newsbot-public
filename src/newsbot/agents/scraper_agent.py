@@ -73,10 +73,10 @@ class NewsScraperAgent:
 
         Args:
             config: Configuration dictionary
-            url_check: Optional callback function to check if a URL
-                already exists in the database. Should return True if
-                URL exists, False otherwise. Used to avoid fetching
-                full content for articles that are already stored.
+            url_check: Optional callback to decide whether to skip
+                fetching full content. Should return True to skip (e.g.
+                when the URL already exists with content), False to
+                fetch (e.g. when missing or exists with no content).
             exclude_url_check: Optional callback to check if a URL
                 should be excluded (e.g. exists in other configs).
                 Should return True if the article should be excluded.

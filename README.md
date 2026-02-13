@@ -173,6 +173,9 @@ EMAIL_FOR_CANCELLATION=cancellation@yourdomain.com
 NEWSSERVER_BASE_URL=https://yourdomain.com
 # Or use EmailJS: set EMAIL_PROVIDER=emailjs and EMAILJS_* (see Email Sender section)
 
+# LLM (Gemini) - only when using Gemini as provider
+GEMINI_API_KEY=your-gemini-api-key
+
 # Django Web Interface (only needed in Production)
 DJANGO_SECRET_KEY=your-secret-key-here
 DEBUG=false  # Set to true only for development

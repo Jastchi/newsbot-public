@@ -15,7 +15,11 @@ from typing import Any
 from django.db import close_old_connections
 
 from api.job_manager import JobStatus, job_manager
-from newsbot.constants import DAILY_SCRAPE_HOUR, DAILY_SCRAPE_MINUTE
+from newsbot.constants import (
+    DAILY_SCRAPE_HOUR,
+    DAILY_SCRAPE_MINUTE,
+    DAY_NAME_TO_CRON_WEEKDAY,
+)
 from newsbot.error_handling.email_handler import get_email_error_handler
 from newsbot.pipeline import PipelineOrchestrator
 from newsbot.summary_writer import SummaryWriter
@@ -347,16 +351,10 @@ def weekly_analysis_to_cron(day_of_week: str, hour: int, minute: int) -> str:
 
     """
     # Map day names to cron day numbers (0=Sunday, 1=Monday, etc.)
-    day_map = {
-        "sun": 0,
-        "mon": 1,
-        "tue": 2,
-        "wed": 3,
-        "thu": 4,
-        "fri": 5,
-        "sat": 6,
-    }
-    day_num = day_map.get(day_of_week.lower(), 1)  # Default to Monday
+    day_num = DAY_NAME_TO_CRON_WEEKDAY.get(
+        day_of_week.lower(),
+        1,
+    )  # Default to Monday
     return f"{minute} {hour} * * {day_num}"
 
 

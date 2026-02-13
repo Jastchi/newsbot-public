@@ -68,6 +68,24 @@ class TestAgentManager:
         scraper = manager.scraper
         assert scraper.exclude_url_check is not None
 
+    @pytest.mark.django_db
+    def test_scraper_uses_url_exists_with_content_when_database_manager_set(
+        self, sample_config, db
+    ):
+        """Scraper uses url_exists_with_content so we re-fetch when URL exists but has no content."""
+        from newsbot.managers.database_manager import DatabaseManager as DM
+        from utilities.django_models import NewsConfig
+
+        news_config, _ = NewsConfig.objects.get_or_create(
+            key="test_managers",
+            defaults={"display_name": "Test Managers Config"},
+        )
+        db_manager = DatabaseManager(news_config)
+        manager = AgentManager(sample_config, database_manager=db_manager)
+        scraper = manager.scraper
+        assert scraper.url_check is not None
+        assert scraper.url_check.__func__ is DM.url_exists_with_content
+
     def test_scraper_exclude_url_check_none_without_config_list(
         self, sample_config
     ):
@@ -790,6 +808,106 @@ class TestDatabaseManager:
         # Should return False on exception
         assert database_manager.has_scraped_today() is False
         assert database_manager.has_scraped_today() is False
+
+    @pytest.mark.django_db
+    def test_url_exists_with_content_returns_false_when_no_article(
+        self, database_manager
+    ):
+        """Test url_exists_with_content returns False when no article exists."""
+        assert database_manager.url_exists_with_content(
+            "https://example.com/missing"
+        ) is False
+
+    @pytest.mark.django_db
+    def test_url_exists_with_content_returns_false_when_article_has_no_content(
+        self, database_manager
+    ):
+        """Test url_exists_with_content returns False when article exists but content is empty."""
+        from utilities.django_models import Article as DjangoArticle
+
+        now = datetime.now(TZ)
+        DjangoArticle.objects.create(
+            config=database_manager.news_config,
+            title="No content",
+            content="",
+            source="Source",
+            url="https://example.com/empty",
+            published_date=now,
+        )
+        DjangoArticle.objects.filter(
+            config=database_manager.news_config,
+            url="https://example.com/empty",
+        ).update(scraped_date=now)
+        assert database_manager.url_exists_with_content(
+            "https://example.com/empty"
+        ) is False
+
+    @pytest.mark.django_db
+    def test_url_exists_with_content_returns_true_when_article_has_content(
+        self, database_manager
+    ):
+        """Test url_exists_with_content returns True when article exists with content."""
+        from utilities.django_models import Article as DjangoArticle
+
+        now = datetime.now(TZ)
+        DjangoArticle.objects.create(
+            config=database_manager.news_config,
+            title="With content",
+            content="Some body text",
+            source="Source",
+            url="https://example.com/full",
+            published_date=now,
+        )
+        DjangoArticle.objects.filter(
+            config=database_manager.news_config,
+            url="https://example.com/full",
+        ).update(scraped_date=now)
+        assert database_manager.url_exists_with_content(
+            "https://example.com/full"
+        ) is True
+
+    @pytest.mark.django_db
+    def test_save_articles_backfills_content_for_existing_empty(
+        self, database_manager
+    ):
+        """Test save_articles updates existing rows that had no content."""
+        from utilities.django_models import Article as DjangoArticle
+
+        now = datetime.now(TZ)
+        url = "https://example.com/backfill"
+        DjangoArticle.objects.create(
+            config=database_manager.news_config,
+            title="Existing",
+            content="",
+            source="Source",
+            url=url,
+            published_date=now,
+        )
+        DjangoArticle.objects.filter(
+            config=database_manager.news_config,
+            url=url,
+        ).update(scraped_date=now)
+
+        new_scraped = now + timedelta(hours=1)
+        articles = [
+            Article(
+                title="Existing",
+                content="Fetched full content for backfill.",
+                source="Source",
+                url=url,
+                published_date=now,
+                scraped_date=new_scraped,
+            ),
+        ]
+        saved = database_manager.save_articles(articles)
+        assert saved == 0  # No new row created
+
+        db_art = DjangoArticle.objects.get(
+            config=database_manager.news_config,
+            url=url,
+        )
+        assert db_art.content == "Fetched full content for backfill."
+        assert db_art.scraped_date == new_scraped
 
     @pytest.mark.django_db
     def test_url_exists_in_any_config_returns_false_when_empty(

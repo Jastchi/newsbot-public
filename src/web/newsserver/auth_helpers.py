@@ -126,9 +126,9 @@ def build_magic_link_verify_url(
 
 def send_magic_link_email(email: str, verify_url: str) -> None:
     """Send the magic-link email (login or signup)."""
-    subject = "NewsBot: Your login link"
+    subject = "Your login link"
     message = (
-        "Use this link to log in or sign up for NewsBot "
+        "Click the button below to log in or sign up for the NewsBot "
         f"(valid for {MAGIC_LINK_TOKEN_TIMEOUT_MINUTES} minutes):\n\n"
         f"{verify_url}\n\n"
         "If you did not request this, you can ignore this email."

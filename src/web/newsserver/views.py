@@ -5,7 +5,7 @@ from collections.abc import Generator
 from datetime import UTC, datetime, time, timedelta
 from pathlib import Path
 from time import sleep
-from typing import ClassVar, cast
+from typing import cast
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -24,7 +24,11 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.generic import TemplateView
 
-from newsbot.constants import TZ
+from newsbot.constants import (
+    DAY_NAME_TO_PYTHON_WEEKDAY,
+    PYTHON_WEEKDAY_TO_DAY_NAME,
+    TZ,
+)
 
 from .adapters import SESSION_KEY_SUBSCRIPTION_REQUEST_FROM_SOCIAL
 from .auth_helpers import notify_admin_subscriber_request
@@ -480,14 +484,6 @@ class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
 
     template_name = "newsserver/news_scheduler_calendar.html"
 
-    # Mapping your model's DayOfWeek choices to python's weekday
-    # (Mon=0, Sun=6)
-    DAY_MAP: ClassVar[dict[str, int]] = {
-        "mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6,
-    }
-    # Reverse map for saving back to DB
-    REV_DAY_MAP: ClassVar[dict[int, str]] = {v: k for k, v in DAY_MAP.items()}
-
     def get_context_data(self, **kwargs) -> dict:
         """Add subscriber, request state, and edit flag for template."""
         context = super().get_context_data(**kwargs)
@@ -651,7 +647,7 @@ class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
             Event dictionary for FullCalendar, or None if invalid
 
         """
-        analysis_day_idx = self.DAY_MAP.get(
+        analysis_day_idx = DAY_NAME_TO_PYTHON_WEEKDAY.get(
             config.scheduler_weekly_analysis_day_of_week,
             0,
         )
@@ -729,7 +725,7 @@ class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
                     new_dt = new_dt.replace(tzinfo=UTC)
                 local_dt = new_dt.astimezone(TZ)
                 config.scheduler_weekly_analysis_day_of_week = (
-                    self.REV_DAY_MAP.get(local_dt.weekday())
+                    PYTHON_WEEKDAY_TO_DAY_NAME.get(local_dt.weekday())
                 )
                 config.scheduler_weekly_analysis_hour = local_dt.hour
                 config.scheduler_weekly_analysis_minute = local_dt.minute

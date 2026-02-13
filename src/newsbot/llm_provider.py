@@ -41,9 +41,9 @@ logger = logging.getLogger(__name__)
 DEFAULT_GEMINI_MODEL = "gemini-2.5-pro"
 
 # Retry configuration for Gemini transient errors
-GEMINI_MAX_RETRIES = 4
-GEMINI_BACKOFF_MIN = 30  # seconds
-GEMINI_BACKOFF_MAX = 120  # seconds
+GEMINI_MAX_RETRIES = 8
+GEMINI_BACKOFF_MIN = 60  # seconds
+GEMINI_BACKOFF_MAX = 300  # seconds
 HTTP_TOO_MANY_REQUESTS = 429
 HTTP_SERVICE_UNAVAILABLE = 503
 

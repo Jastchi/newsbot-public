@@ -43,10 +43,12 @@ class AgentManager:
         """Get the scraper agent, initializing if needed."""
         if self._scraper is None:
             logger.info("Initializing scraper agent...")
-            # Pass URL check callback if database manager is available
+            # Pass URL check callback if database manager is available.
+            # Use url_exists_with_content so we re-fetch when URL exists
+            # but the stored article has no content.
             url_check = None
             if self._database_manager is not None:
-                url_check = self._database_manager.url_exists
+                url_check = self._database_manager.url_exists_with_content
             # Exclude articles that exist in other configs
             # when configured
             exclude_url_check = None

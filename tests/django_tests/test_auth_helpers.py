@@ -173,7 +173,6 @@ class TestSendMagicLinkEmail:
         send_magic_link_email("recipient@example.com", "https://example.com/verify/abc/")
         mock_send_mail.assert_called_once()
         call_kw = mock_send_mail.call_args[1]
-        assert "NewsBot" in call_kw["subject"]
         assert "login" in call_kw["subject"].lower() or "link" in call_kw["subject"].lower()
         assert call_kw["recipient_list"] == ["recipient@example.com"]
         assert "https://example.com/verify/abc/" in call_kw["message"]
