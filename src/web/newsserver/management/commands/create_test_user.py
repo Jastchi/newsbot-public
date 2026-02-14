@@ -14,12 +14,10 @@ Usage (from project root):
 
 import argparse
 
-from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
 from web.newsserver.models import Subscriber
 
-User = get_user_model()
 
 class Command(BaseCommand):
     """Create a test user that is not a Subscriber."""
@@ -70,7 +68,7 @@ class Command(BaseCommand):
             # With --force we ensure User exists (no Subscriber removal)
             self.stdout.write("Continuing with --force (User only).")
 
-        existing = User.objects.filter(email__iexact=email).first()
+        existing = Subscriber.objects.filter(email__iexact=email).first()
         if existing:
             if force:
                 existing.set_password(password)
@@ -93,7 +91,7 @@ class Command(BaseCommand):
             self._print_credentials(email, password)
             return
 
-        User.objects.create_user(
+        Subscriber.objects.create_user(
             username=email,
             email=email,
             password=password,

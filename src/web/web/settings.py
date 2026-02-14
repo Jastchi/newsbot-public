@@ -256,7 +256,7 @@ EMAIL_HOST_USER = os.getenv("EMAIL_SENDER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_PASSWORD", "")
 # Sender format like report emails: "Display Name <email>"
 _email_sender = os.getenv("EMAIL_SENDER", "")
-_email_sender_name = os.getenv("EMAIL_SENDER_NAME", "NewsBot")
+_email_sender_name = os.getenv("EMAIL_SENDER_NAME", "The NewsBot")
 DEFAULT_FROM_EMAIL = (
     formataddr((_email_sender_name, _email_sender)) if _email_sender else ""
 )

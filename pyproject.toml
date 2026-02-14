@@ -154,7 +154,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --strict-markers --log-cli-level=INFO --reuse-db"
+addopts = "--strict-markers --reuse-db"
 pythonpath = ["src"]
 DJANGO_SETTINGS_MODULE = "web.web.settings"
 

@@ -15,10 +15,9 @@ Usage (from project root):
 
 import argparse
 
-from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
-Subscriber = get_user_model()
+from web.newsserver.models import Subscriber
 
 
 class Command(BaseCommand):

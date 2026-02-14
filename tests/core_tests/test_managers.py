@@ -84,7 +84,7 @@ class TestAgentManager:
         manager = AgentManager(sample_config, database_manager=db_manager)
         scraper = manager.scraper
         assert scraper.url_check is not None
-        assert scraper.url_check.__func__ is DM.url_exists_with_content
+        assert scraper.url_check == db_manager.url_exists_with_content
 
     def test_scraper_exclude_url_check_none_without_config_list(
         self, sample_config

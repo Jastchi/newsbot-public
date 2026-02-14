@@ -464,8 +464,8 @@
             // Responsive height: set contentHeight by viewport (FullCalendar 6 accepts number or "auto", not a function)
             function applyContentHeight() {
                 var w = window.innerWidth;
-                var h = (w < 576) ? 450 : (w < 768) ? 550 : null;
-                calendar.setOption('contentHeight', h === null ? 'auto' : h);
+                var h = (w < 576) ? 400 : (w < 768) ? 500 : 500;
+                calendar.setOption('contentHeight', h);
             }
             applyContentHeight();
             window.addEventListener('resize', applyContentHeight);
