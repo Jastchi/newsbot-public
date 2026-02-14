@@ -80,7 +80,7 @@ jobs:
           cache-dir: .trivy
 
       - name: Save Trivy Cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .trivy
           key: ${{ runner.os }}-trivy-${{ github.run_id }}
@@ -151,7 +151,7 @@ jobs:
           cache-dir: .trivy
 
       - name: Save Trivy Cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .trivy
           key: ${{ runner.os }}-trivy-${{ github.run_id }}
