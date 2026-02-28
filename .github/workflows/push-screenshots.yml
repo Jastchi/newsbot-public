@@ -22,7 +22,7 @@ jobs:
         fetch-depth: 0
     
     - name: Download screenshots from test workflow
-      uses: actions/download-artifact@v7
+      uses: actions/download-artifact@v8
       with:
         name: screenshots-${{ github.run_id }}
         path: tests/screenshots/
