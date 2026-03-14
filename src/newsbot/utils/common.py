@@ -12,6 +12,7 @@ from pathlib import Path
 from bs4 import BeautifulSoup
 
 from newsbot.constants import TZ
+from newsbot.llm_provider import get_required_env_vars
 from utilities.models import ConfigModel
 
 logger = logging.getLogger(__name__)
@@ -154,11 +155,10 @@ def validate_environment(
     llm_config = config.llm
     provider = llm_config.provider
 
-    missing_vars: list[str] = []
-
-    # Validate provider-specific environment variables
-    if provider == "gemini" and not os.environ.get("GEMINI_API_KEY"):
-        missing_vars.append("GEMINI_API_KEY")
+    missing_vars = [
+        var for var in get_required_env_vars(provider)
+        if not os.environ.get(var)
+    ]
 
     if missing_vars:
         error_msg = (

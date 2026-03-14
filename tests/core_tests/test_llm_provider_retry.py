@@ -96,11 +96,11 @@ class TestGeminiProviderRetry:
     @pytest.fixture
     def mock_genai(self):
         """Mock the google.genai module."""
-        with patch("newsbot.llm_provider.genai") as mock:
+        with patch("newsbot.llm_provider.gemini.genai") as mock:
             yield mock
 
     @patch.dict("os.environ", {"GEMINI_API_KEY": "test-api-key"})
-    @patch("newsbot.llm_provider.time.sleep")  # Speed up tests
+    @patch("time.sleep")  # Speed up tests
     def test_generate_retries_on_rate_limit(self, mock_sleep):
         """Test that generate retries on 429 rate limit error."""
         from google.genai.errors import ClientError
@@ -137,7 +137,7 @@ class TestGeminiProviderRetry:
             assert mock_client.models.generate_content.call_count == 2
 
     @patch.dict("os.environ", {"GEMINI_API_KEY": "test-api-key"})
-    @patch("newsbot.llm_provider.time.sleep")  # Speed up tests
+    @patch("time.sleep")  # Speed up tests
     def test_generate_retries_on_service_unavailable(self, mock_sleep):
         """Test that generate retries on 503 service unavailable error."""
         from google.genai.errors import ServerError
@@ -177,7 +177,7 @@ class TestGeminiProviderRetry:
             assert mock_client.models.generate_content.call_count == 2
 
     @patch.dict("os.environ", {"GEMINI_API_KEY": "test-api-key"})
-    @patch("newsbot.llm_provider.time.sleep")  # Speed up tests
+    @patch("time.sleep")  # Speed up tests
     def test_chat_retries_on_rate_limit(self, mock_sleep):
         """Test that chat retries on 429 rate limit error."""
         from google.genai.errors import ClientError
@@ -217,7 +217,7 @@ class TestGeminiProviderRetry:
             assert mock_client.models.generate_content.call_count == 2
 
     @patch.dict("os.environ", {"GEMINI_API_KEY": "test-api-key"})
-    @patch("newsbot.llm_provider.time.sleep")  # Speed up tests
+    @patch("time.sleep")  # Speed up tests
     def test_chat_json_retries_on_rate_limit(self, mock_sleep):
         """Test that chat_json retries on 429 rate limit error."""
         from google.genai.errors import ClientError
@@ -328,7 +328,7 @@ class TestGeminiProviderRetry:
             assert mock_client.models.generate_content.call_count == 1
 
     @patch.dict("os.environ", {"GEMINI_API_KEY": "test-api-key"})
-    @patch("newsbot.llm_provider.time.sleep")  # Speed up tests
+    @patch("time.sleep")  # Speed up tests
     def test_exhausts_retries_on_persistent_rate_limit(self, mock_sleep):
         """Test that retries are exhausted on persistent 429 errors."""
         from google.genai.errors import ClientError
@@ -367,7 +367,7 @@ class TestGeminiProviderRetry:
             )
 
     @patch.dict("os.environ", {"GEMINI_API_KEY": "test-api-key"})
-    @patch("newsbot.llm_provider.time.sleep")  # Speed up tests
+    @patch("time.sleep")  # Speed up tests
     def test_exhausts_retries_on_persistent_service_unavailable(
         self, mock_sleep
     ):
