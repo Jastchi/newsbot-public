@@ -6,9 +6,13 @@ from django.db import migrations
 def fix_foreign_key_constraints_forward(apps, schema_editor):
     """Fix foreign key constraints to point to newsserver_newsconfig instead of newsserver_newsconfiguration."""
     db_vendor = schema_editor.connection.vendor
-    
+
     with schema_editor.connection.cursor() as cursor:
         if db_vendor == "postgresql":
+            # Resolve the active schema from search_path so this
+            # migration works under any ENVIRONMENT (dev, prod, ...).
+            cursor.execute("SELECT current_schema()")
+            current_schema = cursor.fetchone()[0]
             # Fix AnalysisSummary foreign key
             analysissummary_table = "newsserver_analysissummary"
             scrapesummary_table = "newsserver_scrapesummary"
@@ -47,12 +51,12 @@ def fix_foreign_key_constraints_forward(apps, schema_editor):
                 JOIN information_schema.constraint_column_usage AS ccu
                   ON ccu.constraint_name = tc.constraint_name
                   AND ccu.table_schema = tc.table_schema
-                WHERE tc.table_schema = 'public'
+                WHERE tc.table_schema = %s
                 AND tc.table_name = %s
                 AND tc.constraint_type = 'FOREIGN KEY'
                 AND kcu.column_name = 'config_id';
                 """,
-                [analysissummary_table],
+                [current_schema, analysissummary_table],
             )
             constraints = cursor.fetchall()
             
@@ -86,12 +90,12 @@ def fix_foreign_key_constraints_forward(apps, schema_editor):
                 JOIN information_schema.constraint_column_usage AS ccu
                   ON ccu.constraint_name = tc.constraint_name
                   AND ccu.table_schema = tc.table_schema
-                WHERE tc.table_schema = 'public'
+                WHERE tc.table_schema = %s
                 AND tc.table_name = %s
                 AND tc.constraint_type = 'FOREIGN KEY'
                 AND kcu.column_name = 'config_id';
                 """,
-                [scrapesummary_table],
+                [current_schema, scrapesummary_table],
             )
             constraints = cursor.fetchall()
             

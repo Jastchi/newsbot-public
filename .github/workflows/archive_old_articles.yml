@@ -1,0 +1,77 @@
+name: "Archive: Old Articles [scheduled, self-hosted]"
+# Archives articles older than N days into a date-stamped SQLite file
+# on the self-hosted runner's host, then deletes them from the source DB.
+#
+# Runs Python directly via uv (no Docker). The runner must have uv installed.
+#
+# One-time setup on the self-hosted runner (Raspberry Pi):
+#   1. Pick a host path for the archive files, e.g. /srv/newsbot/archives
+#   2. Create the directory and make it writable by the runner user:
+#          sudo mkdir -p /srv/newsbot/archives
+#          sudo chown -R <runner-user>:<runner-user> /srv/newsbot/archives
+#      (The workflow itself does NOT use sudo, so the directory must
+#      already exist with the right ownership before the first run.)
+#   3. Add a GitHub repo variable `ARCHIVE_HOST_DIR` with that path.
+#
+# Each run produces one file named
+# `article_archive_YYYY-MM-DD.sqlite3` inside ARCHIVE_HOST_DIR.
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Archive articles older than N days'
+        required: false
+        default: '30'
+        type: string
+      dry_run:
+        description: 'Dry run (archive only, do not delete from source)'
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    # Weekly, Sundays at 03:00 UTC
+    - cron: '0 3 * * 0'
+
+jobs:
+  archive:
+    name: Archive old articles
+    runs-on: self-hosted
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: uv sync --frozen --no-default-groups --group serve
+
+      - name: Ensure host archive dir exists
+        run: mkdir -p "${{ vars.ARCHIVE_HOST_DIR }}"
+
+      - name: Run archive script
+        env:
+          NEWSBOT_ARCHIVE_DIR: ${{ vars.ARCHIVE_HOST_DIR }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ENVIRONMENT: ${{ vars.ENVIRONMENT }}
+          DJANGO_SETTINGS_MODULE: web.web.settings
+        run: |
+          uv run scripts/archive_old_articles.py \
+            --days "${{ inputs.days || '30' }}" \
+            ${{ inputs.dry_run && '--dry-run' || '--yes' }}
+
+      - name: List archive dir
+        if: always()
+        run: ls -lh "${{ vars.ARCHIVE_HOST_DIR }}" || true
+
+      - name: Write workflow summary
+        if: always()
+        run: |
+          echo "## Archive Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Days:** ${{ inputs.days || '30' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Dry run:** ${{ inputs.dry_run || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Host dir:** ${{ vars.ARCHIVE_HOST_DIR }}" >> $GITHUB_STEP_SUMMARY

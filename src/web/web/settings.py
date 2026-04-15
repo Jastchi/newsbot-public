@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+import re
 from email.utils import formataddr
 from pathlib import Path
 
@@ -20,6 +21,17 @@ from dotenv import load_dotenv
 from newsbot.constants import TIMEZONE_STR
 
 load_dotenv()
+
+# Environment-based Postgres schema routing.
+# When ENVIRONMENT=dev, all DB operations are scoped to the "dev"
+# schema; otherwise they fall through to "public" (prod). The schema
+# name is interpolated into a SET search_path string below, so it must
+# be validated as a safe Postgres identifier.
+ENVIRONMENT = os.getenv("ENVIRONMENT", "prod").strip().lower()
+DB_SCHEMA = "dev" if ENVIRONMENT == "dev" else "public"
+if not re.fullmatch(r"[a-z_][a-z0-9_]{0,62}", DB_SCHEMA):
+    msg = f"Invalid DB_SCHEMA derived from ENVIRONMENT: {DB_SCHEMA!r}"
+    raise ValueError(msg)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
@@ -120,6 +132,12 @@ DATABASES = {
 # Supabase requires SSL
 if DATABASES["default"].get("ENGINE") == "django.db.backends.postgresql":
     DATABASES["default"].setdefault("OPTIONS", {})["sslmode"] = "require"
+
+    # NOTE: search_path is *not* set via the `options` startup parameter
+    # because Supabase's Supavisor pooler rejects it and drops the
+    # connection. It is instead set via a `connection_created` signal
+    # handler registered in newsserver/apps.py, which runs `SET
+    # search_path` on every freshly opened connection.
 
     # Disable persistent connections when using a connection pooler.
     # Poolers (like Supabase) handle pooling themselves, so Django's

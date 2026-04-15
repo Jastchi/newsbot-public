@@ -48,9 +48,12 @@ jobs:
 
       # Create the Django database tables (for email notifications)
       - name: Run migrations
-        run: uv run ./src/web/manage.py migrate
+        run: |
+          uv run ./src/web/manage.py ensure_schema
+          uv run ./src/web/manage.py migrate
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ENVIRONMENT: ${{ vars.ENVIRONMENT }}
       
       # Scrape once
       - name: Run scraper

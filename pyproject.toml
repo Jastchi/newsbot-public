@@ -33,7 +33,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 newsbot = [
-    "django>=6.0.2",
+    "django>=6.0.4",
     "dj-database-url>=2.3.0",
     "psycopg2-binary>=2.9.9",
     "supabase>=2.0.0",
@@ -41,12 +41,12 @@ newsbot = [
     "beautifulsoup4>=4.12.0",
     "feedparser>=6.0.10",
     "lxml>=4.9.3",
-    "requests>=2.31.0",
+    "requests>=2.33.0",
     "trafilatura>=2.0.0",
     "google-genai>=1.56.0",
     "ollama>=0.1.0",
     "torch>=2.1.0",
-    "transformers>=4.41.0",
+    "transformers>=4.41.0,<5.0.0",
     "sentence-transformers[onnx]>=5.0.0",
     "sentencepiece>=0.1.99",
     "spacy>=3.7.0",
@@ -63,18 +63,18 @@ newsbot = [
     "typer>=0.21.1",
 ]
 serve = [
-    "django>=6.0.2",
-    "django-allauth>=65.0.0",
+    "django>=6.0.4",
+    "django-allauth>=65.14.1",
     "gunicorn>=23.0.0",
     "psycopg2-binary>=2.9.9",
     "dj-database-url>=2.3.0",
-    "requests>=2.31.0",
+    "requests>=2.33.0",
     "supabase>=2.0.0",
     "whitenoise>=6.8.0",
 ]
 api = [
     { include-group = "newsbot" },
-    "django-allauth>=65.0.0",  # required: API loads Django settings which include allauth in INSTALLED_APPS
+    "django-allauth>=65.14.1",  # required: API loads Django settings which include allauth in INSTALLED_APPS
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
 ]

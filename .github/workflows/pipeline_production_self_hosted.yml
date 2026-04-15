@@ -71,9 +71,12 @@ jobs:
         run: uv sync
 
       - name: Run migrations
-        run: uv run ./src/web/manage.py migrate
+        run: |
+          uv run ./src/web/manage.py ensure_schema
+          uv run ./src/web/manage.py migrate
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ENVIRONMENT: ${{ vars.ENVIRONMENT }}
 
       - name: Run scraper
         id: scraper

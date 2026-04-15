@@ -53,6 +53,7 @@ jobs:
                 --restart unless-stopped \
                 -p 9001:8000 \
                 -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+                -e ENVIRONMENT="${{ vars.ENVIRONMENT }}" \
                 -e SUPABASE_SERVICE_KEY="${{ secrets.SUPABASE_SECRET_KEY }}" \
                 -e GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
                 -e EMAIL_ENABLED="${{ vars.EMAIL_ENABLED }}" \
@@ -75,15 +76,17 @@ jobs:
               # Run migrations first
               docker run --rm \
                 -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+                -e ENVIRONMENT="${{ vars.ENVIRONMENT }}" \
                 -e DJANGO_SETTINGS_MODULE="web.web.settings" \
                 newsbot-web:latest \
-                python src/web/manage.py migrate --noinput || true
+                sh -c "python src/web/manage.py ensure_schema && python src/web/manage.py migrate --noinput" || true
               # Run new Web container
               docker run -d \
                 --name newsbot-web \
                 --restart unless-stopped \
                 -p 9000:8000 \
                 -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+                -e ENVIRONMENT="${{ vars.ENVIRONMENT }}" \
                 -e SUPABASE_SERVICE_KEY="${{ secrets.SUPABASE_SECRET_KEY }}" \
                 -e DJANGO_SECRET_KEY="${{ secrets.DJANGO_SECRET_KEY }}" \
                 -e DEBUG="${{ vars.DEBUG }}" \

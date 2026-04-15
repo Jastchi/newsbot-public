@@ -13,44 +13,46 @@ def rename_column_forward(apps, schema_editor):
     with schema_editor.connection.cursor() as cursor:
         # Check if old column exists
         if db_vendor == "postgresql":
+            cursor.execute("SELECT current_schema()")
+            current_schema = cursor.fetchone()[0]
             cursor.execute(
                 """
                 SELECT EXISTS (
-                    SELECT FROM information_schema.columns 
-                    WHERE table_schema = 'public' 
-                    AND table_name = %s 
+                    SELECT FROM information_schema.columns
+                    WHERE table_schema = %s
+                    AND table_name = %s
                     AND column_name = %s
                 );
                 """,
-                [table_name, old_column],
+                [current_schema, table_name, old_column],
             )
             old_exists = cursor.fetchone()[0]
-            
+
             cursor.execute(
                 """
                 SELECT EXISTS (
-                    SELECT FROM information_schema.columns 
-                    WHERE table_schema = 'public' 
-                    AND table_name = %s 
+                    SELECT FROM information_schema.columns
+                    WHERE table_schema = %s
+                    AND table_name = %s
                     AND column_name = %s
                 );
                 """,
-                [table_name, new_column],
+                [current_schema, table_name, new_column],
             )
             new_exists = cursor.fetchone()[0]
-            
+
             if old_exists and not new_exists:
                 # Drop the old foreign key constraint first
                 cursor.execute(
                     """
-                    SELECT constraint_name 
-                    FROM information_schema.table_constraints 
-                    WHERE table_schema = 'public' 
-                    AND table_name = %s 
+                    SELECT constraint_name
+                    FROM information_schema.table_constraints
+                    WHERE table_schema = %s
+                    AND table_name = %s
                     AND constraint_type = 'FOREIGN KEY'
                     AND constraint_name LIKE %s;
                     """,
-                    [table_name, f'%{old_column}%'],
+                    [current_schema, table_name, f'%{old_column}%'],
                 )
                 fk_constraints = cursor.fetchall()
                 for (constraint_name,) in fk_constraints:

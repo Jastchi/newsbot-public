@@ -9,7 +9,11 @@ import logging
 from pathlib import Path
 
 from newsbot.models import AnalysisData
-from utilities.storage import get_supabase_client, upload_to_supabase
+from utilities.storage import (
+    get_reports_bucket,
+    get_supabase_client,
+    upload_to_supabase,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +33,7 @@ def execute(report_path: Path, analysis_data: AnalysisData) -> None:
         return
 
     config_key = analysis_data["config_key"]
-    bucket = "Reports"
+    bucket = get_reports_bucket()
     filename = report_path.name
 
     try:

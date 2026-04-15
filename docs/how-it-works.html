@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Newsbot — How It Works</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0b0d17;--surface:#121626;--surface2:#1a1f35;--surface3:#232845;
+    --border:#2a2f4a;--text:#e2e4ed;--text-dim:#8b8fa8;--accent:#6c63ff;
+    --accent2:#00d4aa;--accent3:#ff6b8a;--accent4:#ffb347;--accent5:#4fc3f7;
+    --glow:rgba(108,99,255,.25);--radius:16px;
+  }
+  html{scroll-behavior:smooth}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
+
+  /* ─── Hero ─── */
+  .hero{position:relative;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2rem;overflow:hidden}
+  .hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 40%,rgba(108,99,255,.12),transparent 70%),radial-gradient(ellipse 60% 50% at 80% 20%,rgba(0,212,170,.08),transparent 60%);pointer-events:none}
+  .hero h1{font-size:clamp(2.4rem,6vw,4.5rem);font-weight:800;letter-spacing:-.03em;background:linear-gradient(135deg,#fff 0%,var(--accent) 50%,var(--accent2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.5rem;position:relative}
+  .hero .subtitle{font-size:clamp(1rem,2.5vw,1.35rem);color:var(--text-dim);max-width:640px;margin-bottom:2.5rem}
+  .scroll-hint{position:absolute;bottom:2rem;animation:bob 2s ease-in-out infinite}
+  .scroll-hint svg{width:28px;height:28px;stroke:var(--text-dim);stroke-width:2;fill:none}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(8px)}}
+
+  /* ─── Canvas (particle bg) ─── */
+  #particles{position:fixed;inset:0;z-index:-1;pointer-events:none}
+
+  /* ─── Pipeline section ─── */
+  .pipeline-section{max-width:1100px;margin:0 auto;padding:4rem 1.5rem 6rem}
+  .pipeline-section>h2{text-align:center;font-size:1.8rem;margin-bottom:.5rem}
+  .pipeline-section>.desc{text-align:center;color:var(--text-dim);margin-bottom:3rem;max-width:600px;margin-left:auto;margin-right:auto}
+
+  /* ─── Pipeline flow ─── */
+  .pipeline{display:flex;flex-direction:column;gap:0;position:relative}
+  .pipeline::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:2px;background:linear-gradient(to bottom,transparent,var(--accent),var(--accent2),var(--accent3),transparent);transform:translateX(-50%);z-index:0}
+
+  /* ─── Card ─── */
+  .card-wrapper{display:flex;align-items:flex-start;position:relative;z-index:1;opacity:0;transform:translateY(40px);transition:opacity .6s ease,transform .6s ease}
+  .card-wrapper.visible{opacity:1;transform:translateY(0)}
+  .card-wrapper:nth-child(odd){justify-content:flex-start;padding-right:calc(50% + 2rem)}
+  .card-wrapper:nth-child(even){justify-content:flex-end;padding-left:calc(50% + 2rem)}
+  .card-wrapper .dot{position:absolute;left:50%;top:1.8rem;width:16px;height:16px;border-radius:50%;border:3px solid var(--accent);background:var(--bg);transform:translateX(-50%);z-index:2;transition:background .3s,box-shadow .3s}
+  .card-wrapper:hover .dot{background:var(--accent);box-shadow:0 0 12px var(--glow)}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem 1.8rem;cursor:pointer;transition:transform .3s,box-shadow .3s,border-color .3s;position:relative;overflow:hidden;width:100%}
+  .card:hover{transform:translateY(-4px);box-shadow:0 8px 32px rgba(0,0,0,.35);border-color:var(--accent)}
+  .card .icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin-bottom:.75rem;flex-shrink:0}
+  .card h3{font-size:1.15rem;font-weight:700;margin-bottom:.35rem}
+  .card .teaser{color:var(--text-dim);font-size:.9rem}
+  .card .expand-hint{display:inline-flex;align-items:center;gap:4px;margin-top:.75rem;font-size:.78rem;color:var(--accent);font-weight:600;text-transform:uppercase;letter-spacing:.06em;opacity:.85;transition:opacity .2s}
+  .card:hover .expand-hint{opacity:1}
+
+  /* icon colours */
+  .ic-scrape{background:rgba(79,195,247,.15);color:#4fc3f7}
+  .ic-embed{background:rgba(108,99,255,.15);color:#6c63ff}
+  .ic-cluster{background:rgba(0,212,170,.15);color:#00d4aa}
+  .ic-summary{background:rgba(255,179,71,.15);color:#ffb347}
+  .ic-sentiment{background:rgba(255,107,138,.15);color:#ff6b8a}
+  .ic-report{background:rgba(156,136,255,.15);color:#9c88ff}
+  .ic-deliver{background:rgba(79,195,247,.15);color:#4fc3f7}
+
+  /* ─── Modal / Drawer ─── */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);z-index:100;opacity:0;pointer-events:none;transition:opacity .35s}
+  .overlay.open{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;top:0;right:0;width:min(620px,92vw);height:100%;background:var(--surface);z-index:101;transform:translateX(100%);transition:transform .4s cubic-bezier(.22,1,.36,1);overflow-y:auto;padding:2.5rem 2rem 3rem;box-shadow:-8px 0 40px rgba(0,0,0,.5)}
+  .drawer.open{transform:translateX(0)}
+  .drawer-close{position:absolute;top:1.2rem;right:1.2rem;width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.1rem;transition:background .2s}
+  .drawer-close:hover{background:var(--surface3)}
+  .drawer h2{font-size:1.6rem;font-weight:800;margin-bottom:.25rem}
+  .drawer .drawer-subtitle{color:var(--text-dim);margin-bottom:1.5rem;font-size:.95rem}
+  .drawer h4{font-size:1rem;font-weight:700;margin:1.8rem 0 .5rem;color:var(--accent2)}
+  .drawer p,.drawer li{font-size:.92rem;color:var(--text);line-height:1.7}
+  .drawer ul{padding-left:1.2rem;margin-bottom:1rem}
+  .drawer li{margin-bottom:.3rem}
+  .drawer code{background:var(--surface3);padding:2px 7px;border-radius:6px;font-size:.84rem;color:var(--accent5)}
+  .drawer .tag{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600;margin-right:6px;margin-bottom:6px}
+  .tag-algo{background:rgba(0,212,170,.12);color:var(--accent2)}
+  .tag-model{background:rgba(108,99,255,.12);color:var(--accent)}
+  .tag-threshold{background:rgba(255,107,138,.12);color:var(--accent3)}
+  .tag-lib{background:rgba(79,195,247,.12);color:var(--accent5)}
+
+  /* mini diagram inside drawer */
+  .mini-flow{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin:1rem 0}
+  .mini-flow .step{background:var(--surface3);border:1px solid var(--border);border-radius:10px;padding:.45rem .9rem;font-size:.82rem;font-weight:600;white-space:nowrap}
+  .mini-flow .arrow{color:var(--accent);font-size:1rem}
+
+  /* threshold bar */
+  .threshold-bar{margin:1rem 0;position:relative}
+  .threshold-bar .track{height:8px;background:var(--surface3);border-radius:4px;overflow:hidden}
+  .threshold-bar .fill{height:100%;border-radius:4px;transition:width 1s ease}
+  .threshold-bar .label{display:flex;justify-content:space-between;font-size:.78rem;color:var(--text-dim);margin-top:4px}
+
+  /* ─── Responsive ─── */
+  @media(max-width:768px){
+    .card-wrapper:nth-child(odd),.card-wrapper:nth-child(even){padding-left:2.5rem;padding-right:0;justify-content:flex-start}
+    .pipeline::before{left:0}
+    .card-wrapper .dot{left:0}
+  }
+
+  /* ─── Footer ─── */
+  footer{text-align:center;padding:3rem 1rem;color:var(--text-dim);font-size:.85rem;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+
+<!-- ════════ HERO ════════ -->
+<section class="hero">
+  <h1>Newsbot</h1>
+  <p class="subtitle">An intelligent news pipeline that scrapes, clusters, summarizes, and delivers the stories that matter — powered by embeddings, NLP, and LLMs.</p>
+  <div class="scroll-hint"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg></div>
+</section>
+
+<!-- ════════ PIPELINE ════════ -->
+<section class="pipeline-section">
+  <h2>The Pipeline</h2>
+  <p class="desc">Click any stage to dive into how it works under the hood.</p>
+
+  <div class="pipeline">
+
+    <!-- 1 ── Scraping -->
+    <div class="card-wrapper" data-drawer="scrape">
+      <span class="dot"></span>
+      <div class="card">
+        <div class="icon ic-scrape">📡</div>
+        <h3>RSS Scraping</h3>
+        <p class="teaser">Pulls articles from configured RSS feeds, fetches full content, and filters by date & topic relevance.</p>
+        <span class="expand-hint">↗ Learn more</span>
+      </div>
+    </div>
+
+    <!-- 2 ── Embedding -->
+    <div class="card-wrapper" data-drawer="embed">
+      <span class="dot"></span>
+      <div class="card">
+        <div class="icon ic-embed">🧠</div>
+        <h3>Embedding</h3>
+        <p class="teaser">Converts each article into a high-dimensional vector using a sentence transformer, capturing semantic meaning.</p>
+        <span class="expand-hint">↗ Learn more</span>
+      </div>
+    </div>
+
+    <!-- 3 ── Clustering -->
+    <div class="card-wrapper" data-drawer="cluster">
+      <span class="dot"></span>
+      <div class="card">
+        <div class="icon ic-cluster">🔗</div>
+        <h3>Story Clustering</h3>
+        <p class="teaser">Groups related articles into stories using cosine similarity, geographic awareness, and density-based clustering.</p>
+        <span class="expand-hint">↗ Learn more</span>
+      </div>
+    </div>
+
+    <!-- 4 ── Summarization -->
+    <div class="card-wrapper" data-drawer="summary">
+      <span class="dot"></span>
+      <div class="card">
+        <div class="icon ic-summary">✍️</div>
+        <h3>Summarization</h3>
+        <p class="teaser">An LLM reads each story cluster and produces a concise, multi-source summary with key points.</p>
+        <span class="expand-hint">↗ Learn more</span>
+      </div>
+    </div>
+
+    <!-- 5 ── Sentiment -->
+    <div class="card-wrapper" data-drawer="sentiment">
+      <span class="dot"></span>
+      <div class="card">
+        <div class="icon ic-sentiment">💬</div>
+        <h3>Sentiment Analysis</h3>
+        <p class="teaser">Scores each article's tone — positive, negative, or neutral — to reveal media bias across sources.</p>
+        <span class="expand-hint">↗ Learn more</span>
+      </div>
+    </div>
+
+    <!-- 6 ── Reporting -->
+    <div class="card-wrapper" data-drawer="report">
+      <span class="dot"></span>
+      <div class="card">
+        <div class="icon ic-report">📊</div>
+        <h3>Report Generation</h3>
+        <p class="teaser">Composes a polished report from Jinja2 templates in HTML, Markdown, or plain text format.</p>
+        <span class="expand-hint">↗ Learn more</span>
+      </div>
+    </div>
+
+    <!-- 7 ── Delivery -->
+    <div class="card-wrapper" data-drawer="deliver">
+      <span class="dot"></span>
+      <div class="card">
+        <div class="icon ic-deliver">🚀</div>
+        <h3>Delivery</h3>
+        <p class="teaser">Dispatches the final report via email and uploads to Supabase through a plugin hook system.</p>
+        <span class="expand-hint">↗ Learn more</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ════════ OVERLAY + DRAWER ════════ -->
+<div class="overlay" id="overlay"></div>
+<div class="drawer" id="drawer">
+  <button class="drawer-close" id="drawerClose">✕</button>
+  <div id="drawerContent"></div>
+</div>
+
+<footer>Newsbot Documentation</footer>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- DRAWER CONTENT TEMPLATES (hidden) -->
+<!-- ════════════════════════════════════════════ -->
+<template id="tpl-scrape">
+  <h2>📡 RSS Scraping</h2>
+  <p class="drawer-subtitle">Fetching &amp; filtering articles from the web</p>
+
+  <h4>How It Works</h4>
+  <div class="mini-flow">
+    <span class="step">RSS Feeds</span><span class="arrow">→</span>
+    <span class="step">feedparser</span><span class="arrow">→</span>
+    <span class="step">Date Filter</span><span class="arrow">→</span>
+    <span class="step">Full HTML Fetch</span><span class="arrow">→</span>
+    <span class="step">Content Extraction</span><span class="arrow">→</span>
+    <span class="step">Topic Filter</span>
+  </div>
+
+  <p>The scraper iterates over every configured RSS source and parses each feed with <code>feedparser</code>. Entries older than the configured <code>lookback_days</code> window are discarded immediately.</p>
+
+  <h4>Content Extraction</h4>
+  <p>For each surviving entry, a full HTTP request fetches the article page. Content is extracted with <strong>trafilatura</strong> (with a BeautifulSoup fallback). Articles shorter than <code>MIN_CONTENT_LENGTH = 100</code> characters are dropped.</p>
+  <ul>
+    <li><code>request_delay</code> — 3 s between requests (rate-limit)</li>
+    <li><code>request_timeout</code> — 20 s per request</li>
+    <li><code>max_retries</code> — 3 attempts</li>
+  </ul>
+
+  <h4>Topic Filtering</h4>
+  <p>If topics are configured, articles must match either by <strong>keyword</strong> or by <strong>embedding similarity</strong> (cosine similarity ≥ the per-topic threshold, default <strong>0.6</strong>). Articles that match neither are discarded.</p>
+
+  <h4>Deduplication</h4>
+  <p>URLs already stored in the database are skipped before the full fetch. Cross-config exclusion can also prevent re-processing articles from other pipeline runs.</p>
+
+  <div style="margin-top:1rem">
+    <span class="tag tag-lib">feedparser</span>
+    <span class="tag tag-lib">trafilatura</span>
+    <span class="tag tag-lib">BeautifulSoup</span>
+    <span class="tag tag-threshold">similarity ≥ 0.6</span>
+  </div>
+</template>
+
+<template id="tpl-embed">
+  <h2>🧠 Embedding</h2>
+  <p class="drawer-subtitle">Turning text into high-dimensional meaning vectors</p>
+
+  <h4>The Idea</h4>
+  <p>Every article is transformed into a <strong>dense vector</strong> (a list of numbers) in a high-dimensional space. Articles about the same event end up near each other — this is what makes clustering possible.</p>
+
+  <h4>Model</h4>
+  <p>Newsbot uses the <strong>Sentence Transformer</strong> library with the <code>Xenova/all-mpnet-base-v2</code> model, running in <strong>ONNX</strong> backend for faster CPU inference. The model is cached with <code>@lru_cache</code> so it's only loaded once.</p>
+
+  <div style="margin:1rem 0">
+    <span class="tag tag-model">Xenova/all-mpnet-base-v2</span>
+    <span class="tag tag-lib">sentence-transformers</span>
+    <span class="tag tag-lib">ONNX Runtime</span>
+  </div>
+
+  <h4>What Gets Embedded</h4>
+  <p>The input text is a <strong>hybrid</strong> of the article's title and the first 500 characters of its content:</p>
+  <p style="background:var(--surface3);padding:.8rem 1rem;border-radius:10px;font-family:monospace;font-size:.85rem;margin:.75rem 0;color:var(--accent5)">"{title}. {content[:500]}"</p>
+  <p>This captures both the headline signal and the opening context of the article body.</p>
+
+  <h4>Batch Processing</h4>
+  <p>Embeddings are computed in batches of <code>EMBEDDING_BATCH_SIZE = 16</code> to balance memory usage and throughput. The output is an in-memory NumPy array — no persistent vector database is used.</p>
+
+  <h4>Also Used For</h4>
+  <p>The same embedding approach is used during <strong>topic filtering</strong> at scrape time — topic descriptions are embedded and compared against article embeddings to determine relevance.</p>
+
+  <div class="threshold-bar">
+    <p style="font-size:.82rem;font-weight:600;margin-bottom:.4rem">Batch size: 16 articles at a time</p>
+    <div class="track"><div class="fill" style="width:65%;background:linear-gradient(90deg,var(--accent),var(--accent2))"></div></div>
+    <div class="label"><span>1</span><span>16</span><span>32</span></div>
+  </div>
+</template>
+
+<template id="tpl-cluster">
+  <h2>🔗 Story Clustering</h2>
+  <p class="drawer-subtitle">Grouping articles that cover the same story</p>
+
+  <h4>Step-by-Step Pipeline</h4>
+  <div class="mini-flow">
+    <span class="step">Encode Articles</span><span class="arrow">→</span>
+    <span class="step">Cosine Similarity</span><span class="arrow">→</span>
+    <span class="step">Geo Penalty</span><span class="arrow">→</span>
+    <span class="step">DBSCAN / Greedy</span><span class="arrow">→</span>
+    <span class="step">Sample &amp; Rank</span><span class="arrow">→</span>
+    <span class="step">Title Generation</span>
+  </div>
+
+  <h4>1. Similarity Matrix</h4>
+  <p>After embedding every article, <code>sklearn.metrics.pairwise.cosine_similarity</code> produces an N×N matrix of pairwise similarity scores (0 = unrelated, 1 = identical meaning).</p>
+
+  <h4>2. Geographic Penalty</h4>
+  <p>A spaCy NER model (<code>xx_ent_wiki_sm</code>) extracts location entities (GPE / LOC) from every article. If two articles mention <strong>non-overlapping</strong> locations, their similarity is multiplied by the geo penalty:</p>
+  <div class="threshold-bar">
+    <p style="font-size:.82rem;font-weight:600;margin-bottom:.4rem">Geo Penalty Factor</p>
+    <div class="track"><div class="fill" style="width:60%;background:linear-gradient(90deg,var(--accent3),var(--accent4))"></div></div>
+    <div class="label"><span>0</span><span>0.6 (penalty)</span><span>1.0 (no penalty)</span></div>
+  </div>
+  <p style="font-size:.85rem;color:var(--text-dim);margin-top:.3rem">This prevents "earthquake in Japan" and "earthquake in Turkey" from merging into one story.</p>
+
+  <h4>3. Clustering Algorithm</h4>
+  <p>Two algorithms are available, configured per-pipeline:</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0">
+    <div style="background:var(--surface3);border-radius:12px;padding:1.1rem;border:1px solid var(--border)">
+      <p style="font-weight:700;color:var(--accent2);margin-bottom:.4rem">DBSCAN <span class="tag tag-algo" style="font-size:.65rem;vertical-align:middle">default</span></p>
+      <p style="font-size:.84rem">Density-based. Converts similarity → distance (<code>1 − sim</code>), then runs sklearn DBSCAN with <code>eps = 1 − threshold</code> and <code>min_samples = 2</code>. Noise points (label −1) are discarded.</p>
+    </div>
+    <div style="background:var(--surface3);border-radius:12px;padding:1.1rem;border:1px solid var(--border)">
+      <p style="font-weight:700;color:var(--accent2);margin-bottom:.4rem">Greedy</p>
+      <p style="font-size:.84rem">Single-linkage expansion. Iterates unprocessed articles and grows each cluster by adding any article whose <strong>max</strong> similarity to the current cluster ≥ threshold.</p>
+    </div>
+  </div>
+
+  <h4>4. Smart Sampling</h4>
+  <p>Large clusters are down-sampled with a stratified strategy to keep the most useful articles:</p>
+  <ul>
+    <li><strong>Central (4)</strong> — highest mean similarity to the cluster (most representative)</li>
+    <li><strong>Recent (6)</strong> — most recently published</li>
+    <li><strong>Diverse (4)</strong> — selected via MMR (Maximal Marginal Relevance) with a similarity floor of <code>0.4</code></li>
+  </ul>
+  <p>This caps each story at <strong>14 articles</strong> maximum while preserving diversity.</p>
+
+  <h4>5. Story Filtering &amp; Ranking</h4>
+  <p>A cluster becomes a "story" if it has <strong>≥ 2 unique sources</strong> or <strong>≥ 3 total articles</strong>. Stories are ranked by <em>(source count, article count)</em> descending, and the top <code>top_stories_count = 5</code> are kept.</p>
+
+  <h4>6. Title Generation</h4>
+  <p>For each surviving story, an LLM generates a concise headline via a <code>JudgeAgent</code> validation loop. Fallback: the title of the most recent article.</p>
+
+  <div style="margin-top:1.5rem">
+    <span class="tag tag-algo">DBSCAN</span>
+    <span class="tag tag-algo">Greedy Single-Linkage</span>
+    <span class="tag tag-model">spaCy xx_ent_wiki_sm</span>
+    <span class="tag tag-threshold">similarity ≥ 0.7</span>
+    <span class="tag tag-threshold">geo penalty × 0.6</span>
+    <span class="tag tag-threshold">min_samples = 2</span>
+  </div>
+</template>
+
+<template id="tpl-summary">
+  <h2>✍️ Summarization</h2>
+  <p class="drawer-subtitle">LLM-powered multi-source story summaries</p>
+
+  <h4>Two-Pass Architecture</h4>
+  <div class="mini-flow">
+    <span class="step">Build Story Summary</span><span class="arrow">→</span>
+    <span class="step">Refine</span><span class="arrow">→</span>
+    <span class="step">Per-Article Points</span><span class="arrow">→</span>
+    <span class="step">Aggregate by Source</span>
+  </div>
+  <p>Summaries are generated via an LLM provider (configurable — Ollama for local or Gemini for cloud). The two-pass flow first creates a holistic story summary, refines it, then extracts unique contributions from each article.</p>
+
+  <h4>Content Preparation</h4>
+  <p>Each article's content is truncated to <code>MAX_ARTICLE_CONTENT_LENGTH = 4,000</code> characters before being sent to the LLM. This keeps prompt sizes manageable while retaining the essential information.</p>
+
+  <h4>Quality Control</h4>
+  <p>A <code>JudgeAgent</code> validates every generated summary and can request fixes. Entity names are cross-checked against the source text to prevent hallucination.</p>
+
+  <div style="margin-top:1rem">
+    <span class="tag tag-model">Ollama / Gemini</span>
+    <span class="tag tag-lib">JudgeAgent</span>
+    <span class="tag tag-threshold">max 4,000 chars</span>
+  </div>
+</template>
+
+<template id="tpl-sentiment">
+  <h2>💬 Sentiment Analysis</h2>
+  <p class="drawer-subtitle">Measuring tone &amp; bias across sources</p>
+
+  <h4>Method Selection</h4>
+  <p>The default engine is <strong>pysentimiento</strong> (a transformer-based sentiment model optimized for news). For non-English articles, the system falls back to <strong>TextBlob</strong>. Alternative engines include VADER and a hybrid mode.</p>
+
+  <h4>Classification</h4>
+  <p>Each article receives a sentiment score. The label is determined by a threshold:</p>
+  <div class="threshold-bar">
+    <p style="font-size:.82rem;font-weight:600;margin-bottom:.4rem">Sentiment Threshold</p>
+    <div class="track"><div class="fill" style="width:70%;background:linear-gradient(90deg,var(--accent3),var(--accent4),var(--accent2))"></div></div>
+    <div class="label"><span>Negative (&lt; −0.2)</span><span>Neutral</span><span>Positive (&gt; 0.2)</span></div>
+  </div>
+  <p>Content is truncated to <code>SENTIMENT_MAX_CONTENT_LENGTH = 2,048</code> characters for analysis efficiency.</p>
+
+  <div style="margin-top:1rem">
+    <span class="tag tag-lib">pysentimiento</span>
+    <span class="tag tag-lib">TextBlob</span>
+    <span class="tag tag-lib">VADER</span>
+    <span class="tag tag-threshold">threshold ± 0.2</span>
+  </div>
+</template>
+
+<template id="tpl-report">
+  <h2>📊 Report Generation</h2>
+  <p class="drawer-subtitle">Composing the final output with Jinja2</p>
+
+  <h4>Template Engine</h4>
+  <p>Reports are rendered with <strong>Jinja2</strong> templates, supporting three output formats:</p>
+  <ul>
+    <li><strong>HTML</strong> — rich styled report with embedded styles</li>
+    <li><strong>Markdown</strong> — clean, portable format</li>
+    <li><strong>Plain Text</strong> — for simple consumers</li>
+  </ul>
+
+  <h4>Report Contents</h4>
+  <p>Each report includes the top stories (default 5), their LLM summaries, per-source breakdowns, and sentiment analysis results. Reports are saved under <code>reports/{config_name}/</code> with timestamps.</p>
+
+  <h4>Email Variant</h4>
+  <p>A separate HTML email template is rendered with inline styles for email client compatibility.</p>
+
+  <div style="margin-top:1rem">
+    <span class="tag tag-lib">Jinja2</span>
+    <span class="tag tag-algo">HTML / MD / TXT</span>
+  </div>
+</template>
+
+<template id="tpl-deliver">
+  <h2>🚀 Delivery</h2>
+  <p class="drawer-subtitle">Getting the report to its audience</p>
+
+  <h4>Plugin Hook System</h4>
+  <p>After analysis, the pipeline invokes all hook scripts found in the <code>after_analysis/</code> directory. Each <code>.py</code> file (excluding those prefixed with <code>_</code>) is loaded and its <code>execute()</code> function is called with the report path and analysis data.</p>
+
+  <h4>Built-in Hooks</h4>
+  <ul>
+    <li><strong>Email Sender</strong> — sends the HTML email report to configured recipients</li>
+    <li><strong>Supabase Upload</strong> — stores the report and metadata in Supabase for archival and dashboard access</li>
+  </ul>
+
+  <h4>Extensibility</h4>
+  <p>Adding a new delivery channel is as simple as dropping a new <code>.py</code> file into the hooks directory with an <code>execute(report_path, data)</code> function.</p>
+
+  <div style="margin-top:1rem">
+    <span class="tag tag-lib">SMTP</span>
+    <span class="tag tag-lib">Supabase</span>
+    <span class="tag tag-algo">Plugin System</span>
+  </div>
+</template>
+
+<!-- ════════════════════════════════════════════ -->
+<script>
+(() => {
+  /* ── Particle background ── */
+  const canvas = document.getElementById('particles');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles = [];
+  function resize() { W = canvas.width = innerWidth; H = canvas.height = innerHeight; }
+  resize(); addEventListener('resize', resize);
+  for (let i = 0; i < 60; i++) particles.push({ x: Math.random()*W, y: Math.random()*H, r: Math.random()*1.8+.5, dx: (Math.random()-.5)*.3, dy: (Math.random()-.5)*.3, o: Math.random()*.5+.2 });
+  (function draw() {
+    ctx.clearRect(0,0,W,H);
+    for (const p of particles) {
+      p.x += p.dx; p.y += p.dy;
+      if (p.x<0) p.x=W; if (p.x>W) p.x=0; if (p.y<0) p.y=H; if (p.y>H) p.y=0;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle = `rgba(108,99,255,${p.o})`; ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  })();
+
+  /* ── Scroll reveal ── */
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: .15 });
+  document.querySelectorAll('.card-wrapper').forEach(el => obs.observe(el));
+
+  /* ── Drawer ── */
+  const overlay = document.getElementById('overlay');
+  const drawer  = document.getElementById('drawer');
+  const content = document.getElementById('drawerContent');
+  const map = { scrape:'tpl-scrape', embed:'tpl-embed', cluster:'tpl-cluster', summary:'tpl-summary', sentiment:'tpl-sentiment', report:'tpl-report', deliver:'tpl-deliver' };
+
+  function openDrawer(key) {
+    const tpl = document.getElementById(map[key]);
+    if (!tpl) return;
+    content.innerHTML = tpl.innerHTML;
+    overlay.classList.add('open');
+    drawer.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    /* animate threshold bars */
+    setTimeout(() => {
+      drawer.querySelectorAll('.threshold-bar .fill').forEach(f => {
+        const w = f.style.width; f.style.width='0'; requestAnimationFrame(()=>f.style.width=w);
+      });
+    }, 100);
+  }
+  function closeDrawer() {
+    overlay.classList.remove('open');
+    drawer.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  document.querySelectorAll('.card-wrapper').forEach(el => {
+    el.addEventListener('click', () => openDrawer(el.dataset.drawer));
+  });
+  overlay.addEventListener('click', closeDrawer);
+  document.getElementById('drawerClose').addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+})();
+</script>
+</body>
+</html>

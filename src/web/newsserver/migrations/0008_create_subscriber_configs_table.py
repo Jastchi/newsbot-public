@@ -11,15 +11,17 @@ def create_subscriber_configs_table_forward(apps, schema_editor):
     with schema_editor.connection.cursor() as cursor:
         # Check if table exists
         if db_vendor == "postgresql":
+            cursor.execute("SELECT current_schema()")
+            current_schema = cursor.fetchone()[0]
             cursor.execute(
                 """
                 SELECT EXISTS (
-                    SELECT FROM information_schema.tables 
-                    WHERE table_schema = 'public' 
+                    SELECT FROM information_schema.tables
+                    WHERE table_schema = %s
                     AND table_name = %s
                 );
                 """,
-                [table_name],
+                [current_schema, table_name],
             )
             exists = cursor.fetchone()[0]
             

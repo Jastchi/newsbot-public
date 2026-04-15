@@ -12,6 +12,7 @@ from supabase import Client
 from newsbot.constants import TZ
 from utilities.storage import (
     download_from_supabase,
+    get_reports_bucket,
     get_supabase_client,
     list_supabase_reports,
     should_use_supabase_for_config,
@@ -57,7 +58,7 @@ class ReportService:
         """Get reports from Supabase storage."""
         reports = list_supabase_reports(
             supabase_client,
-            "Reports",
+            get_reports_bucket(),
             config_key,
         )
 
@@ -145,7 +146,7 @@ class ReportService:
         file_path = f"{config_key}/{report_name}"
         content = download_from_supabase(
             supabase_client,
-            "Reports",
+            get_reports_bucket(),
             file_path,
         )
 
@@ -209,7 +210,7 @@ class ReportService:
         file_path = f"{config_key}/{report_name}"
         return download_from_supabase(
             supabase_client,
-            "Reports",
+            get_reports_bucket(),
             file_path,
         )
 

@@ -16,6 +16,23 @@ logger = logging.getLogger(__name__)
 # Constants
 EXPECTED_USERNAME_PARTS = 2
 
+# Bucket names. Dev and prod use separate Supabase buckets so that
+# generated reports never cross-contaminate between environments.
+REPORTS_BUCKET_PROD = "Reports"
+REPORTS_BUCKET_DEV = "Reports-dev"
+
+
+def get_reports_bucket() -> str:
+    """
+    Return the Supabase bucket for reports based on ENVIRONMENT.
+
+    Reads the ENVIRONMENT env var directly so this helper can be
+    called from worker contexts that don't load Django settings.
+    """
+    if os.getenv("ENVIRONMENT", "prod").strip().lower() == "dev":
+        return REPORTS_BUCKET_DEV
+    return REPORTS_BUCKET_PROD
+
 
 class SupabaseConfig(NamedTuple):
     """Supabase configuration extracted from DATABASE_URL."""

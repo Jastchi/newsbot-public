@@ -6,6 +6,7 @@ from django.conf import settings
 
 from newsbot.constants import TZ
 from utilities.storage import (
+    get_reports_bucket,
     get_supabase_client,
     list_supabase_reports,
     should_use_supabase_for_config,
@@ -47,7 +48,7 @@ class ConfigService:
                 # List reports from Supabase
                 reports = list_supabase_reports(
                     supabase_client,
-                    "Reports",
+                    get_reports_bucket(),
                     config_key,
                 )
                 if reports:
