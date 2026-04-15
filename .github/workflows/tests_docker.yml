@@ -53,10 +53,10 @@ jobs:
           swap-storage: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build API Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile.api
@@ -80,7 +80,7 @@ jobs:
           cache-dir: .trivy
 
       - name: Save Trivy Cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .trivy
           key: ${{ runner.os }}-trivy-${{ github.run_id }}
@@ -101,7 +101,7 @@ jobs:
 
       - name: Upload API coverage
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-api
           path: coverage-api/
@@ -125,10 +125,10 @@ jobs:
           swap-storage: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build Web Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile.web
@@ -151,7 +151,7 @@ jobs:
           cache-dir: .trivy
 
       - name: Save Trivy Cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .trivy
           key: ${{ runner.os }}-trivy-${{ github.run_id }}
@@ -172,7 +172,7 @@ jobs:
 
       - name: Upload Web results
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: web-results
           path: |
@@ -189,7 +189,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           path: all-coverage
 
