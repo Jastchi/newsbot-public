@@ -28,7 +28,7 @@ newsbot = "newsbot.main:main"
 start_api = "api.app:start"
 
 [build-system]
-requires = ["uv_build>=0.9.8,<0.11.0"]
+requires = ["uv_build>=0.11.6,<0.12.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
@@ -43,11 +43,11 @@ newsbot = [
     "lxml>=4.9.3",
     "requests>=2.33.0",
     "trafilatura>=2.0.0",
-    "google-genai>=1.56.0",
+    "google-genai>=1.73.1",
     "ollama>=0.1.0",
     "torch>=2.1.0",
     "transformers>=4.41.0,<5.0.0",
-    "sentence-transformers[onnx]>=5.0.0",
+    "sentence-transformers[onnx]>=5.4.1",
     "sentencepiece>=0.1.99",
     "spacy>=3.7.0",
     "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
@@ -64,7 +64,7 @@ newsbot = [
 ]
 serve = [
     "django>=6.0.4",
-    "django-allauth>=65.14.1",
+    "django-allauth>=65.16.0",
     "gunicorn>=23.0.0",
     "psycopg2-binary>=2.9.9",
     "dj-database-url>=2.3.0",
@@ -74,9 +74,9 @@ serve = [
 ]
 api = [
     { include-group = "newsbot" },
-    "django-allauth>=65.14.1",  # required: API loads Django settings which include allauth in INSTALLED_APPS
+    "django-allauth>=65.16.0",  # required: API loads Django settings which include allauth in INSTALLED_APPS
     "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.32.0",
+    "uvicorn[standard]>=0.44.0",
 ]
 raspberrypi = [
     { include-group = "newsbot" },
@@ -84,7 +84,7 @@ raspberrypi = [
     "watchdog>=6.0.0",
 ]
 test = [
-    "fastapi[standard]>=0.128.0",
+    "fastapi[standard]>=0.135.3",
     "httpx>=0.28.0",
     "playwright>=1.40.0",
     "pytest>=7.4.0",
@@ -95,7 +95,7 @@ dev = [
     "django-stubs>=5.2.8",
     "pre-commit>=4.5.1",
     "ruff>=0.15.0",
-    "ty>=0.0.15",
+    "ty>=0.0.30",
 ]
 
 [tool.uv]
