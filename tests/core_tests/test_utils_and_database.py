@@ -627,16 +627,7 @@ class TestLLMProvider:
         mock_genai = MagicMock()
         mock_genai.Client.return_value = MagicMock()
 
-        # Track Content calls to verify role conversion
-        content_calls = []
-
-        def track_content_call(role, parts):
-            content_calls.append({"role": role, "parts": parts})
-            return MagicMock()
-
         mock_types = MagicMock()
-        mock_types.Content.side_effect = track_content_call
-        mock_types.Part.return_value = MagicMock()
 
         with patch.dict(
             "sys.modules",
@@ -648,7 +639,7 @@ class TestLLMProvider:
         ):
             provider = GeminiProvider(config)
             # The _types attribute was set during init, update it to use our mock
-            provider._types = mock_types
+            setattr(provider, "_types", mock_types)
 
             messages = [
                 {"role": "system", "content": "You are helpful"},
@@ -658,10 +649,11 @@ class TestLLMProvider:
             result = provider._convert_messages(messages)
 
             assert len(result) == 3
-            # Verify role conversions
-            assert content_calls[0]["role"] == "user"  # system -> user
-            assert content_calls[1]["role"] == "user"  # user stays user
-            assert content_calls[2]["role"] == "model"  # assistant -> model
+            # Verify role conversions via call_args_list
+            calls = mock_types.Content.call_args_list
+            assert calls[0].kwargs["role"] == "user"  # system -> user
+            assert calls[1].kwargs["role"] == "user"  # user stays user
+            assert calls[2].kwargs["role"] == "model"  # assistant -> model
 
     @pytest.mark.use_real_ollama
     def test_ollama_provider_real_call(self, monkeypatch):

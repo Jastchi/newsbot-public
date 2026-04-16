@@ -11,8 +11,13 @@ on:
     branches: [ '**' ]
 
 jobs:
+  changes:
+    uses: ./.github/workflows/_paths_filter.yml
+
   ignore-comments:
     name: Check for Ignore Comments
+    needs: changes
+    if: ${{ needs.changes.outputs.code_changed == 'true' }}
     runs-on: ubuntu-latest
     
     steps:
@@ -31,6 +36,8 @@ jobs:
 
   lint:
     name: Ruff Lint
+    needs: changes
+    if: ${{ needs.changes.outputs.code_changed == 'true' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -48,6 +55,8 @@ jobs:
 
   type-check:
     name: Type Check (ty)
+    needs: changes
+    if: ${{ needs.changes.outputs.code_changed == 'true' }}
     runs-on: ubuntu-latest
 
     steps:

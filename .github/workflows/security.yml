@@ -9,8 +9,13 @@ on:
     - cron: '0 0 * * 1' 
 
 jobs:
+  changes:
+    uses: ./.github/workflows/_paths_filter.yml
+
   bandit:
     name: Bandit (SAST)
+    needs: changes
+    if: ${{ github.event_name == 'schedule' || needs.changes.outputs.code_changed == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -30,20 +35,22 @@ jobs:
       
       - name: Save Bandit Report
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: bandit-security-report
           path: bandit-report.txt
 
   safety:
     name: Safety (Dependency Check)
+    needs: changes
+    if: ${{ github.event_name == 'schedule' || needs.changes.outputs.code_changed == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
       
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
       

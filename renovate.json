@@ -1,0 +1,47 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    "schedule:weekly"
+  ],
+  "prConcurrentLimit": 5,
+  "packageRules": [
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions"
+    },
+    {
+      "matchManagers": ["pep621"],
+      "groupName": "python-dependencies"
+    },
+    {
+      "matchManagers": ["pep621"],
+      "matchDepNames": ["python"],
+      "enabled": false
+    },
+    {
+      "matchManagers": ["dockerfile", "docker-compose"],
+      "groupName": "docker-dependencies"
+    },
+    {
+      "description": "Align uv Docker base tags with project.requires-python in pyproject.toml (currently <3.14). Update this regex when changing the upper bound.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ghcr.io/astral-sh/uv"],
+      "allowedVersions": "/^python3\\.(12|13)-/"
+    },
+    {
+      "description": "Pin Python to <3.14 to match project.requires-python in pyproject.toml. Update when changing the upper bound.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["python"],
+      "allowedVersions": "<3.14"
+    },
+    {
+      "description": "Hugging Face transformers v5: wait until sentence-transformers[onnx] supports it (see pyproject transformers bound). Remove when upgrading.",
+      "matchManagers": ["pep621"],
+      "matchPackageNames": ["transformers"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    }
+  ]
+}
