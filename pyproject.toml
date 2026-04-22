@@ -17,7 +17,7 @@ requires-python = ">=3.12,<3.14"
 
 dependencies = [
     "jaraco-context>=6.1.0", # vulnerability fix
-    "pydantic>=2.0.0",
+    "pydantic>=2.13.3",
     "python-dotenv>=1.0.0",
     "pytz>=2025.2",
     "pyyaml>=6.0",
@@ -28,26 +28,26 @@ newsbot = "newsbot.main:main"
 start_api = "api.app:start"
 
 [build-system]
-requires = ["uv_build>=0.9.8,<0.11.0"]
+requires = ["uv_build>=0.11.7,<0.12.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
 newsbot = [
     "django>=6.0.4",
     "dj-database-url>=2.3.0",
-    "psycopg2-binary>=2.9.9",
+    "psycopg2-binary>=2.9.12",
     "supabase>=2.0.0",
     "apscheduler>=3.10.4",
     "beautifulsoup4>=4.12.0",
     "feedparser>=6.0.10",
-    "lxml>=4.9.3",
+    "lxml>=6.1.0",
     "requests>=2.33.0",
     "trafilatura>=2.0.0",
-    "google-genai>=1.56.0",
+    "google-genai>=1.73.1",
     "ollama>=0.1.0",
     "torch>=2.1.0",
     "transformers>=4.41.0,<5.0.0",
-    "sentence-transformers[onnx]>=5.0.0",
+    "sentence-transformers[onnx]>=5.4.1",
     "sentencepiece>=0.1.99",
     "spacy>=3.7.0",
     "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
@@ -64,9 +64,9 @@ newsbot = [
 ]
 serve = [
     "django>=6.0.4",
-    "django-allauth>=65.14.1",
+    "django-allauth>=65.16.1",
     "gunicorn>=23.0.0",
-    "psycopg2-binary>=2.9.9",
+    "psycopg2-binary>=2.9.12",
     "dj-database-url>=2.3.0",
     "requests>=2.33.0",
     "supabase>=2.0.0",
@@ -74,9 +74,9 @@ serve = [
 ]
 api = [
     { include-group = "newsbot" },
-    "django-allauth>=65.14.1",  # required: API loads Django settings which include allauth in INSTALLED_APPS
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.32.0",
+    "django-allauth>=65.16.1",  # required: API loads Django settings which include allauth in INSTALLED_APPS
+    "fastapi>=0.136.0",
+    "uvicorn[standard]>=0.45.0",
 ]
 raspberrypi = [
     { include-group = "newsbot" },
@@ -84,7 +84,7 @@ raspberrypi = [
     "watchdog>=6.0.0",
 ]
 test = [
-    "fastapi[standard]>=0.128.0",
+    "fastapi[standard]>=0.136.0",
     "httpx>=0.28.0",
     "playwright>=1.40.0",
     "pytest>=7.4.0",
@@ -92,10 +92,10 @@ test = [
     "pytest-django>=4.5.0",
 ]
 dev = [
-    "django-stubs>=5.2.8",
-    "pre-commit>=4.5.1",
-    "ruff>=0.15.0",
-    "ty>=0.0.15",
+    "django-stubs>=6.0.3",
+    "pre-commit>=4.6.0",
+    "ruff>=0.15.11",
+    "ty>=0.0.32",
 ]
 
 [tool.uv]
