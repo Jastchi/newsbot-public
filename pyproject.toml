@@ -101,6 +101,16 @@ dev = [
 [tool.uv]
 default-groups = "all"
 
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", marker = "platform_machine == 'aarch64'" },
+]
+
 [tool.ruff]
 line-length = 79
 
