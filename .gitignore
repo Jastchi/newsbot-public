@@ -1,25 +1,40 @@
-# Python
 __pycache__/
+*.pyc
+
+# Virtualenvs
 .venv/
 
+# uv lock / caches
+.uv-cache/
+
+# Env files
+.env
+*.env
+!.env.example
+
+# Tool caches
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
 # IDE
+.vscode/
+.idea/
 .cursor/
 
-# Environment
-*.env
-
-# Database
-*.db
-
-# Logs
+# Project-specific
 logs/
-.coverage
-
-# Screenshot tests
-tests/screenshots/
-
-# Reports
 reports/
-
-# Django DB
+tests/screenshots/
+*.db
 webserver.sqlite3

@@ -16,8 +16,8 @@
       "groupName": "python-dependencies"
     },
     {
-      "matchManagers": ["pep621"],
-      "matchDepNames": ["python"],
+      "description": "Never update requires-python; Python version is managed manually.",
+      "matchDepTypes": ["requires-python"],
       "enabled": false
     },
     {

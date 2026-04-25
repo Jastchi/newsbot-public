@@ -3,17 +3,19 @@ repos:
     hooks:
       - id: ty-check
         name: ty type check
-        entry: uvx --refresh ty check
+        entry: uvx ty check
         language: system
         types: [python]
-        pass_filenames: true
+        pass_filenames: false
+        priority: 1
 
       - id: ruff-check
         name: ruff linter
-        entry: uvx --refresh ruff check
+        entry: uvx ruff check
         language: system
         types: [python]
-        pass_filenames: true
+        pass_filenames: false
+        priority: 1
 
       - id: no-ignore-comments
         name: check for ignore comments
@@ -21,3 +23,4 @@ repos:
         language: system
         types: [python]
         pass_filenames: true
+        priority: 1
