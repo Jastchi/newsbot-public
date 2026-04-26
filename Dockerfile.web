@@ -1,6 +1,6 @@
 ## --- BASE STAGE ---
 ## Use the official uv-python image
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS base
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS base
 
 # We will collect static files, so we need to know where to put them
 ARG STATIC_ROOT=/app/staticfiles

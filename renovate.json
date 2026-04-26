@@ -22,7 +22,13 @@
     },
     {
       "matchManagers": ["dockerfile", "docker-compose"],
-      "groupName": "docker-dependencies"
+      "groupName": "docker-dependencies",
+      "excludePackageNames": ["ghcr.io/astral-sh/uv"]
+    },
+    {
+      "description": "Group Python runtime version together: .python-version and the uv Docker base image must stay in sync.",
+      "matchPackageNames": ["ghcr.io/astral-sh/uv", "python"],
+      "groupName": "python-runtime"
     },
     {
       "description": "Align uv Docker base tags with project.requires-python in pyproject.toml (currently <3.14). Update this regex when changing the upper bound.",

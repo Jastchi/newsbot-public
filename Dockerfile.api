@@ -1,6 +1,6 @@
 ## --- BASE STAGE ---
 ## Use the official uv-python image
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS base
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS base
 
 ## Setup a non-root user for security
 RUN groupadd --system --gid 999 appuser \

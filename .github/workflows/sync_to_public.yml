@@ -33,10 +33,13 @@ jobs:
           # Switch to the public main branch
           git checkout -B sync-branch public/main
 
-          # Force the working directory to match the private repo's main
+          # Remove all tracked files so deletions from the private repo are reflected
+          git rm -r --quiet .
+
+          # Force the working directory to match the private repo's main exactly
           git checkout origin/main -- .
-          
-          # Stage deletions
+
+          # Stage all changes (additions, modifications, and deletions)
           git add -A
 
           # Diff and Commit
