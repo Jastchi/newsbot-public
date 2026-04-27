@@ -7,7 +7,6 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
-        priority: 1
 
       - id: ruff-check
         name: ruff linter
@@ -15,7 +14,6 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
-        priority: 1
 
       - id: no-ignore-comments
         name: check for ignore comments
@@ -23,4 +21,3 @@ repos:
         language: system
         types: [python]
         pass_filenames: true
-        priority: 1

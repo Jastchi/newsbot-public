@@ -46,7 +46,10 @@ def get_spacy_model(model_name: str) -> spacy.Language:
 
 
 @lru_cache(maxsize=4)
-def get_sentence_transformer(model_name: str) -> SentenceTransformer:
+def get_sentence_transformer(
+    model_name: str,
+    file_name: str = "onnx/model_quantized.onnx",
+) -> SentenceTransformer:
     """
     Load and cache a SentenceTransformer model.
 
@@ -55,13 +58,23 @@ def get_sentence_transformer(model_name: str) -> SentenceTransformer:
 
     Args:
         model_name: Name of the SentenceTransformer model to load.
+        file_name: ONNX file to load within the model repo. Defaults
+            to the int8-quantized variant, which is ~75% smaller than
+            fp32 and faster on CPU with minimal accuracy loss.
 
     Returns:
         Loaded SentenceTransformer model instance.
 
     """
-    logger.info(f"Loading SentenceTransformer model: {model_name}")
-    model = SentenceTransformer(model_name, backend="onnx")
+    logger.info(
+        "Loading SentenceTransformer model: "
+        f"{model_name} ({file_name})",
+    )
+    model = SentenceTransformer(
+        model_name,
+        backend="onnx",
+        model_kwargs={"file_name": file_name},
+    )
     logger.info(f"SentenceTransformer model '{model_name}' loaded and cached")
     return model
 
