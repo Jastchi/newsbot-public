@@ -3,7 +3,7 @@ name: "Code Quality Checks [auto]"
 
 on:
   push:
-    branches: [ 'main' ]
+    branches: ["main", "renovate/**"]
   pull_request:
     branches: [ '**' ]
 

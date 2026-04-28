@@ -1,6 +1,6 @@
 # Managed by Copier — do not edit by hand.
 # See https://copier.readthedocs.io/en/stable/updating/
-_commit: v0.1.4
+_commit: v0.1.5
 _src_path: gh:Jastchi/uv-template
 build_backend: uv_build
 project_description: A news aggregation and analysis bot using LLMs.
