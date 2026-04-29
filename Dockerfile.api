@@ -2,7 +2,7 @@
 ## Use the official uv-python image
 FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS base
 
-LABEL org.opencontainers.image.source="https://github.com/Jastchi/newsbot" \
+LABEL org.opencontainers.image.source="https://github.com/JastchiLabs/newsbot" \
       org.opencontainers.image.title="newsbot-api" \
       org.opencontainers.image.description="NewsBot FastAPI service"
 

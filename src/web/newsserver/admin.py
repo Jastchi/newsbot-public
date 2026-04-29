@@ -1,5 +1,6 @@
 """Admin configuration for the newsserver app."""
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, ClassVar, Protocol, cast
 
 from django.contrib import admin, messages
@@ -296,7 +297,7 @@ class SubscriberRequestAdmin(admin.ModelAdmin):
         "created_at",
         "included_in_daily_email_at",
     )
-    actions: ClassVar[list[str]] = ["accept_requests_create_subscriber"]
+    actions: Sequence[str] = ("accept_requests_create_subscriber",)
 
     def included(self, obj: SubscriberRequest) -> str:
         """Display whether request was included in daily email."""

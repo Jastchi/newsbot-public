@@ -4,6 +4,7 @@ News Scraper Agent.
 Responsible for collecting news articles from various sources
 """
 
+import json
 import logging
 import socket
 import time
@@ -11,6 +12,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, cast
 from urllib.error import URLError
+from urllib.parse import urljoin, urlparse, urlunparse
 
 import feedparser
 import numpy as np
@@ -48,6 +50,12 @@ MIN_RESPONSE_LENGTH = 100
 
 # HTTP status code for rate limiting
 HTTP_TOO_MANY_REQUESTS = 429
+
+# Cap on candidate article links discovered per HTML listing page
+MAX_LINKS_PER_LISTING = 50
+
+# URL schemes to skip during link discovery
+_SKIP_LINK_SCHEMES = ("mailto:", "tel:", "javascript:")
 
 
 class RateLimitError(Exception):
@@ -277,6 +285,8 @@ class NewsScraperAgent:
 
         if source_type == "rss":
             return self._scrape_rss_feed(source)
+        if source_type == "html":
+            return self._scrape_html_listing(source)
         logger.warning(f"Unknown source type: {source_type}")
         return []
 
@@ -664,19 +674,36 @@ class NewsScraperAgent:
                         )
                         return None
 
-            return Article(
+            return self._build_article(
                 title=title,
                 content=content or description,
-                source=source_name,
+                source_name=source_name,
                 url=link,
-                published_date=pub_date or datetime.now(TZ),
-                scraped_date=datetime.now(TZ),
+                pub_date=pub_date,
             )
         except Exception as e:
             logger.debug(
                 f"Error parsing entry from {source_name}: {e!s}",
             )
             return None
+
+    def _build_article(
+        self,
+        title: str,
+        content: str,
+        source_name: str,
+        url: str,
+        pub_date: datetime | None,
+    ) -> Article:
+        """Build an Article, defaulting pub_date to now when missing."""
+        return Article(
+            title=title,
+            content=content,
+            source=source_name,
+            url=url,
+            published_date=pub_date or datetime.now(TZ),
+            scraped_date=datetime.now(TZ),
+        )
 
     def _scrape_rss_feed(self, source: NewsSource) -> list[Article]:
         """
@@ -743,3 +770,232 @@ class NewsScraperAgent:
             time.sleep(1.5)
 
         return articles
+
+    def _discover_article_links(
+        self, html: str, base_url: str,
+    ) -> list[str]:
+        """
+        Extract candidate article links from a listing page.
+
+        Filters to same-domain links, drops mailto/tel/javascript and
+        pure-fragment hrefs, strips fragments, dedupes preserving order,
+        and caps the result at MAX_LINKS_PER_LISTING.
+        """
+        soup = BeautifulSoup(html, "html.parser")
+        base_netloc = urlparse(base_url).netloc
+        normalized_base = self._normalize_url(base_url)
+
+        seen: dict[str, None] = {}
+        for anchor in soup.find_all("a", href=True):
+            href_attr = anchor.get("href") or ""
+            if isinstance(href_attr, list):
+                href_attr = href_attr[0] if href_attr else ""
+            href = href_attr.strip()
+            if not href or href.startswith("#"):
+                continue
+            if href.lower().startswith(_SKIP_LINK_SCHEMES):
+                continue
+
+            absolute = urljoin(base_url, href)
+            parsed = urlparse(absolute)
+            if parsed.scheme not in ("http", "https"):
+                continue
+            if parsed.netloc != base_netloc:
+                continue
+
+            normalized = self._normalize_url(absolute)
+            if normalized == normalized_base:
+                continue
+            if normalized in seen:
+                continue
+            seen[normalized] = None
+            if len(seen) >= MAX_LINKS_PER_LISTING:
+                break
+
+        return list(seen)
+
+    @staticmethod
+    def _normalize_url(url: str) -> str:
+        """Strip fragment from a URL for dedup comparisons."""
+        parsed = urlparse(url)
+        return urlunparse(parsed._replace(fragment=""))
+
+    def _extract_article_metadata(
+        self, html: str,
+    ) -> tuple[str, datetime | None]:
+        """
+        Extract title and published_date from an article page's HTML.
+
+        Title sources (in order): og:title meta, <title>, first <h1>.
+        Date sources (in order): article:published_time meta,
+        <time datetime>, JSON-LD datePublished. Returns (title, None)
+        when no parseable date is present; caller substitutes now().
+        """
+        soup = BeautifulSoup(html, "html.parser")
+        title = self._extract_title(soup)
+        pub_date = self._extract_pub_date(soup)
+        return title, pub_date
+
+    @staticmethod
+    def _extract_title(soup: BeautifulSoup) -> str:
+        og = soup.find("meta", attrs={"property": "og:title"})
+        if og and og.get("content"):
+            return str(og["content"]).strip()
+        if soup.title and soup.title.string:
+            return soup.title.string.strip()
+        h1 = soup.find("h1")
+        if h1:
+            return h1.get_text(strip=True)
+        return ""
+
+    def _extract_pub_date(self, soup: BeautifulSoup) -> datetime | None:
+        meta = soup.find(
+            "meta", attrs={"property": "article:published_time"},
+        )
+        if meta and meta.get("content"):
+            parsed = self._parse_iso_datetime(str(meta["content"]))
+            if parsed:
+                return parsed
+
+        time_tag = soup.find("time", attrs={"datetime": True})
+        if time_tag:
+            parsed = self._parse_iso_datetime(str(time_tag["datetime"]))
+            if parsed:
+                return parsed
+
+        for script in soup.find_all(
+            "script", attrs={"type": "application/ld+json"},
+        ):
+            raw = script.string
+            if not raw:
+                continue
+            try:
+                data = json.loads(raw)
+            except (ValueError, TypeError):
+                continue
+            for candidate in self._iter_jsonld_dates(data):
+                parsed = self._parse_iso_datetime(candidate)
+                if parsed:
+                    return parsed
+        return None
+
+    @staticmethod
+    def _iter_jsonld_dates(data: object) -> list[str]:
+        """Yield datePublished values found in a JSON-LD payload."""
+        results: list[str] = []
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if key == "datePublished" and isinstance(value, str):
+                    results.append(value)
+                results.extend(NewsScraperAgent._iter_jsonld_dates(value))
+        elif isinstance(data, list):
+            for item in data:
+                results.extend(NewsScraperAgent._iter_jsonld_dates(item))
+        return results
+
+    @staticmethod
+    def _parse_iso_datetime(value: str) -> datetime | None:
+        """Parse ISO 8601, normalising 'Z' and naive cases."""
+        candidate = value.strip()
+        if not candidate:
+            return None
+        if candidate.endswith("Z"):
+            candidate = candidate[:-1] + "+00:00"
+        try:
+            parsed = datetime.fromisoformat(candidate)
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=TZ)
+        return parsed
+
+    def _scrape_html_listing(self, source: NewsSource) -> list[Article]:
+        """
+        Scrape articles by discovering links on an HTML listing page.
+
+        Fetches the listing URL stored in source["rss_url"], extracts
+        candidate article links via _discover_article_links, then for
+        each link fetches the article page and reuses the existing
+        trafilatura/BeautifulSoup extraction pipeline.
+        """
+        listing_url = source["rss_url"]
+        source_name = source["name"]
+        cutoff_date = datetime.now(TZ) - timedelta(days=self.lookback_days)
+
+        time.sleep(self.request_delay)
+        listing_response = self._fetch_with_retry(listing_url)
+        if not listing_response:
+            return []
+        if not self._is_valid_html(listing_response.text):
+            logger.debug(
+                "Invalid HTML for listing %s, skipping", listing_url,
+            )
+            return []
+
+        links = self._discover_article_links(
+            listing_response.text, listing_url,
+        )
+        logger.info(
+            "Discovered %d candidate links on %s",
+            len(links), listing_url,
+        )
+
+        articles: list[Article] = []
+        for link in links:
+            article = self._process_html_link(
+                link, source_name, cutoff_date,
+            )
+            if article:
+                articles.append(article)
+
+        return articles
+
+    def _process_html_link(
+        self,
+        link: str,
+        source_name: str,
+        cutoff_date: datetime,
+    ) -> Article | None:
+        """Fetch an article URL and build an Article, or return None."""
+        if self._should_skip_html_link(link):
+            return None
+
+        time.sleep(self.request_delay)
+        response = self._fetch_with_retry(link)
+        if not response or not self._is_valid_html(response.text):
+            return None
+
+        title, pub_date = self._extract_article_metadata(response.text)
+        if pub_date and pub_date < cutoff_date:
+            return None
+        if self.topics and not self._passes_topic_filter(
+            title, "", link,
+        ):
+            return None
+
+        content = self._extract_content_from_html(response.text)
+        if not content:
+            logger.debug("No extractable content for %s", link)
+            return None
+
+        return self._build_article(
+            title=title or link,
+            content=content,
+            source_name=source_name,
+            url=link,
+            pub_date=pub_date,
+        )
+
+    def _should_skip_html_link(self, link: str) -> bool:
+        """Return True if the link should be skipped before fetching."""
+        if self._should_exclude_by_url(link):
+            logger.debug(
+                "Article excluded (URL exists in exclude configs): %s", link,
+            )
+            return True
+        if self.url_check and self.url_check(link):
+            logger.debug(
+                "Article already in database, skipping fetch: %s", link,
+            )
+            return True
+        return False

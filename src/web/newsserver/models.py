@@ -39,6 +39,7 @@ class NewsSource(BaseModel):
         """Source type choices."""
 
         RSS = "rss", "RSS"
+        HTML = "html", "HTML"
 
     name = models.CharField(
         max_length=200,

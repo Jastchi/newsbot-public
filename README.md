@@ -43,7 +43,7 @@ The system now supports:
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/Jastchi/newsbot.git
+   git clone https://github.com/JastchiLabs/newsbot.git
    cd newsbot
    ```
 

@@ -6,7 +6,12 @@ import logging
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, cast
 
-from django.db import DatabaseError, IntegrityError, OperationalError
+from django.db import (
+    DatabaseError,
+    IntegrityError,
+    OperationalError,
+    connection,
+)
 
 from newsbot.constants import TZ
 from newsbot.models import Article
@@ -113,6 +118,7 @@ class DatabaseManager:
 
         except (DatabaseError, IntegrityError, OperationalError):
             logger.exception("Database error saving articles")
+            connection.close()
             saved_count = 0
 
         return saved_count
@@ -265,6 +271,7 @@ class DatabaseManager:
 
         except (DatabaseError, IntegrityError, OperationalError):
             logger.exception("Database error updating articles")
+            connection.close()
             updated_count = 0
 
         return updated_count
@@ -289,6 +296,7 @@ class DatabaseManager:
             ).exists()
         except (DatabaseError, IntegrityError, OperationalError):
             logger.exception("Database error checking if URL exists")
+            connection.close()
             return False
 
     def url_exists_with_content(self, url: str) -> bool:
@@ -318,6 +326,7 @@ class DatabaseManager:
             logger.exception(
                 "Database error checking if URL exists with content",
             )
+            connection.close()
             return False
 
     def url_exists_in_any_config(
@@ -347,6 +356,7 @@ class DatabaseManager:
                 "Database error checking if URL exists in configs %s",
                 config_keys,
             )
+            connection.close()
             return False
 
     def has_scraped_today(self) -> bool:
@@ -373,6 +383,7 @@ class DatabaseManager:
             ).count()
         except (DatabaseError, IntegrityError, OperationalError):
             logger.exception("Database error checking if scraped today")
+            connection.close()
             return False
         else:
             return count > 0

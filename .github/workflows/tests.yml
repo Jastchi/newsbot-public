@@ -127,7 +127,7 @@ jobs:
   push-screenshots:
     needs: test
     if: always() && needs.test.outputs.screenshots_found == 'true' && github.event_name == 'pull_request'
-    uses: Jastchi/newsbot/.github/workflows/push-screenshots.yml@main
+    uses: JastchiLabs/newsbot/.github/workflows/push-screenshots.yml@main
     permissions:
       contents: write
       pull-requests: write

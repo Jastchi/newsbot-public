@@ -6,7 +6,12 @@ from dataclasses import asdict, is_dataclass
 from datetime import datetime
 from typing import Any, cast
 
-from django.db import DatabaseError, IntegrityError, OperationalError
+from django.db import (
+    DatabaseError,
+    IntegrityError,
+    OperationalError,
+    connection,
+)
 
 from newsbot.agents.story_clustering_agent import Story
 from utilities.django_models import (
@@ -60,6 +65,7 @@ class SummaryWriter:
             return NewsConfig.objects.filter(key=config_key).first()
         except (DatabaseError, IntegrityError, OperationalError):
             logger.exception("Error getting config")
+            connection.close()
             return None
 
     def save_scrape_summary(
@@ -100,6 +106,7 @@ class SummaryWriter:
             logger.info(f"Saved scrape summary for {config_key}")
         except (DatabaseError, IntegrityError, OperationalError):
             logger.exception("Error saving scrape summary")
+            connection.close()
 
     def save_analysis_summary(
         self,
@@ -169,3 +176,4 @@ class SummaryWriter:
             logger.info(f"Saved analysis summary for {config_key}")
         except (DatabaseError, IntegrityError, OperationalError):
             logger.exception("Error saving analysis summary")
+            connection.close()

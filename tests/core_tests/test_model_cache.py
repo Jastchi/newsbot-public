@@ -65,7 +65,11 @@ class TestSentenceTransformerCache:
         result = get_sentence_transformer("test-model")
 
         assert result is mock_model
-        mock_st_class.assert_called_once_with("test-model", backend="onnx")
+        mock_st_class.assert_called_once_with(
+            "test-model",
+            backend="onnx",
+            model_kwargs={"file_name": "onnx/model_quantized.onnx"},
+        )
 
     @patch("newsbot.model_cache.SentenceTransformer")
     def test_cache_returns_same_instance(self, mock_st_class):
