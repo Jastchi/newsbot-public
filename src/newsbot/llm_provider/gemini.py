@@ -18,6 +18,7 @@ from tenacity import (
     wait_exponential,
 )
 
+from newsbot.llm_provider._utils import with_date_context, with_date_prompt
 from utilities.models import ConfigModel
 
 if TYPE_CHECKING:
@@ -148,7 +149,7 @@ class GeminiProvider:
 
         response = self.client.models.generate_content(
             model=self.model_name,
-            contents=prompt,
+            contents=with_date_prompt(prompt),
             config=config,
         )
 
@@ -180,7 +181,7 @@ class GeminiProvider:
         )
 
         # Convert messages to Gemini format
-        gemini_contents = self._convert_messages(messages)
+        gemini_contents = self._convert_messages(with_date_context(messages))
 
         response = self.client.models.generate_content(
             model=self.model_name,
@@ -219,7 +220,7 @@ class GeminiProvider:
         )
 
         # Convert messages to Gemini format
-        gemini_contents = self._convert_messages(messages)
+        gemini_contents = self._convert_messages(with_date_context(messages))
 
         response = self.client.models.generate_content(
             model=self.model_name,

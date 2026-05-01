@@ -11,6 +11,7 @@ import sys
 import time
 from typing import Any
 
+from newsbot.llm_provider._utils import with_date_context, with_date_prompt
 from utilities.models import ConfigModel
 
 logger = logging.getLogger(__name__)
@@ -141,7 +142,7 @@ class OllamaProvider:
 
         response = ollama.generate(
             model=self.model,
-            prompt=prompt,
+            prompt=with_date_prompt(prompt),
             options={
                 "temperature": temperature,
                 "num_predict": max_tokens,
@@ -159,7 +160,7 @@ class OllamaProvider:
 
         response = self.client.chat(
             model=self.model,
-            messages=messages,
+            messages=with_date_context(messages),
             options={
                 "temperature": temperature,
                 "num_predict": max_tokens,
@@ -178,7 +179,7 @@ class OllamaProvider:
 
         response = self.client.chat(
             model=self.model,
-            messages=messages,
+            messages=with_date_context(messages),
             format=schema,
             options={
                 "temperature": temperature,

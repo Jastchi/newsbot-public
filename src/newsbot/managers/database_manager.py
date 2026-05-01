@@ -202,7 +202,10 @@ class DatabaseManager:
         """
         Update existing articles in database with analysis results.
 
-        Update with summaries and sentiment using bulk_update.
+        Update with summaries and sentiment using bulk_update. Retries
+        once after closing the connection if a stale connection error
+        is hit (long-running workers can outlive the server-side TCP
+        connection).
 
         Args:
             articles: list of Article objects with analysis results
@@ -214,66 +217,68 @@ class DatabaseManager:
         if not articles:
             return 0
 
-        updated_count = 0
+        for attempt in range(2):
+            try:
+                return self._do_update_articles_with_analysis(articles)
+            except (DatabaseError, IntegrityError, OperationalError):
+                connection.close()
+                if attempt == 0:
+                    logger.warning(
+                        "Database error updating articles, retrying...",
+                    )
+                else:
+                    logger.exception("Database error updating articles")
+        return 0
 
-        try:
-            # Map valid articles by URL
-            articles_by_url = {a.url: a for a in articles}
-            urls = list(articles_by_url.keys())
+    def _do_update_articles_with_analysis(
+        self, articles: list[Article],
+    ) -> int:
+        """Apply summary/sentiment updates in a single bulk_update."""
+        articles_by_url = {a.url: a for a in articles}
+        urls = list(articles_by_url.keys())
 
-            # Fetch existing DB objects
-            existing_objects = DjangoArticle.objects.filter(
-                config=self._news_config,
-                url__in=urls,
-            ).all()
+        existing_objects = DjangoArticle.objects.filter(
+            config=self._news_config,
+            url__in=urls,
+        ).all()
 
-            objects_to_update = []
-            fields_to_update = set()
+        objects_to_update = []
+        fields_to_update: set[str] = set()
 
-            for db_obj in existing_objects:
-                article = articles_by_url.get(db_obj.url)
-                if not article:
-                    continue
+        for db_obj in existing_objects:
+            article = articles_by_url.get(db_obj.url)
+            if not article:
+                continue
 
-                changed = False
+            changed = False
 
-                # Update summary if present
-                if article.summary and article.summary != db_obj.summary:
-                    db_obj.summary = article.summary
-                    changed = True
-                    fields_to_update.add("summary")
+            if article.summary and article.summary != db_obj.summary:
+                db_obj.summary = article.summary
+                changed = True
+                fields_to_update.add("summary")
 
-                # Update sentiment if present
-                if article.sentiment:
-                    # Check if sentiment actually changed?
-                    # Float comparison might be tricky
-                    # But simpler to just update if we have new data
-                    db_obj.sentiment_score = article.sentiment.compound
-                    db_obj.sentiment_label = article.sentiment.label
-                    changed = True
-                    fields_to_update.add("sentiment_score")
-                    fields_to_update.add("sentiment_label")
+            if article.sentiment:
+                db_obj.sentiment_score = article.sentiment.compound
+                db_obj.sentiment_label = article.sentiment.label
+                changed = True
+                fields_to_update.add("sentiment_score")
+                fields_to_update.add("sentiment_label")
 
-                if changed:
-                    objects_to_update.append(db_obj)
+            if changed:
+                objects_to_update.append(db_obj)
 
-            if objects_to_update and fields_to_update:
-                updated_count = DjangoArticle.objects.bulk_update(
-                    objects_to_update,
-                    fields=list(fields_to_update),
-                    batch_size=100,
-                )
-                logger.debug(
-                    f"Updated {updated_count} articles with analysis results",
-                )
-            else:
-                logger.debug("No articles needed updating")
+        if not objects_to_update or not fields_to_update:
+            logger.debug("No articles needed updating")
+            return 0
 
-        except (DatabaseError, IntegrityError, OperationalError):
-            logger.exception("Database error updating articles")
-            connection.close()
-            updated_count = 0
-
+        updated_count = DjangoArticle.objects.bulk_update(
+            objects_to_update,
+            fields=list(fields_to_update),
+            batch_size=100,
+        )
+        logger.debug(
+            f"Updated {updated_count} articles with analysis results",
+        )
         return updated_count
 
     def url_exists(self, url: str) -> bool:

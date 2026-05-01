@@ -171,7 +171,7 @@ class JudgeAgent:
             # Call LLM with structured output
             verdict_data = self.provider.chat_json(
                 messages=[{"role": "user", "content": judge_prompt}],
-                options={"temperature": 0.1, "num_predict": 8192},
+                options={"temperature": 0.1, "num_predict": 128},
                 schema=JudgeVerdict.model_json_schema(),
             )
 
