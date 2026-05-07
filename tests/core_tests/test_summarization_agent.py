@@ -169,9 +169,7 @@ class TestTwoPassSummarization:
         return Story(
             story_id="story_1",
             title="AI Breakthrough Announced",
-            articles=sample_articles[:2],  # Use first 2 articles
-            sources=["Tech News", "Science Daily"],
-            article_count=2,
+            articles=sample_articles[:2],
             earliest_date=sample_articles[0].published_date,
             latest_date=sample_articles[1].published_date,
         )

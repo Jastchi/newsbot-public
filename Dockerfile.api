@@ -1,6 +1,6 @@
 ## --- BASE STAGE ---
 ## Use the official uv-python image
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS base
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim@sha256:531f855bda2c73cd6ef67d56b733b357cea384185b3022bd09f05e002cd144ca AS base
 
 LABEL org.opencontainers.image.source="https://github.com/JastchiLabs/newsbot" \
       org.opencontainers.image.title="newsbot-api" \

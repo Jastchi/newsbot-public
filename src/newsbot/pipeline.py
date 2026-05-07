@@ -7,6 +7,7 @@ Coordinates all agents to execute the news analysis pipeline
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -132,6 +133,12 @@ class PipelineOrchestrator:
             f"{email_receivers or 'disabled'}",
         )
 
+    def _set_timing(self, results: Results) -> None:
+        results.end_time = datetime.now(TZ)
+        results.duration = (
+            results.end_time - results.start_time
+        ).total_seconds()
+
     def set_news_config(self, news_config: NewsConfigType) -> None:
         """
         Update the NewsConfig instance for this pipeline.
@@ -225,11 +232,8 @@ class PipelineOrchestrator:
             # Summarize story using two-pass approach
             self.agent_manager.summarizer.summarize_story(story)
 
-            # Group summaries by source for analysis
-            source_summaries: dict[str, list[SummaryItem]] = {}
+            source_summaries: dict[str, list[SummaryItem]] = defaultdict(list)
             for article in story.articles:
-                if article.source not in source_summaries:
-                    source_summaries[article.source] = []
                 source_summaries[article.source].append(
                     {
                         "article": article,
@@ -269,9 +273,10 @@ class PipelineOrchestrator:
 
         for analysis in story_analyses:
             story = analysis["story"]
-            source_sentiments: dict[str, list[SentimentResult]] = {}
+            source_sentiments: dict[
+                str, list[SentimentResult],
+            ] = defaultdict(list)
 
-            # Analyze sentiment for all articles in this story
             for article in story.articles:
                 sentiment = (
                     self.agent_manager.sentiment_analyzer.analyze_article(
@@ -279,9 +284,6 @@ class PipelineOrchestrator:
                     )
                 )
                 article.sentiment = sentiment
-
-                if article.source not in source_sentiments:
-                    source_sentiments[article.source] = []
                 source_sentiments[article.source].append(sentiment)
 
             # Calculate average sentiment per source for this story
@@ -348,28 +350,20 @@ class PipelineOrchestrator:
         results = Results()
 
         try:
-            # Check if already scraped today
             if not force and self.database_manager.has_scraped_today():
                 logger.info("Articles already scraped today. Skipping scrape.")
                 logger.info("Use --force to override this check.")
                 results.success = True
-                results.end_time = datetime.now(TZ)
-                results.duration = (
-                    results.end_time - results.start_time
-                ).total_seconds()
+                self._set_timing(results)
                 return results
 
-            # Step 1: Scrape articles
             logger.info("Scraping news articles from all sources...")
             articles = self.agent_manager.scraper.scrape_all_sources()
 
             if not articles:
                 logger.error("No articles were scraped.")
                 results.errors.append("No articles scraped")
-                results.end_time = datetime.now(TZ)
-                results.duration = (
-                    results.end_time - results.start_time
-                ).total_seconds()
+                self._set_timing(results)
                 return results
 
             results.articles_count = len(articles)
@@ -383,26 +377,17 @@ class PipelineOrchestrator:
             saved_count = self.database_manager.save_articles(articles)
             results.saved_to_db = saved_count
 
-            # Finalize results
             results.success = True
-            results.end_time = datetime.now(TZ)
-            results.duration = (
-                results.end_time - results.start_time
-            ).total_seconds()
+            self._set_timing(results)
 
             logger.info("Daily scrape completed successfully!")
             logger.info(f"Duration: {results.duration:.2f} seconds")
             logger.info(f"Articles saved: {saved_count}/{len(articles)}")
 
         except Exception as e:
-            logger.exception(
-                "Daily scrape failed with error",
-            )
+            logger.exception("Daily scrape failed with error")
             results.errors.append(str(e))
-            results.end_time = datetime.now(TZ)
-            results.duration = (
-                results.end_time - results.start_time
-            ).total_seconds()
+            self._set_timing(results)
             return results
         else:
             return results
@@ -428,21 +413,13 @@ class PipelineOrchestrator:
         except RuntimeError as e:
             logger.exception("Failed to load articles from database")
             results.errors.append(str(e))
-            results.end_time = datetime.now(TZ)
-            results.duration = (
-                results.end_time - results.start_time
-            ).total_seconds()
+            self._set_timing(results)
             return None
 
         if not articles:
             logger.error("No articles found for analysis period")
-            results.errors.append(
-                "No articles in database for this period",
-            )
-            results.end_time = datetime.now(TZ)
-            results.duration = (
-                results.end_time - results.start_time
-            ).total_seconds()
+            results.errors.append("No articles in database for this period")
+            self._set_timing(results)
             return None
 
         results.articles_count = len(articles)
@@ -470,59 +447,11 @@ class PipelineOrchestrator:
         if not top_stories:
             logger.error("No stories identified. Analysis stopped.")
             results.errors.append("No stories identified")
-            results.end_time = datetime.now(TZ)
-            results.duration = (
-                results.end_time - results.start_time
-            ).total_seconds()
+            self._set_timing(results)
             return None
 
         results.stories_count = len(top_stories)
         return top_stories
-
-    def _weekly_step3_summarize(
-        self,
-        top_stories: list[Story],
-    ) -> list[StoryAnalysis]:
-        """
-        Step 3: Summarize articles for each story.
-
-        Args:
-            top_stories: List of top stories to summarize
-
-        Returns:
-            List of story analyses with summaries
-
-        """
-        return self._summarize_stories(top_stories)
-
-    def _weekly_step4_sentiment(
-        self,
-        story_analyses: list[StoryAnalysis],
-    ) -> None:
-        """
-        Step 4: Analyze sentiment for each story.
-
-        Args:
-            story_analyses: List of story analyses to add sentiment to
-
-        """
-        self._analyze_sentiment(story_analyses)
-
-    def _weekly_step5_generate_report(
-        self,
-        story_analyses: list[StoryAnalysis],
-    ) -> str:
-        """
-        Step 5: Generate report.
-
-        Args:
-            story_analyses: List of story analyses to include in report
-
-        Returns:
-            Path to generated report
-
-        """
-        return self._generate_report(story_analyses)
 
     def _weekly_finalize_results(
         self,
@@ -550,12 +479,8 @@ class PipelineOrchestrator:
         self.database_manager.update_articles_with_analysis(articles)
         logger.info("Database updated with analysis results")
 
-        # Finalize results
         results.success = True
-        results.end_time = datetime.now(TZ)
-        results.duration = (
-            results.end_time - results.start_time
-        ).total_seconds()
+        self._set_timing(results)
         results.top_stories = top_stories
         results.story_analyses = story_analyses
         results.report_path = report_path
@@ -575,7 +500,7 @@ class PipelineOrchestrator:
                 "articles_count": results.articles_count,
                 "stories_count": results.stories_count,
                 "duration": results.duration,
-                "timestamp": results.end_time.strftime(
+                "timestamp": (results.end_time or datetime.now(TZ)).strftime(
                     "%Y-%m-%d %H:%M:%S",
                 ),
                 "format": self.config.report.format,
@@ -616,16 +541,10 @@ class PipelineOrchestrator:
             if top_stories is None:
                 return results
 
-            # Step 3: Summarize articles for each story
-            story_analyses = self._weekly_step3_summarize(top_stories)
+            story_analyses = self._summarize_stories(top_stories)
+            self._analyze_sentiment(story_analyses)
+            report_path = self._generate_report(story_analyses)
 
-            # Step 4: Analyze sentiment for each story
-            self._weekly_step4_sentiment(story_analyses)
-
-            # Step 5: Generate report
-            report_path = self._weekly_step5_generate_report(story_analyses)
-
-            # Finalize results and run hooks
             self._weekly_finalize_results(
                 results,
                 articles,
@@ -636,14 +555,9 @@ class PipelineOrchestrator:
             )
 
         except Exception as e:
-            logger.exception(
-                "Weekly analysis failed with error",
-            )
+            logger.exception("Weekly analysis failed with error")
             results.errors.append(str(e))
-            results.end_time = datetime.now(TZ)
-            results.duration = (
-                results.end_time - results.start_time
-            ).total_seconds()
+            self._set_timing(results)
             return results
         else:
             return results

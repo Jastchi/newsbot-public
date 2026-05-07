@@ -138,15 +138,15 @@ class Story:
     story_id: str
     title: str  # Representative title
     articles: list[Article]
-    sources: list[str]
-    article_count: int
     earliest_date: datetime
     latest_date: datetime
     story_summary: str | None = None
     source_additional_points: dict[str, str] | None = None
+    sources: list[str] = field(init=False)
+    article_count: int = field(init=False)
 
     def __post_init__(self) -> None:
-        """Post-initialization to set derived fields."""
+        """Compute derived fields from articles list."""
         self.article_count = len(self.articles)
         self.sources = list({article.source for article in self.articles})
 

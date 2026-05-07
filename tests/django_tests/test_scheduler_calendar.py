@@ -7,6 +7,8 @@ import pytest
 from newsbot.constants import TZ
 from web.newsserver.models import NewsConfig
 
+DAY_MAP = {0: "mon", 1: "tue", 2: "wed", 3: "thu", 4: "fri", 5: "sat", 6: "sun"}
+
 @pytest.mark.django_db
 class TestNewsSchedulerDashboardView:
     @pytest.fixture(autouse=True)
@@ -124,18 +126,43 @@ class TestNewsSchedulerDashboardView:
         event = data[0]
         assert event.get("extendedProps", {}).get("sourceNames") == []
 
-    def test_post_update_config(self):
-        """Test that a POST request updates the NewsConfig scheduler settings."""
+    def test_post_update_config_wall_time(self):
+        """A naive wall-time ISO from FullCalendar is stored verbatim as TZ wall time."""
         self.admin_user.is_staff = True
         self.admin_user.save()
         self.client.force_login(self.admin_user)
         config = self.configs[0]
 
-        # Frontend sends UTC (toISOString()). Use same conversion as view.
+        # FullCalendar with a named timeZone and no TZ plugin emits a naive
+        # wall-time ISO via event.startStr — already in TZ. The server must
+        # store the components verbatim, not shift by the TZ offset.
+        new_start = "2026-01-27T13:30:00"  # Tue 13:30 Vienna
+        update_data = {"id": config.id, "start": new_start}
+
+        response = self.client.post(
+            self.url,
+            data=json.dumps(update_data),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "success"
+
+        config.refresh_from_db()
+        assert config.scheduler_weekly_analysis_day_of_week == "tue"
+        assert config.scheduler_weekly_analysis_hour == 13
+        assert config.scheduler_weekly_analysis_minute == 30
+
+    def test_post_update_config_aware_input_normalized_to_tz(self):
+        """A tz-aware UTC input is converted to TZ before storage (defensive path)."""
+        self.admin_user.is_staff = True
+        self.admin_user.save()
+        self.client.force_login(self.admin_user)
+        config = self.configs[0]
+
         new_start = "2026-01-27T13:30:00Z"
-        utc_dt = datetime(2026, 1, 27, 13, 30, 0, tzinfo=UTC)
-        local_dt = utc_dt.astimezone(TZ)
-        day_map = {0: "mon", 1: "tue", 2: "wed", 3: "thu", 4: "fri", 5: "sat", 6: "sun"}
+        local_dt = datetime(2026, 1, 27, 13, 30, 0, tzinfo=UTC).astimezone(TZ)
 
         update_data = {"id": config.id, "start": new_start}
 
@@ -150,7 +177,7 @@ class TestNewsSchedulerDashboardView:
         assert response.json()["status"] == "success"
 
         config.refresh_from_db()
-        assert config.scheduler_weekly_analysis_day_of_week == day_map[local_dt.weekday()]
+        assert config.scheduler_weekly_analysis_day_of_week == DAY_MAP[local_dt.weekday()]
         assert config.scheduler_weekly_analysis_hour == local_dt.hour
         assert config.scheduler_weekly_analysis_minute == local_dt.minute
 

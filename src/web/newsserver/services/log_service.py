@@ -1,6 +1,6 @@
 """Service for handling log file operations."""
 
-import re
+from collections import deque
 from datetime import datetime
 from pathlib import Path
 
@@ -8,27 +8,10 @@ from django.conf import settings
 
 from newsbot.constants import TZ
 from web.newsserver.datatypes import LogFileInfo
-
-
-def _is_active_log_file(log_filename: str) -> bool:
-    """
-    Check if a log file is currently active (being written to).
-
-    Active log files don't have a date suffix pattern like .YYYY-MM-DD.
-    For example:
-    - newsbot.log -> active
-    - newsbot.log.2025-12-13 -> inactive (rotated)
-
-    Args:
-        log_filename: Name of the log file
-
-    Returns:
-        True if the log file is active, False otherwise
-
-    """
-    # Pattern matches rotated log files: filename.log.YYYY-MM-DD
-    rotated_pattern = re.compile(r"\.\d{4}-\d{2}-\d{2}$")
-    return not bool(rotated_pattern.search(log_filename))
+from web.newsserver.utils import (
+    is_active_log_file,
+    validate_path_within_directory,
+)
 
 
 class LogService:
@@ -49,32 +32,24 @@ class LogService:
         if not logs_dir.exists():
             return []
 
-        # Get all log files: active log first, then by date descending.
-        # Active logs get higher priority when sorting descending.
-        # Rotated logs sort by filename desc so newest dates come first.
         log_files = sorted(
             logs_dir.glob("*.log*"),
-            key=lambda x: (_is_active_log_file(x.name), x.name),
+            key=lambda x: (is_active_log_file(x.name), x.name),
             reverse=True,
         )
 
         logs_list = []
         for log_file in log_files:
-            # Extract config name from filename
-            # e.g., "technology.log" -> "technology"
-            # e.g., "technology.log.2026-01-11" -> "technology"
             filename = log_file.name
             config_name = filename.split(".log")[0]
+            stat = log_file.stat()
             logs_list.append(
                 LogFileInfo(
                     filename=filename,
                     config_name=config_name,
-                    modified=datetime.fromtimestamp(
-                        log_file.stat().st_mtime,
-                        tz=TZ,
-                    ),
-                    size=log_file.stat().st_size,
-                    is_active=_is_active_log_file(filename),
+                    modified=datetime.fromtimestamp(stat.st_mtime, tz=TZ),
+                    size=stat.st_size,
+                    is_active=is_active_log_file(filename),
                 ),
             )
 
@@ -99,13 +74,8 @@ class LogService:
             return f"Error: Invalid log file path: {log_name}"
 
         try:
-            with log_path.open(
-                encoding="utf-8",
-                errors="replace",
-            ) as f:
-                lines = f.readlines()
-                # Get last max_lines lines
-                return "".join(lines[-max_lines:])
+            with log_path.open(encoding="utf-8", errors="replace") as f:
+                return "".join(deque(f, maxlen=max_lines))
         except Exception as e:
             return f"Error reading log file: {e}"
 
@@ -123,8 +93,7 @@ class LogService:
 
         """
         logs_dir = settings.BASE_DIR / "logs"
-        log_path = (logs_dir / log_name).resolve()
-        return log_path.is_relative_to(logs_dir.resolve())
+        return validate_path_within_directory(log_name, logs_dir) is not None
 
     @staticmethod
     def validate_log_path(log_name: str) -> Path | None:
@@ -140,13 +109,10 @@ class LogService:
             Path object if valid, safe, and exists, None otherwise
 
         """
-        if not LogService.is_safe_log_path(log_name):
-            return None
-
         logs_dir = settings.BASE_DIR / "logs"
-        log_path = (logs_dir / log_name).resolve()
+        log_path = validate_path_within_directory(log_name, logs_dir)
 
-        if not log_path.exists() or not log_path.is_file():
+        if log_path is None or not log_path.is_file():
             return None
 
         return log_path
@@ -166,23 +132,16 @@ class LogService:
         if not logs_dir.exists():
             return []
 
-        # Get all log files
         log_files = sorted(
             logs_dir.glob("*.log*"),
-            key=lambda x: (_is_active_log_file(x.name), x.name),
+            key=lambda x: (is_active_log_file(x.name), x.name),
             reverse=True,
         )
 
-        # Build config tabs from active log files (files ending in .log)
-        # Each tab represents a config's log file
         config_tabs = []
         for log_file in log_files:
-            if _is_active_log_file(log_file.name):
-                # Extract config name from filename
-                # (e.g., "technology" from "technology.log")
+            if is_active_log_file(log_file.name):
                 config_name = log_file.name.rsplit(".log", 1)[0]
-                # Create display name with title case and underscores
-                # replaced
                 display_name = config_name.replace("_", " ").title()
                 config_tabs.append(
                     {
@@ -192,7 +151,6 @@ class LogService:
                     },
                 )
 
-        # Sort tabs alphabetically by display name
         config_tabs.sort(key=lambda x: x["display_name"])
         return config_tabs
 
@@ -208,11 +166,9 @@ class LogService:
             Config name for the active tab
 
         """
-        if _is_active_log_file(log_name):
+        if is_active_log_file(log_name):
             return log_name.rsplit(".log", 1)[0]
 
-        # Extract base config name from rotated log
-        # e.g., "technology.log.2026-01-11" -> "technology"
         return log_name.split(".log", maxsplit=1)[0]
 
     @staticmethod
@@ -229,4 +185,4 @@ class LogService:
             True if the log can be streamed, False otherwise
 
         """
-        return _is_active_log_file(log_name)
+        return is_active_log_file(log_name)

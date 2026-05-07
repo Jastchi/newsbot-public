@@ -9,7 +9,9 @@ from typing import TYPE_CHECKING, cast
 from django.db import (
     DatabaseError,
     IntegrityError,
+    InterfaceError,
     OperationalError,
+    close_old_connections,
     connection,
 )
 
@@ -58,6 +60,7 @@ class DatabaseManager:
         if not articles:
             return 0
 
+        close_old_connections()
         saved_count = 0
 
         try:
@@ -116,7 +119,12 @@ class DatabaseManager:
                 articles_by_url, urls, existing_urls,
             )
 
-        except (DatabaseError, IntegrityError, OperationalError):
+        except (
+            DatabaseError,
+            InterfaceError,
+            IntegrityError,
+            OperationalError,
+        ):
             logger.exception("Database error saving articles")
             connection.close()
             saved_count = 0
@@ -174,6 +182,7 @@ class DatabaseManager:
             List of articles from database
 
         """
+        close_old_connections()
         cutoff_date = datetime.now(TZ) - timedelta(days=days_back)
 
         db_articles = DjangoArticle.objects.filter(
@@ -294,12 +303,18 @@ class DatabaseManager:
             True if article exists for this config, False otherwise
 
         """
+        close_old_connections()
         try:
             return DjangoArticle.objects.filter(
                 url=url,
                 config=self._news_config,
             ).exists()
-        except (DatabaseError, IntegrityError, OperationalError):
+        except (
+            DatabaseError,
+            InterfaceError,
+            IntegrityError,
+            OperationalError,
+        ):
             logger.exception("Database error checking if URL exists")
             connection.close()
             return False
@@ -321,13 +336,19 @@ class DatabaseManager:
             content, False otherwise
 
         """
+        close_old_connections()
         try:
-            obj = DjangoArticle.objects.filter(
+            content = DjangoArticle.objects.filter(
                 url=url,
                 config=self._news_config,
-            ).first()
-            return obj is not None and bool((obj.content or "").strip())
-        except (DatabaseError, IntegrityError, OperationalError):
+            ).values_list("content", flat=True).first()
+            return content is not None and bool((content or "").strip())
+        except (
+            DatabaseError,
+            InterfaceError,
+            IntegrityError,
+            OperationalError,
+        ):
             logger.exception(
                 "Database error checking if URL exists with content",
             )
@@ -351,12 +372,18 @@ class DatabaseManager:
         """
         if not config_keys:
             return False
+        close_old_connections()
         try:
             return DjangoArticle.objects.filter(
                 config__key__in=config_keys,
                 url=url,
             ).exists()
-        except (DatabaseError, IntegrityError, OperationalError):
+        except (
+            DatabaseError,
+            InterfaceError,
+            IntegrityError,
+            OperationalError,
+        ):
             logger.exception(
                 "Database error checking if URL exists in configs %s",
                 config_keys,
@@ -372,6 +399,7 @@ class DatabaseManager:
             True if articles from today exist in database
 
         """
+        close_old_connections()
         try:
             today_start = datetime.now(TZ).replace(
                 hour=0,
@@ -386,7 +414,9 @@ class DatabaseManager:
                 scraped_date__gte=today_start,
                 scraped_date__lt=today_end,
             ).count()
-        except (DatabaseError, IntegrityError, OperationalError):
+        except (
+            DatabaseError, InterfaceError, IntegrityError, OperationalError,
+        ):
             logger.exception("Database error checking if scraped today")
             connection.close()
             return False

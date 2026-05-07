@@ -1,10 +1,25 @@
 """Shared utilities for LLM providers."""
 
 from datetime import UTC, datetime
+from typing import Any
 
 
 def _today() -> str:
     return datetime.now(UTC).date().isoformat()
+
+
+def get_options(
+    self: object,
+    options: dict[str, Any],
+) -> tuple[float, int]:
+    """Extract temperature and max_tokens from options dict."""
+    temperature = options.get(
+        "temperature", getattr(self, "temperature", 0.7),
+    )
+    max_tokens = options.get(
+        "num_predict", getattr(self, "max_tokens", 1024),
+    )
+    return temperature, max_tokens
 
 
 def with_date_context(

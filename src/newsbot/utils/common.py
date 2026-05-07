@@ -54,9 +54,10 @@ def clean_text(text: str, config_name: str | None = None) -> str:
     if not text:
         return ""
 
-    # Remove HTML tags if present
-    soup = BeautifulSoup(text, "html.parser")
-    text = soup.get_text()
+    # Only parse HTML when the text actually contains tags
+    if "<" in text:
+        soup = BeautifulSoup(text, "html.parser")
+        text = soup.get_text()
 
     # Remove extra whitespace
     text = re.sub(r"\s+", " ", text)

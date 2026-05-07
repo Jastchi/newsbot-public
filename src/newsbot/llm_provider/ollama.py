@@ -11,7 +11,11 @@ import sys
 import time
 from typing import Any
 
-from newsbot.llm_provider._utils import with_date_context, with_date_prompt
+from newsbot.llm_provider._utils import (
+    get_options,
+    with_date_context,
+    with_date_prompt,
+)
 from utilities.models import ConfigModel
 
 logger = logging.getLogger(__name__)
@@ -20,25 +24,11 @@ logger = logging.getLogger(__name__)
 REQUIRED_ENV_VARS: list[str] = []
 
 
-def _get_options(
-    self: object,
-    options: dict[str, Any],
-) -> tuple[float, int]:
-    """Extract temperature and max_tokens from options."""
-    temperature = options.get(
-        "temperature", getattr(self, "temperature", 0.7),
-    )
-    max_tokens = options.get(
-        "num_predict", getattr(self, "max_tokens", 1024),
-    )
-    return temperature, max_tokens
-
-
 class OllamaProvider:
     """LLM provider implementation using local Ollama service."""
 
     def _get_options(self, options: dict[str, Any]) -> tuple[float, int]:
-        return _get_options(self, options)
+        return get_options(self, options)
 
     def __init__(self, config: ConfigModel) -> None:
         """

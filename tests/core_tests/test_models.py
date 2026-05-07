@@ -239,8 +239,6 @@ class TestStory:
             story_id="story_1",
             title="Main Story Title",
             articles=articles,
-            sources=["Source A", "Source B"],
-            article_count=2,
             earliest_date=now,
             latest_date=now,
         )
@@ -285,8 +283,6 @@ class TestStory:
             story_id="story_1",
             title="Main Story Title",
             articles=articles,
-            sources=[],  # Will be set by post_init
-            article_count=0,  # Will be set by post_init
             earliest_date=now,
             latest_date=now,
         )
@@ -312,8 +308,6 @@ class TestStory:
             story_id="story_1",
             title="Main Story Title",
             articles=articles,
-            sources=["Source A"],
-            article_count=1,
             earliest_date=now,
             latest_date=now,
             story_summary="This is the story summary",
@@ -414,8 +408,6 @@ class TestTypedDicts:
             story_id="1",
             title="Story",
             articles=[article],
-            sources=["Source"],
-            article_count=1,
             earliest_date=now,
             latest_date=now,
         )
@@ -620,8 +612,6 @@ class TestResults:
             story_id="1",
             title="Story",
             articles=[article],
-            sources=["Source"],
-            article_count=1,
             earliest_date=now,
             latest_date=now,
         )

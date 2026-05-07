@@ -53,6 +53,16 @@ class NewsSourceInline(admin.TabularInline):
     extra = 1
     verbose_name = "News Source"
     verbose_name_plural = "News Sources"
+    readonly_fields = ("source_type",)
+
+    @admin.display(description="Type")
+    def source_type(self, obj: models.Model) -> str:
+        """Show the type of the linked NewsSource."""
+        try:
+            source = getattr(obj, "newssource", None)
+            return source.get_type_display() if source else "—"
+        except Exception:
+            return "—"
 
 @admin.register(Topic)
 class TopicAdmin(admin.ModelAdmin):
@@ -181,18 +191,15 @@ class NewsConfigAdmin(admin.ModelAdmin):
             "classes": ("collapse",),
             "fields": ("exclude_articles_from_configs",),
         }),
-        ("Logging", {
-            "classes": ("collapse",),
-            "fields": ("logging_level", "logging_format"),
-        }),
-        ("Database", {
-            "classes": ("collapse",),
-            "fields": ("database_url",),
-        }),
         ("Timestamps", {
             "fields": ("created_at", "updated_at"),
         }),
     )
+
+    class Media:
+        """Assets for conditional field visibility in the admin form."""
+
+        js = ("newsserver/admin/newsconfig_admin.js",)
 
     def formfield_for_manytomany(
         self,

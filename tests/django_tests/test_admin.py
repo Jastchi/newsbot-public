@@ -100,6 +100,25 @@ class TestNewsConfigAdmin:
         assert "key" in admin.search_fields
         assert "display_name" in admin.search_fields
 
+    def test_default_llm_provider_is_gemini(self):
+        """New NewsConfig instances default to the gemini provider."""
+        config = NewsConfig()
+        assert config.llm_provider == "gemini"
+        assert config.llm_model == "gemini-3-flash"
+        assert config.llm_judge_model == "gemini-3-flash"
+
+    def test_logging_and_database_fieldsets_removed(self, admin_site):
+        """Logging and Database fieldsets are not exposed in the admin."""
+        admin = NewsConfigAdmin(NewsConfig, admin_site)
+        titles = [name for name, _ in admin.fieldsets]
+        assert "Logging" not in titles
+        assert "Database" not in titles
+
+    def test_admin_media_includes_visibility_js(self, admin_site):
+        """The admin loads the JS that drives conditional field visibility."""
+        admin = NewsConfigAdmin(NewsConfig, admin_site)
+        assert "newsserver/admin/newsconfig_admin.js" in admin.media._js
+
 
 @pytest.mark.django_db
 class TestSubscriberAdmin:

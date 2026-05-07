@@ -611,7 +611,13 @@
                     },
                     body: JSON.stringify({
                         id: event.id,
-                        start: event.start.toISOString()
+                        // FullCalendar uses a "floating" wall-time model when
+                        // `timeZone` is named without a TZ plugin, so
+                        // `event.start.toISOString()` would emit the wall
+                        // time stamped with Z and the server would shift it
+                        // by the TZ offset. `startStr` gives the naive
+                        // wall-time ISO that matches what the user dropped.
+                        start: event.startStr
                     })
                 })
                 .then(response => {

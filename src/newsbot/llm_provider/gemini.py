@@ -18,7 +18,11 @@ from tenacity import (
     wait_exponential,
 )
 
-from newsbot.llm_provider._utils import with_date_context, with_date_prompt
+from newsbot.llm_provider._utils import (
+    get_options,
+    with_date_context,
+    with_date_prompt,
+)
 from utilities.models import ConfigModel
 
 if TYPE_CHECKING:
@@ -73,25 +77,25 @@ _gemini_retry = retry(
 )
 
 
-def _get_options(
-    self: object,
-    options: dict[str, Any],
-) -> tuple[float, int]:
-    """Extract temperature and max_tokens from options."""
-    temperature = options.get(
-        "temperature", getattr(self, "temperature", 0.7),
-    )
-    max_tokens = options.get(
-        "num_predict", getattr(self, "max_tokens", 1024),
-    )
-    return temperature, max_tokens
-
-
 class GeminiProvider:
     """LLM provider implementation using Google Gemini API."""
 
     def _get_options(self, options: dict[str, Any]) -> tuple[float, int]:
-        return _get_options(self, options)
+        return get_options(self, options)
+
+    @staticmethod
+    def _warn_empty_response(
+        response: object, label: str = "response",
+    ) -> None:
+        finish_reason = "unknown"
+        candidates = getattr(response, "candidates", None)
+        if candidates:
+            finish_reason = str(candidates[0].finish_reason)
+        logger.warning(
+            "Gemini returned empty %s. Finish reason: %s",
+            label,
+            finish_reason,
+        )
 
     def __init__(self, config: ConfigModel) -> None:
         """
@@ -153,15 +157,8 @@ class GeminiProvider:
             config=config,
         )
 
-        # Handle blocked or empty responses
         if not response.text:
-            finish_reason = "unknown"
-            if response.candidates:
-                finish_reason = str(response.candidates[0].finish_reason)
-            logger.warning(
-                "Gemini returned empty response. Finish reason: %s",
-                finish_reason,
-            )
+            self._warn_empty_response(response, "response")
             return ""
 
         return response.text.strip()
@@ -189,15 +186,8 @@ class GeminiProvider:
             config=config,
         )
 
-        # Handle blocked or empty responses
         if not response.text:
-            finish_reason = "unknown"
-            if response.candidates:
-                finish_reason = str(response.candidates[0].finish_reason)
-            logger.warning(
-                "Gemini returned empty response. Finish reason: %s",
-                finish_reason,
-            )
+            self._warn_empty_response(response, "response")
             return ""
 
         return response.text.strip()
@@ -228,15 +218,8 @@ class GeminiProvider:
             config=config,
         )
 
-        # Handle blocked or empty responses
         if not response.text:
-            finish_reason = "unknown"
-            if response.candidates:
-                finish_reason = str(response.candidates[0].finish_reason)
-            logger.warning(
-                "Gemini JSON returned empty. Finish reason: %s",
-                finish_reason,
-            )
+            self._warn_empty_response(response, "JSON response")
             return {}
 
         return json.loads(response.text)

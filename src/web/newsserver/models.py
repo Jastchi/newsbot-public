@@ -223,19 +223,22 @@ class NewsConfig(BaseModel):
     llm_provider = models.CharField(
         max_length=50,
         choices=LLMProvider.choices,
-        default=LLMProvider.OLLAMA,
+        default=LLMProvider.GEMINI,
         help_text="LLM provider name",
     )
     llm_model = models.CharField(
         max_length=200,
-        default="",
+        default="gemini-3-flash",
         help_text="LLM model identifier",
     )
     llm_base_url = models.CharField(
         max_length=500,
         default="http://localhost:11434",
         blank=True,
-        help_text="Base URL for the LLM service (unused if not ollama)",
+        help_text=(
+            "Base URL for the local LLM service. "
+            "Only used when provider = ollama."
+        ),
     )
     llm_temperature = models.FloatField(
         default=0.0,
@@ -251,7 +254,7 @@ class NewsConfig(BaseModel):
     )
     llm_judge_model = models.CharField(
         max_length=200,
-        default="",
+        default="gemini-3-flash",
         help_text="Model identifier for the judge LLM",
     )
     llm_judge_max_retries = models.IntegerField(

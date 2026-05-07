@@ -767,8 +767,6 @@ class StoryClusteringAgent:
                     story_id=f"story_{i + 1}",
                     title=fallback_title,
                     articles=cluster,
-                    sources=cluster_sources,
-                    article_count=len(cluster),
                     earliest_date=min(
                         article.published_date for article in cluster
                     ),

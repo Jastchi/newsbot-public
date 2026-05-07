@@ -5,6 +5,7 @@ Generates news analysis reports
 """
 
 import logging
+from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -97,11 +98,8 @@ class ReportGeneratorAgent:
         key_topics: list[str],
     ) -> str:
         """Generate HTML report."""
-        # Group articles by source
-        articles_by_source = {}
+        articles_by_source: dict[str, list[Article]] = defaultdict(list)
         for article in articles:
-            if article.source not in articles_by_source:
-                articles_by_source[article.source] = []
             articles_by_source[article.source].append(article)
 
         # Load template from file
@@ -165,21 +163,18 @@ class ReportGeneratorAgent:
             date_range=(f"{from_date} - {to_date}"),
         )
 
-    def _generate_markdown_top_stories_report(
+    def _render_simple_top_stories_template(
         self,
         story_analyses: list[StoryAnalysis],
+        template_file: str,
     ) -> str:
-        """Generate Markdown report for top stories."""
-        # Load template from file
-        template = self.jinja_env.get_template("top_stories_report.md")
-
-        # Collect all unique sources
-        all_sources = set()
+        """Render a markdown or text top-stories template."""
+        template = self.jinja_env.get_template(template_file)
+        all_sources: set[str] = set()
         total_articles = 0
         for analysis in story_analyses:
             all_sources.update(analysis["story"].sources)
             total_articles += analysis["story"].article_count
-
         return template.render(
             story_analyses=story_analyses,
             story_count=len(story_analyses),
@@ -188,27 +183,22 @@ class ReportGeneratorAgent:
             date=datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S"),
         )
 
+    def _generate_markdown_top_stories_report(
+        self,
+        story_analyses: list[StoryAnalysis],
+    ) -> str:
+        """Generate Markdown report for top stories."""
+        return self._render_simple_top_stories_template(
+            story_analyses, "top_stories_report.md",
+        )
+
     def _generate_text_top_stories_report(
         self,
         story_analyses: list[StoryAnalysis],
     ) -> str:
         """Generate plain text report for top stories."""
-        # Load template from file
-        template = self.jinja_env.get_template("top_stories_report.txt")
-
-        # Collect all unique sources
-        all_sources = set()
-        total_articles = 0
-        for analysis in story_analyses:
-            all_sources.update(analysis["story"].sources)
-            total_articles += analysis["story"].article_count
-
-        return template.render(
-            story_analyses=story_analyses,
-            story_count=len(story_analyses),
-            total_articles=total_articles,
-            sources=sorted(all_sources),
-            date=datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S"),
+        return self._render_simple_top_stories_template(
+            story_analyses, "top_stories_report.txt",
         )
 
     def _generate_html_email_top_stories_report(

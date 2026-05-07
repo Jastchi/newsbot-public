@@ -2,7 +2,7 @@
 
 import json
 from collections.abc import Generator
-from datetime import UTC, datetime, time, timedelta
+from datetime import datetime, time, timedelta
 from pathlib import Path
 from time import sleep
 from typing import cast
@@ -719,11 +719,13 @@ class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
             new_dt = parse_datetime(start_str)
 
             if new_dt:
-                # Frontend sends UTC. Convert to TZ so stored H:M match
-                # what the user sees on the calendar.
+                # FullCalendar v6 uses floating wall-time (named tz, no
+                # TZ plugin). Frontend naive ISO is in that TZ; localize
+                # to keep wall time. Aware inputs: astimezone.
                 if new_dt.tzinfo is None:
-                    new_dt = new_dt.replace(tzinfo=UTC)
-                local_dt = new_dt.astimezone(TZ)
+                    local_dt = TZ.localize(new_dt)
+                else:
+                    local_dt = new_dt.astimezone(TZ)
                 config.scheduler_weekly_analysis_day_of_week = (
                     PYTHON_WEEKDAY_TO_DAY_NAME.get(local_dt.weekday())
                 )

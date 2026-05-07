@@ -169,8 +169,6 @@ class TestStoryClusteringAgent:
             story_id="test_1",
             title="Test",
             articles=sample_articles[:3],
-            sources=[],
-            article_count=0,
             earliest_date=datetime.now(),
             latest_date=datetime.now(),
         )
@@ -1000,7 +998,14 @@ class TestClusterSampling:
             for i in range(30)
         ]
 
-        embeddings = np.random.rand(30, 64)
+        # Build embeddings where each source has a distinctly different
+        # cluster, guaranteeing the diversity-sampler picks all 8 sources.
+        rng = np.random.default_rng(0)
+        source_centroids = rng.standard_normal((8, 64))
+        embeddings = np.array([
+            source_centroids[i % 8] + rng.standard_normal(64) * 0.01
+            for i in range(30)
+        ])
         similarity_matrix = cosine_similarity(embeddings)
         centroid = embeddings.mean(axis=0, keepdims=True)
         centrality_scores = cosine_similarity(centroid, embeddings)[0]
@@ -1012,7 +1017,6 @@ class TestClusterSampling:
         )
 
         sources_in_result = {a.source for a in result}
-        # Should have multiple sources represented
         assert len(sources_in_result) >= min(8, len(result))
 
     @patch("newsbot.agents.story_clustering_agent.get_sentence_transformer")

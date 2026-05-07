@@ -9,7 +9,9 @@ from typing import Any, cast
 from django.db import (
     DatabaseError,
     IntegrityError,
+    InterfaceError,
     OperationalError,
+    close_old_connections,
     connection,
 )
 
@@ -61,9 +63,15 @@ class SummaryWriter:
             NewsConfig instance or None if not found.
 
         """
+        close_old_connections()
         try:
             return NewsConfig.objects.filter(key=config_key).first()
-        except (DatabaseError, IntegrityError, OperationalError):
+        except (
+            DatabaseError,
+            InterfaceError,
+            IntegrityError,
+            OperationalError,
+        ):
             logger.exception("Error getting config")
             connection.close()
             return None

@@ -3,11 +3,22 @@
 from __future__ import annotations
 
 import importlib
+import logging
 from typing import TYPE_CHECKING
+
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 if TYPE_CHECKING:
     from utilities.django_models import NewsConfig
     from utilities.models import ConfigModel
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigNotFoundError(Exception):
@@ -33,16 +44,23 @@ def load_config(config_key: str) -> tuple[ConfigModel, NewsConfig]:
         ConfigNotFoundError: If config with given key doesn't exist
 
     """
-    # Close any stale database connections before querying
-    from django.db import close_old_connections
+    from django.db import OperationalError, close_old_connections
 
-    close_old_connections()
-
-    # Import here to avoid circular imports during Django setup
     from utilities.django_models import NewsConfig as NewsConfigModel
 
+    @retry(
+        retry=retry_if_exception_type(OperationalError),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True,
+    )
+    def _fetch() -> NewsConfig:
+        close_old_connections()
+        return NewsConfigModel.objects.get(key=config_key)
+
     try:
-        news_config = NewsConfigModel.objects.get(key=config_key)
+        news_config = _fetch()
     except NewsConfigModel.DoesNotExist as e:
         msg = f"Config not found: {config_key}"
         raise ConfigNotFoundError(msg) from e

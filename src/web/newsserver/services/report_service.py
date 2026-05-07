@@ -85,27 +85,18 @@ class ReportService:
     def _get_local_reports(config_key: str) -> list[ReportInfo]:
         """Get reports from local filesystem."""
         config_dir = settings.REPORTS_DIR / config_key
-
-        if not config_dir.exists() or not config_dir.is_dir():
-            return []
-
-        html_reports = sorted(
-            config_dir.glob("*.html"),
-            key=lambda x: x.stat().st_mtime,
-            reverse=True,
-        )
-
+        html_reports = [
+            (p, p.stat()) for p in config_dir.glob("*.html")
+        ]
+        html_reports.sort(key=lambda x: x[1].st_mtime, reverse=True)
         return [
             ReportInfo(
-                filename=report_file.name,
-                modified=datetime.fromtimestamp(
-                    report_file.stat().st_mtime,
-                    TZ,
-                ),
-                size=report_file.stat().st_size,
+                filename=p.name,
+                modified=datetime.fromtimestamp(s.st_mtime, TZ),
+                size=s.st_size,
                 storage="local",
             )
-            for report_file in html_reports
+            for p, s in html_reports
         ]
 
     @staticmethod
@@ -160,16 +151,10 @@ class ReportService:
         report_name: str,
     ) -> str | None:
         """Get report content from local filesystem."""
-        config_dir = settings.REPORTS_DIR / config_key
-        report_path = config_dir / report_name
-
-        if not report_path.exists() or not report_path.is_file():
-            return None
-
+        report_path = settings.REPORTS_DIR / config_key / report_name
         try:
-            with report_path.open(encoding="utf-8") as f:
-                return f.read()
-        except Exception:
+            return report_path.read_text(encoding="utf-8")
+        except OSError:
             return None
 
     @staticmethod
@@ -220,14 +205,8 @@ class ReportService:
         report_name: str,
     ) -> bytes | None:
         """Download report from local filesystem."""
-        config_dir = settings.REPORTS_DIR / config_key
-        report_path = config_dir / report_name
-
-        if not report_path.exists() or not report_path.is_file():
-            return None
-
+        report_path = settings.REPORTS_DIR / config_key / report_name
         try:
-            with report_path.open("rb") as f:
-                return f.read()
-        except Exception:
+            return report_path.read_bytes()
+        except OSError:
             return None

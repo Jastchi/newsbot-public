@@ -70,30 +70,29 @@ class ConfigService:
                         ),
                     )
             else:
-                # List reports from local filesystem
                 config_dir = settings.REPORTS_DIR / config_key
-                if config_dir.exists() and config_dir.is_dir():
-                    html_reports = sorted(
-                        config_dir.glob("*.html"),
-                        key=lambda x: x.stat().st_mtime,
-                        reverse=True,
-                    )
+                html_reports = sorted(
+                    config_dir.glob("*.html"),
+                    key=lambda x: x.stat().st_mtime,
+                    reverse=True,
+                )
 
-                    if html_reports:
-                        latest_report = html_reports[0]
-                        configs_data.append(
-                            ConfigWithReports(
-                                name=config_name,
-                                key=config_key,
-                                report_count=len(html_reports),
-                                latest_report=latest_report.name,
-                                last_modified=datetime.fromtimestamp(
-                                    latest_report.stat().st_mtime,
-                                    TZ,
-                                ),
-                                storage="local",
+                if html_reports:
+                    latest_report = html_reports[0]
+                    stat = latest_report.stat()
+                    configs_data.append(
+                        ConfigWithReports(
+                            name=config_name,
+                            key=config_key,
+                            report_count=len(html_reports),
+                            latest_report=latest_report.name,
+                            last_modified=datetime.fromtimestamp(
+                                stat.st_mtime,
+                                TZ,
                             ),
-                        )
+                            storage="local",
+                        ),
+                    )
 
         # Sort by display name
         configs_data.sort(key=lambda x: x.name)

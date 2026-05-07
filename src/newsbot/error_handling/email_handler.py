@@ -14,6 +14,8 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+_TRUTHY = frozenset({"true", "1", "yes"})
+
 
 class EmailErrorHandler(logging.Handler):
     """
@@ -209,7 +211,7 @@ class EmailErrorHandler(logging.Handler):
 def get_email_error_handler() -> EmailErrorHandler:
     """Create and return an EmailErrorHandler instance."""
     # Check if email is enabled
-    if os.getenv("EMAIL_ENABLED", "false").lower() not in ("true", "1", "yes"):
+    if os.getenv("EMAIL_ENABLED", "false").lower() not in _TRUTHY:
         # Return handler with empty smtp_host to disable email sending
         return EmailErrorHandler(
             smtp_host="",
@@ -256,7 +258,7 @@ def send_error_email_once(
         config_key: Optional config key for subject (e.g. "world").
 
     """
-    if os.getenv("EMAIL_ENABLED", "false").lower() not in ("true", "1", "yes"):
+    if os.getenv("EMAIL_ENABLED", "false").lower() not in _TRUTHY:
         return
 
     smtp_host = os.getenv("EMAIL_SMTP_SERVER", "")

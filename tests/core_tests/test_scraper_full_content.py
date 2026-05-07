@@ -410,10 +410,12 @@ class TestScrapeHtmlListing:
             "This is the body of an article. " * 20
         )
         article_a = self._article_html(
-            "Article One", article_body, "2026-04-25T10:00:00Z",
+            "Article One", article_body,
+            (datetime.now(TZ) - timedelta(days=1)).isoformat(),
         )
         article_b = self._article_html(
-            "Article Two", article_body, "2026-04-26T10:00:00Z",
+            "Article Two", article_body,
+            (datetime.now(TZ) - timedelta(days=2)).isoformat(),
         )
 
         responses = {
@@ -526,7 +528,8 @@ class TestScrapeHtmlListing:
         listing_url = html_config.news_sources[0].rss_url
         listing = self._listing_html(["/a/1", "/a/2"])
         article_b = self._article_html(
-            "Article Two", "body " * 30, "2026-04-26T10:00:00Z",
+            "Article Two", "body " * 30,
+            (datetime.now(TZ) - timedelta(days=1)).isoformat(),
         )
 
         responses = {
@@ -590,8 +593,9 @@ class TestScrapeHtmlListing:
         article_sports = (
             "<html><head><title>Football match recap</title>"
             '<meta property="og:title" content="Football match recap" />'
-            '<meta property="article:published_time" '
-            'content="2026-04-26T10:00:00Z" />'
+            '<meta property="article:published_time" content="'
+            + (datetime.now(TZ) - timedelta(days=1)).isoformat()
+            + '" />'
             "</head><body><article><p>"
             + ("football " * 30)
             + "</p></article></body></html>"
@@ -599,8 +603,9 @@ class TestScrapeHtmlListing:
         article_finance = (
             "<html><head><title>Stock market update</title>"
             '<meta property="og:title" content="Stock market update" />'
-            '<meta property="article:published_time" '
-            'content="2026-04-26T10:00:00Z" />'
+            '<meta property="article:published_time" content="'
+            + (datetime.now(TZ) - timedelta(days=1)).isoformat()
+            + '" />'
             "</head><body><article><p>"
             + ("equities " * 30)
             + "</p></article></body></html>"

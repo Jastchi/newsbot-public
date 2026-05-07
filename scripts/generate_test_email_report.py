@@ -360,8 +360,6 @@ def create_sample_stories(articles: list[Article]) -> list[Story]:
             story_id="story-1",
             title="AI Technology Breakthrough and Its Implications",
             articles=ai_articles,
-            sources=["TechNews", "BusinessDaily", "ScienceWeekly"],
-            article_count=len(ai_articles),
             earliest_date=min(a.published_date for a in ai_articles),
             latest_date=max(a.published_date for a in ai_articles),
             story_summary=(
@@ -392,8 +390,6 @@ def create_sample_stories(articles: list[Article]) -> list[Story]:
             story_id="story-2",
             title="Climate Summit Agreement and Implementation Concerns",
             articles=climate_articles,
-            sources=["WorldNews", "PolicyReview"],
-            article_count=len(climate_articles),
             earliest_date=min(a.published_date for a in climate_articles),
             latest_date=max(a.published_date for a in climate_articles),
             story_summary=(
