@@ -28,6 +28,16 @@ SENTIMENT_MAX_CONTENT_LENGTH = 2048
 # (optimized for Raspberry Pi 5 with 8GB RAM)
 EMBEDDING_BATCH_SIZE = 16
 
+# Max concurrent domain workers for scraping. Each worker scrapes one
+# domain's sources sequentially; different domains run in parallel.
+# Tuned for Raspberry Pi 5 with 8GB RAM.
+SCRAPER_MAX_WORKERS = 8
+
+# Log format used by all configs. {config_name} is substituted at
+# setup time with the config's display name.
+LOG_FORMAT = "%(asctime)s {config_name} [%(levelname)s - %(name)s] %(message)s"
+LOG_LEVEL = "INFO"
+
 # Batch size for geo location extraction using spaCy
 # (optimized for Raspberry Pi 5 with 8GB RAM)
 GEO_LOCATION_BATCH_SIZE = 10

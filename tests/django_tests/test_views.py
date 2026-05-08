@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from django.http import Http404, StreamingHttpResponse
@@ -1349,7 +1349,8 @@ class TestLogStreamView:
 
         with patch("pathlib.Path.open") as mock_open:
             # First open (initial read): return context manager yielding file-like with content
-            file_like = Mock()
+            file_like = MagicMock()
+            file_like.__iter__.return_value = iter(["Initial line\n"])
             file_like.readlines.return_value = ["Initial line\n"]
             file_like.tell.return_value = 13
             mock_open.return_value.__enter__.return_value = file_like

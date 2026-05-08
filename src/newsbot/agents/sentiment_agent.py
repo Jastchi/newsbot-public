@@ -36,6 +36,18 @@ else:
 logger = logging.getLogger(__name__)
 
 
+def label_for_score(
+    score: float,
+    threshold: float = SENTIMENT_THRESHOLD,
+) -> str:
+    """Return the sentiment label for a score, against a threshold."""
+    if score >= threshold:
+        return "positive"
+    if score <= -threshold:
+        return "negative"
+    return "neutral"
+
+
 class SentimentAnalysisAgent:
     """Agent responsible for sentiment analysis."""
 
@@ -53,7 +65,6 @@ class SentimentAnalysisAgent:
         self.comparison_threshold = self.sentiment_config.comparison_threshold
         self.language = config.language
 
-        # Check pysentimiento language support
         self._pysentimiento_analyzer: (
             AnalyzerForSequenceClassification | None
         ) = None
@@ -64,7 +75,6 @@ class SentimentAnalysisAgent:
             )
             self.method = "textblob"
 
-        # Initialize sentiment analyzers
         if self.method in ["vader", "hybrid"]:
             self.vader = SentimentIntensityAnalyzer()
             logger.info("Initialized VADER sentiment analyzer")
@@ -94,7 +104,6 @@ class SentimentAnalysisAgent:
 
         """
         try:
-            # Analyze title and truncated content (not summary)
             content = article.content or article.summary or ""
             if len(content) > SENTIMENT_MAX_CONTENT_LENGTH:
                 content = content[:SENTIMENT_MAX_CONTENT_LENGTH]
@@ -147,20 +156,12 @@ class SentimentAnalysisAgent:
 
         """
         scores = self.vader.polarity_scores(text)
-
-        # Determine label
         compound = scores["compound"]
-        if compound >= SENTIMENT_THRESHOLD:
-            label = "positive"
-        elif compound <= -SENTIMENT_THRESHOLD:
-            label = "negative"
-        else:
-            label = "neutral"
 
         return {
             "polarity": compound,
             "compound": compound,
-            "label": label,
+            "label": label_for_score(compound),
             "positive": scores["pos"],
             "negative": scores["neg"],
             "neutral": scores["neu"],
@@ -181,19 +182,11 @@ class SentimentAnalysisAgent:
         polarity = blob.sentiment.polarity
         subjectivity = blob.sentiment.subjectivity
 
-        # Determine label
-        if polarity > POLARITY_THRESHOLD:
-            label = "positive"
-        elif polarity < -POLARITY_THRESHOLD:
-            label = "negative"
-        else:
-            label = "neutral"
-
         return {
             "polarity": polarity,
             "subjectivity": subjectivity,
             "compound": polarity,
-            "label": label,
+            "label": label_for_score(polarity, POLARITY_THRESHOLD),
         }
 
     def _analyze_pysentimiento(self, text: str) -> SentimentAnalysisDict:
@@ -213,22 +206,18 @@ class SentimentAnalysisAgent:
 
         result = self._pysentimiento_analyzer.predict(text)
 
-        # Map pysentimiento output to our format - pysentimiento
-        # returns: output.output (label), output.probas (dict)
         label_map = {"POS": "positive", "NEG": "negative", "NEU": "neutral"}
         label = label_map.get(result.output, "neutral")
 
-        # Calculate polarity from probabilities
-        # Range: -1 (negative) to +1 (positive)
         probas = result.probas
         polarity = probas.get("POS", 0) - probas.get("NEG", 0)
 
         return {
             "polarity": polarity,
             "compound": polarity,
-            "subjectivity": 0.5,  # pysentimiento doesn't provide subjectivity
+            "subjectivity": 0.5,
             "label": label,
-            "probas": probas,  # Include raw probabilities for debugging
+            "probas": probas,
         }
 
     def _analyze_hybrid(self, text: str) -> SentimentAnalysisDict:
@@ -248,24 +237,15 @@ class SentimentAnalysisAgent:
         vader_result = self._analyze_vader(text)
         textblob_result = self._analyze_textblob(text)
 
-        # Average the polarities
         avg_polarity = (
             vader_result["compound"] + textblob_result["polarity"]
         ) / 2
-
-        # Determine label based on average
-        if avg_polarity >= SENTIMENT_THRESHOLD:
-            label = "positive"
-        elif avg_polarity <= -SENTIMENT_THRESHOLD:
-            label = "negative"
-        else:
-            label = "neutral"
 
         return {
             "polarity": avg_polarity,
             "compound": avg_polarity,
             "subjectivity": textblob_result["subjectivity"],
-            "label": label,
+            "label": label_for_score(avg_polarity),
         }
 
     def _identify_differences(

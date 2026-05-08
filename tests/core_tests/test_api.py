@@ -890,17 +890,18 @@ class TestPydanticModels:
     def test_job_start_response_model(self):
         """Test JobStartResponse model."""
         from api.app import JobStartResponse
+        from api.job_manager import JobStatus
 
         response = JobStartResponse(
             job_id="123",
-            status="pending",
+            status=JobStatus.PENDING,
             message="Job started",
             config_key="test",
             config_name="Test",
         )
 
         assert response.job_id == "123"
-        assert response.status == "pending"
+        assert response.status == JobStatus.PENDING
         assert response.config_key == "test"
         assert response.config_name == "Test"
         assert "started" in response.message.lower()

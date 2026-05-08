@@ -749,12 +749,8 @@ class TestSetupLogging:
         original_handlers = root_logger.handlers[:]
         root_logger.handlers.clear()
 
-        from utilities.models import ConfigModel, LoggingConfigModel
-
         try:
-            config = ConfigModel(
-                logging=LoggingConfigModel(level="DEBUG"),
-            )
+            config = config_models.ConfigModel()
             setup_logging(config, [], config_key="technology")
 
             # Verify logs directory was created
@@ -787,8 +783,8 @@ class TestSetupLogging:
         finally:
             root_logger.handlers = original_handlers
 
-    def test_setup_logging_custom_format(self, tmp_path, monkeypatch):
-        """Test setup_logging respects custom log format."""
+    def test_setup_logging_includes_config_name(self, tmp_path, monkeypatch):
+        """Test setup_logging injects config name into every log line."""
         import logging
 
         from newsbot.utils import setup_logging
@@ -800,16 +796,13 @@ class TestSetupLogging:
         root_logger.handlers.clear()
 
         try:
-            from utilities.models import ConfigModel, LoggingConfigModel
-
-            custom_format = "%(levelname)s - %(message)s"
-            config = ConfigModel(
-                logging=LoggingConfigModel(level="INFO", format=custom_format),
-            )
+            config = config_models.ConfigModel(name="MyConfig")
             setup_logging(config, [], config_key="test")
 
-            # Verify logs directory was created
             assert (tmp_path / "logs").exists()
+            # Check that the root logger's formatter uses the config name.
+            formatter = root_logger.handlers[0].formatter
+            assert formatter._fmt is not None and "MyConfig" in formatter._fmt
         finally:
             root_logger.handlers = original_handlers
 

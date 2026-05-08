@@ -1,11 +1,12 @@
 """Tests for the SummaryWriter module."""
 
 import json
-from typing import cast
+from datetime import datetime
 
 import pytest
 
-from newsbot.models import Story
+from newsbot.constants import TZ
+from newsbot.models import Article, Story
 from newsbot.summary_writer import SummaryWriter
 
 
@@ -77,13 +78,24 @@ def test_save_analysis_summary(news_config):
 
     writer = SummaryWriter()
 
-    top_stories: list[Story] = cast(
-        list[Story],
-        [
-            {"title": "Story 1", "article_count": 5, "sources": ["Source A"]},
-            "Story 2 (string representation)",
-        ],
+    now = datetime.now(TZ)
+    article = Article(
+        title="A1",
+        content="content",
+        source="Source A",
+        url="https://example.com/a1",
+        published_date=now,
+        scraped_date=now,
     )
+    top_stories: list[Story] = [
+        Story(
+            story_id="s1",
+            title="Story 1",
+            articles=[article],
+            earliest_date=now,
+            latest_date=now,
+        ),
+    ]
 
     writer.save_analysis_summary(
         config_key="test_config",
@@ -104,9 +116,9 @@ def test_save_analysis_summary(news_config):
     assert summary.stories_identified == 10
 
     saved_stories = json.loads(summary.top_stories)
-    assert len(saved_stories) == 2
+    assert len(saved_stories) == 1
     assert saved_stories[0]["title"] == "Story 1"
-    assert saved_stories[1] == "Story 2 (string representation)"
+    assert saved_stories[0]["sources"] == ["Source A"]
 
     assert summary.error_count == 0
     assert summary.errors == ""

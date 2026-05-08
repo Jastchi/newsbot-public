@@ -102,10 +102,8 @@ class ReportGeneratorAgent:
         for article in articles:
             articles_by_source[article.source].append(article)
 
-        # Load template from file
         template = self.jinja_env.get_template("weekly_report.html")
 
-        # Prepare data for template
         html = template.render(
             date=datetime.now(TZ).strftime("%B %d, %Y"),
             weekly_overview=weekly_overview,

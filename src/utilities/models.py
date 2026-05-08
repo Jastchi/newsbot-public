@@ -105,13 +105,6 @@ class SchedulerConfigModel(BaseModel):
     )
 
 
-class LoggingConfigModel(BaseModel):
-    """Pydantic model for logging configuration."""
-
-    level: str = "INFO"
-    format: str = "%(asctime)s [%(levelname)s - %(name)s] %(message)s"
-
-
 class DatabaseConfigModel(BaseModel):
     """Pydantic model for database configuration."""
 
@@ -129,7 +122,7 @@ class ConfigModel(BaseModel):
     Example:
         config = ConfigModel(name="Technology", country="US")
         assert config.name == "Technology"
-        assert config["country"] == "IL"  # Also works
+        assert config["country"] == "US"  # Also works
         assert config.llm.provider == "ollama"
 
     """
@@ -154,7 +147,6 @@ class ConfigModel(BaseModel):
     scheduler: SchedulerConfigModel = Field(
         default_factory=SchedulerConfigModel,
     )
-    logging: LoggingConfigModel = Field(default_factory=LoggingConfigModel)
     database: DatabaseConfigModel = Field(default_factory=DatabaseConfigModel)
     exclude_articles_from_config_keys: list[str] = Field(default_factory=list)
 

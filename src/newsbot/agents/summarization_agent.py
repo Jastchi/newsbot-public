@@ -44,11 +44,9 @@ class SummarizationAgent:
         self.max_tokens = self.llm_config.max_tokens
         self.provider_name = self.llm_config.provider
 
-        # Initialize LLM provider
         self.provider: LLMProvider = get_llm_provider(config)
         logger.info("Summarization agent initialized with LLM provider")
 
-        # Two-pass summarization configuration
         summarization_config = config.summarization
         self.two_pass_enabled = summarization_config.two_pass_enabled
         self.max_articles_batch = int(summarization_config.max_articles_batch)
@@ -59,10 +57,7 @@ class SummarizationAgent:
             f"article_order: {self.article_order}",
         )
 
-        # Initialize judge agent for output validation
         self.judge_agent = JudgeAgent(config)
-
-        # Initialize name validation agent for entity verification
         self.name_validation_agent = NameValidationAgent(config)
 
     def summarize_article(self, article: Article) -> str:
@@ -93,7 +88,6 @@ class SummarizationAgent:
                 },
             )
 
-            # Validate and fix if needed
             prompt_context = (
                 "A 2-3 sentence summary of the article. ONLY the summary "
                 "text, no preambles or labels."
@@ -103,7 +97,6 @@ class SummarizationAgent:
                 prompt_context,
             )
 
-            # Validate named entities against source article
             summary = self.name_validation_agent.validate_and_fix(
                 summary,
                 [article.content, article.title],

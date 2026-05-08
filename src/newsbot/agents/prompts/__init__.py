@@ -47,21 +47,26 @@ def get_prompt(provider: str, filename: str) -> str:
     prompts_dir = Path(__file__).parent
     provider_dir = PROVIDER_TO_DIR.get(provider, DEFAULT_DIR)
 
-    # Try provider-specific prompt first
-    provider_path = prompts_dir / provider_dir / filename
-    if provider_path.exists():
-        logger.debug(f"Loading prompt from {provider_dir}/{filename}")
-        return provider_path.read_text(encoding="utf-8")
+    try:
+        return (prompts_dir / provider_dir / filename).read_text(
+            encoding="utf-8",
+        )
+    except FileNotFoundError:
+        pass
 
-    # Fall back to default directory
     if provider_dir != DEFAULT_DIR:
-        default_path = prompts_dir / DEFAULT_DIR / filename
-        if default_path.exists():
+        try:
+            content = (prompts_dir / DEFAULT_DIR / filename).read_text(
+                encoding="utf-8",
+            )
+        except FileNotFoundError:
+            pass
+        else:
             logger.debug(
                 f"Prompt {filename} not found for {provider}, "
                 f"falling back to {DEFAULT_DIR}",
             )
-            return default_path.read_text(encoding="utf-8")
+            return content
 
     msg = f"Prompt file {filename} not found for provider {provider}"
     raise FileNotFoundError(msg)

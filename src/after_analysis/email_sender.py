@@ -80,11 +80,11 @@ from css_inline import CSSInliner
 from dotenv import load_dotenv
 
 from newsbot.models import AnalysisData
+from utilities import is_truthy_env
 from utilities.django_models import NewsConfig, Subscriber
 
 EMAILJS_SEND_URL = "https://api.emailjs.com/api/v1.0/email/send"
 HTTP_FORBIDDEN = 403
-_TRUTHY_VALUES = frozenset({"true", "1", "yes"})
 
 logger = logging.getLogger(__name__)
 
@@ -92,11 +92,6 @@ logger = logging.getLogger(__name__)
 # ----------------------------------------------------------------------
 # Helpers
 # ----------------------------------------------------------------------
-
-
-def _env_is_truthy(key: str, default: str = "false") -> bool:
-    """Return True when the environment variable value is truthy."""
-    return os.getenv(key, default).lower().strip() in _TRUTHY_VALUES
 
 
 def _env_str(key: str, default: str = "") -> str:
@@ -367,7 +362,7 @@ def _get_smtp_config() -> SMTPConfig | None:
     return SMTPConfig(
         smtp_server=os.getenv("EMAIL_SMTP_SERVER", "smtp.gmail.com"),
         smtp_port=int(os.getenv("EMAIL_SMTP_PORT", "587")),
-        use_ssl=_env_is_truthy("EMAIL_USE_SSL"),
+        use_ssl=is_truthy_env("EMAIL_USE_SSL"),
         sender_email=sender_email,
         sender_password=sender_password,
         cancellation_email=os.getenv("EMAIL_FOR_CANCELLATION", sender_email),
@@ -560,7 +555,7 @@ def execute(report_path: Path, analysis_data: AnalysisData) -> None:
 
     load_dotenv()
 
-    if not _env_is_truthy("EMAIL_ENABLED"):
+    if not is_truthy_env("EMAIL_ENABLED"):
         logger.debug("Email hook disabled (EMAIL_ENABLED not set to true)")
         return
 

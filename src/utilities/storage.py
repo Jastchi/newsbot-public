@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 
 from supabase import Client, create_client
 
+from utilities import is_dev_environment
 from utilities.django_models import NewsConfig
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,7 @@ def get_reports_bucket() -> str:
     Reads the ENVIRONMENT env var directly so this helper can be
     called from worker contexts that don't load Django settings.
     """
-    if os.getenv("ENVIRONMENT", "prod").strip().lower() == "dev":
+    if is_dev_environment():
         return REPORTS_BUCKET_DEV
     return REPORTS_BUCKET_PROD
 

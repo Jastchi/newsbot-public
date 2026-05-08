@@ -11,7 +11,7 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup
 
-from newsbot.constants import TZ
+from newsbot.constants import LOG_FORMAT, LOG_LEVEL, TZ
 from newsbot.llm_provider import get_required_env_vars
 from utilities.models import ConfigModel
 
@@ -90,9 +90,7 @@ def setup_logging(
             to derive the log filename (e.g., "logs/technology.log")
 
     """
-    log_config = config.logging
-    level = log_config.level
-    log_format = log_config.format
+    log_format = LOG_FORMAT.format(config_name=config.name or config_key)
 
     # Derive log filename from config key
     # e.g., "technology" → "logs/technology.log"
@@ -120,7 +118,7 @@ def setup_logging(
     # Configure logging, with force=True, so that loggers are
     # reconfigured on each job run.
     logging.basicConfig(
-        level=getattr(logging, level),
+        level=getattr(logging, LOG_LEVEL),
         format=log_format,
         handlers=[
             rotating_handler,

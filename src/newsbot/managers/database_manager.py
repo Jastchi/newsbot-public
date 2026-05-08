@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from django.db import (
     DatabaseError,
@@ -20,8 +20,6 @@ from newsbot.models import Article
 from utilities.django_models import Article as DjangoArticle
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
     from utilities.django_models import NewsConfig as NewsConfigType
 
 logger = logging.getLogger(__name__)
@@ -64,44 +62,37 @@ class DatabaseManager:
         saved_count = 0
 
         try:
-            # 1. Identify URLs to check
-            # Use a dict to remove duplicates, keeping the last one
             articles_by_url = {a.url: a for a in articles}
             urls = list(articles_by_url.keys())
 
-            # 2. Find which URLs already exist
-            existing_urls = set(
-                cast(
-                    "Iterable[str]",
-                    DjangoArticle.objects.filter(
-                        config=self._news_config,
-                        url__in=urls,
-                    ).values_list("url", flat=True),
-                ),
+            existing_rows = list(
+                DjangoArticle.objects.filter(
+                    config=self._news_config,
+                    url__in=urls,
+                ).only("id", "url", "content", "scraped_date"),
             )
+            existing_urls = {row.url for row in existing_rows}
 
-            # 3. Create new Article objects for non-existing URLs
-            new_objects = []
-            for url, article in articles_by_url.items():
-                if url not in existing_urls:
-                    new_objects.append(
-                        DjangoArticle(
-                            config=self._news_config,
-                            title=article.title,
-                            content=article.content or "",
-                            summary=article.summary or "",
-                            source=article.source,
-                            url=article.url,
-                            published_date=article.published_date,
-                            scraped_date=article.scraped_date,
-                            sentiment_score=article.sentiment.compound
-                            if article.sentiment
-                            else None,
-                            sentiment_label=article.sentiment.label
-                            if article.sentiment
-                            else "",
-                        ),
-                    )
+            new_objects = [
+                DjangoArticle(
+                    config=self._news_config,
+                    title=article.title,
+                    content=article.content or "",
+                    summary=article.summary or "",
+                    source=article.source,
+                    url=article.url,
+                    published_date=article.published_date,
+                    scraped_date=article.scraped_date,
+                    sentiment_score=article.sentiment.compound
+                    if article.sentiment
+                    else None,
+                    sentiment_label=article.sentiment.label
+                    if article.sentiment
+                    else "",
+                )
+                for url, article in articles_by_url.items()
+                if url not in existing_urls
+            ]
 
             if new_objects:
                 # batch_size=100 is a safe default for SQLite/Postgres
@@ -115,9 +106,7 @@ class DatabaseManager:
             else:
                 logger.info("No new articles to save")
 
-            self._backfill_empty_content(
-                articles_by_url, urls, existing_urls,
-            )
+            self._backfill_empty_content(articles_by_url, existing_rows)
 
         except (
             DatabaseError,
@@ -134,24 +123,16 @@ class DatabaseManager:
     def _backfill_empty_content(
         self,
         articles_by_url: dict[str, Article],
-        urls: list[str],
-        existing_urls: set[str],
+        existing_rows: list[DjangoArticle],
     ) -> None:
         """
         Backfill content for existing rows that have no content.
 
-        Only when URL is in existing_urls, DB content is blank, and the
-        incoming article for that URL has non-empty content.
+        Only when DB content is blank and the incoming article for that
+        URL has non-empty content.
         """
-        existing_rows = DjangoArticle.objects.filter(
-            config=self._news_config,
-            url__in=urls,
-        ).only("id", "url", "content", "scraped_date")
-
         to_backfill = []
         for db_art in existing_rows:
-            if db_art.url not in existing_urls:
-                continue
             incoming = articles_by_url.get(db_art.url)
             if not incoming or not (incoming.content or "").strip():
                 continue
@@ -188,9 +169,16 @@ class DatabaseManager:
         db_articles = DjangoArticle.objects.filter(
             config=self._news_config,
             scraped_date__gte=cutoff_date,
-        ).all()
+        ).only(
+            "title",
+            "content",
+            "source",
+            "url",
+            "published_date",
+            "scraped_date",
+            "summary",
+        )
 
-        # Convert to Article objects
         articles = [
             Article(
                 title=db_art.title,
@@ -249,7 +237,9 @@ class DatabaseManager:
         existing_objects = DjangoArticle.objects.filter(
             config=self._news_config,
             url__in=urls,
-        ).all()
+        ).only(
+            "id", "url", "summary", "sentiment_score", "sentiment_label",
+        )
 
         objects_to_update = []
         fields_to_update: set[str] = set()
@@ -266,7 +256,10 @@ class DatabaseManager:
                 changed = True
                 fields_to_update.add("summary")
 
-            if article.sentiment:
+            if article.sentiment and (
+                article.sentiment.compound != db_obj.sentiment_score
+                or article.sentiment.label != db_obj.sentiment_label
+            ):
                 db_obj.sentiment_score = article.sentiment.compound
                 db_obj.sentiment_label = article.sentiment.label
                 changed = True
@@ -409,16 +402,14 @@ class DatabaseManager:
             )
             today_end = today_start + timedelta(days=1)
 
-            count = DjangoArticle.objects.filter(
+            return DjangoArticle.objects.filter(
                 config=self._news_config,
                 scraped_date__gte=today_start,
                 scraped_date__lt=today_end,
-            ).count()
+            ).exists()
         except (
             DatabaseError, InterfaceError, IntegrityError, OperationalError,
         ):
             logger.exception("Database error checking if scraped today")
             connection.close()
             return False
-        else:
-            return count > 0

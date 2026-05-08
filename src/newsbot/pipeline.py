@@ -15,7 +15,8 @@ from typing import TYPE_CHECKING, cast
 from django.db import DatabaseError, IntegrityError, OperationalError
 
 from after_analysis import run_hooks
-from newsbot.constants import SENTIMENT_THRESHOLD, TZ
+from newsbot.agents.sentiment_agent import label_for_score
+from newsbot.constants import TZ
 from newsbot.managers import AgentManager, DatabaseManager
 from newsbot.models import (
     AnalysisData,
@@ -60,8 +61,6 @@ class PipelineOrchestrator:
         self.config = config
         self.email_receivers_override = None
 
-        # Store or look up NewsConfig instance for ForeignKey
-        # relationships
         resolved_config: NewsConfigType | None
         if news_config is not None:
             resolved_config = news_config
@@ -76,11 +75,8 @@ class PipelineOrchestrator:
             raise ValueError(msg)
 
         self._news_config: NewsConfigType = resolved_config
-        # Set config_key from news_config if empty
         self.config_key = config_key or resolved_config.key
 
-        # Initialize managers for database ops and lazy agent
-        # initialization
         self.database_manager = DatabaseManager(self._news_config)
         self.agent_manager = AgentManager(
             config,
@@ -148,7 +144,6 @@ class PipelineOrchestrator:
 
         """
         self._news_config = news_config
-        # Update database manager with new news_config
         self.database_manager = DatabaseManager(news_config)
         logger.info("NewsConfig updated in pipeline orchestrator")
 
@@ -286,7 +281,6 @@ class PipelineOrchestrator:
                 article.sentiment = sentiment
                 source_sentiments[article.source].append(sentiment)
 
-            # Calculate average sentiment per source for this story
             source_sentiment_summary: dict[str, SentimentSummary] = {}
             for source, sentiments in source_sentiments.items():
                 avg_compound = sum(s.compound for s in sentiments) / len(
@@ -296,11 +290,7 @@ class PipelineOrchestrator:
                     "SentimentSummary",
                     {
                         "avg_sentiment": avg_compound,
-                        "label": "positive"
-                        if avg_compound > SENTIMENT_THRESHOLD
-                        else "negative"
-                        if avg_compound < -SENTIMENT_THRESHOLD
-                        else "neutral",
+                        "label": label_for_score(avg_compound),
                         "article_count": len(sentiments),
                         "sentiments": sentiments,
                     },
@@ -372,7 +362,6 @@ class PipelineOrchestrator:
                 f"{len({a.source for a in articles})} sources",
             )
 
-            # Step 2: Save to database
             logger.info("Saving articles to database...")
             saved_count = self.database_manager.save_articles(articles)
             results.saved_to_db = saved_count
@@ -474,7 +463,6 @@ class PipelineOrchestrator:
             days_back: Number of days analyzed
 
         """
-        # Update database with summaries and sentiments
         logger.info("Updating database with analysis results...")
         self.database_manager.update_articles_with_analysis(articles)
         logger.info("Database updated with analysis results")
@@ -492,7 +480,6 @@ class PipelineOrchestrator:
             f"Total Sources: {len({a.source for a in articles})}",
         )
 
-        # Run post-analysis hooks
         if report_path:
             cutoff_date = datetime.now(TZ) - timedelta(days=days_back)
             analysis_data: AnalysisData = {
@@ -528,12 +515,10 @@ class PipelineOrchestrator:
         results = Results()
 
         try:
-            # Step 1: Load articles from database
             articles = self._weekly_step1_load_articles(days_back, results)
             if articles is None:
                 return results
 
-            # Step 2: Identify top N stories
             top_stories = self._weekly_step2_identify_stories(
                 articles,
                 results,

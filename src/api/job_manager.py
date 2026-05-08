@@ -7,13 +7,15 @@ Provides a simple in-memory job store and status tracking.
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 from newsbot.constants import TZ
+
+JOB_RETENTION_DAYS = 7
 
 
 class JobStatus(StrEnum):
@@ -63,10 +65,21 @@ class JobManager:
             Job ID
 
         """
+        self._evict_old_jobs()
         job_id = str(uuid.uuid4())
         job = Job(id=job_id, type=job_type, config_key=config_key)
         self._jobs[job_id] = job
         return job_id
+
+    def _evict_old_jobs(self) -> None:
+        cutoff = datetime.now(TZ) - timedelta(days=JOB_RETENTION_DAYS)
+        stale = [
+            job_id
+            for job_id, job in self._jobs.items()
+            if (job.completed_at or job.created_at) < cutoff
+        ]
+        for job_id in stale:
+            del self._jobs[job_id]
 
     def get_job(self, job_id: str) -> Job | None:
         """

@@ -34,7 +34,12 @@ from newsbot.constants import (
     TZ,
 )
 from newsbot.error_handling.email_handler import send_error_email_once
-from utilities import ConfigNotFoundError, load_config, setup_django
+from utilities import (
+    ConfigNotFoundError,
+    is_truthy_env,
+    load_config,
+    setup_django,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +75,7 @@ class JobStartResponse(BaseModel):
     """Response model for starting background jobs."""
 
     job_id: str
-    status: str
+    status: JobStatus
     message: str
     config_key: str
     config_name: str
@@ -206,11 +211,7 @@ def _get_scheduler_status() -> tuple[bool, int | None]:
 @app.get("/health", response_model=HealthResponse)
 def health_check() -> HealthResponse:
     """Health check endpoint."""
-    scheduler_enabled = os.getenv("ENABLE_SCHEDULER", "false").lower() in (
-        "true",
-        "1",
-        "yes",
-    )
+    scheduler_enabled = is_truthy_env("ENABLE_SCHEDULER")
     scheduler_running, scheduler_pid = (
         _get_scheduler_status() if scheduler_enabled else (False, None)
     )
@@ -280,7 +281,7 @@ def run_scrape(
     # Return immediately
     return JobStartResponse(
         job_id=job_id,
-        status="pending",
+        status=JobStatus.PENDING,
         message=f"Daily scrape started for config '{config_key}'",
         config_key=config_key,
         config_name=config.name,
@@ -348,7 +349,7 @@ def run_analysis(
     # Return immediately
     return JobStartResponse(
         job_id=job_id,
-        status="pending",
+        status=JobStatus.PENDING,
         message=f"Weekly analysis started for config '{config_key}'",
         config_key=config_key,
         config_name=config.name,
@@ -389,33 +390,18 @@ def get_today_jobs_endpoint() -> TodayJobsResponse:
         all_schedules = get_all_schedules()
         scheduled_jobs: list[ScheduledJob] = []
 
-        # Helper to check if a job has already been realized or created
-        # today
-        def has_started(config_key: str, job_type: JobType) -> bool:
-            # Check if job is already realized
-            # (i.e. started, completed, or failed)
-            if any(
-                j.config_key == config_key and j.type == job_type
-                for j in realized_jobs
-            ):
-                return True
-            # Also check if job has been created but is still pending
-            return any(
-                j.config_key == config_key
-                and j.type == job_type
-                and j.status == JobStatus.PENDING
-                for j in all_today_jobs
-            )
+        started: set[tuple[str, JobType]] = {
+            (j.config_key, j.type) for j in all_today_jobs
+        }
 
         for schedule in all_schedules:
             config_key = schedule["key"]
             config_name = schedule["name"]
 
-            # Daily scrape at fixed time (newsbot.constants)
             daily = schedule.get("daily_scrape", {})
-            if daily.get("enabled") and not has_started(
+            if daily.get("enabled") and (
                 config_key, JobType.SCRAPE,
-            ):
+            ) not in started:
                 scheduled_jobs.append(
                     ScheduledJob(
                         type=JobType.SCRAPE,
@@ -425,11 +411,10 @@ def get_today_jobs_endpoint() -> TodayJobsResponse:
                     ),
                 )
 
-            # Check weekly analysis
             weekly = schedule.get("weekly_analysis", {})
-            if weekly.get("enabled") and not has_started(
+            if weekly.get("enabled") and (
                 config_key, JobType.ANALYSIS,
-            ):
+            ) not in started:
                 # Check if today is the scheduled day
                 scheduled_day = DAY_NAME_TO_PYTHON_WEEKDAY.get(
                     weekly.get("day_of_week", "").lower(),

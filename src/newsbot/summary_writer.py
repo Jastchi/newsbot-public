@@ -2,9 +2,8 @@
 
 import json
 import logging
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict
 from datetime import datetime
-from typing import Any, cast
 
 from django.db import (
     DatabaseError,
@@ -15,7 +14,7 @@ from django.db import (
     connection,
 )
 
-from newsbot.agents.story_clustering_agent import Story
+from newsbot.models import Story
 from utilities.django_models import (
     AnalysisSummary,
     NewsConfig,
@@ -47,10 +46,6 @@ def _serialize_for_json(obj: object) -> object:
 
 class SummaryWriter:
     """Writes scrape and analysis summaries to the Django database."""
-
-    def __init__(self) -> None:
-        """Initialize the summary writer and ensure Django is set up."""
-        # Django is automatically set up when django_models is imported
 
     def _get_config(self, config_key: str) -> NewsConfig | None:
         """
@@ -144,31 +139,8 @@ class SummaryWriter:
             config = self._get_config(config_key)
             errors_text = json.dumps(errors) if errors else ""
 
-            # Serialize top stories
-            serialized_stories: list[dict[str, Any] | str] = []
-            for story in top_stories:
-                if isinstance(story, dict):
-                    serialized_stories.append(cast("dict[str, Any]", story))
-                elif is_dataclass(story) and not isinstance(story, type):
-                    serialized_stories.append(asdict(story))
-                elif hasattr(story, "__dict__"):
-                    serialized_stories.append(
-
-                        {
-                            "title": getattr(story, "title", ""),
-                            "article_count": getattr(
-                                story,
-                                "article_count",
-                                0,
-                            ),
-                            "sources": getattr(story, "sources", []),
-                        },
-                    )
-                else:
-                    serialized_stories.append(str(story))
-
             top_stories_text = json.dumps(
-                _serialize_for_json(serialized_stories),
+                _serialize_for_json([asdict(story) for story in top_stories]),
             )
 
             AnalysisSummary.objects.create(

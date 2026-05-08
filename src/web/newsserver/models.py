@@ -431,17 +431,6 @@ class NewsConfig(BaseModel):
     )
 
     # Logging Configuration fields
-    logging_level = models.CharField(
-        max_length=20,
-        default="INFO",
-        help_text="Logging level",
-    )
-    logging_format = models.CharField(
-        max_length=500,
-        default="%(asctime)s [%(levelname)s - %(name)s] %(message)s",
-        help_text="Log format string",
-    )
-
     # Database Configuration fields
     database_url = models.CharField(
         max_length=500,
@@ -566,10 +555,6 @@ class NewsConfig(BaseModel):
                     minute=self.scheduler_weekly_analysis_minute,
                     lookback_days=self.scheduler_weekly_analysis_lookback_days,
                 ),
-            ),
-            logging=config_models.LoggingConfigModel(
-                level=self.logging_level,
-                format=self.logging_format,
             ),
             database=config_models.DatabaseConfigModel(
                 url=self.database_url,

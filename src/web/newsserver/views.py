@@ -1,6 +1,7 @@
 """Views for displaying NewsBot reports."""
 
 import json
+from collections import deque
 from collections.abc import Generator
 from datetime import datetime, time, timedelta
 from pathlib import Path
@@ -363,33 +364,23 @@ def _stream_log_file(log_path: Path) -> Generator[str, None, None]:
     """
     try:
         last_position = 0
-        if log_path.exists():
+        try:
             with log_path.open(encoding="utf-8", errors="replace") as f:
-                lines = f.readlines()
-                initial_content = "".join(lines[-MAX_INITIAL_LINES:])
+                initial_content = "".join(deque(f, maxlen=MAX_INITIAL_LINES))
                 last_position = f.tell()
             initial_payload = json.dumps(
                 {"type": "initial_content", "content": initial_content},
             )
             yield f"data: {initial_payload}\n\n"
+        except FileNotFoundError:
+            pass
 
-        # Send initial keepalive
         connected_payload = json.dumps({"type": "connected"})
         yield f"data: {connected_payload}\n\n"
 
-        # Poll for new content
         while True:
             sleep(0.5)  # Poll every 500ms
 
-            # Check if file still exists and is readable
-            if not log_path.exists():
-                error_payload = json.dumps(
-                    {"type": "error", "message": "Log file no longer exists"},
-                )
-                yield f"data: {error_payload}\n\n"
-                break
-
-            # Open file and check for new content
             try:
                 with log_path.open(encoding="utf-8", errors="replace") as f:
                     f.seek(0, 2)  # Seek to end
@@ -400,23 +391,22 @@ def _stream_log_file(log_path: Path) -> Generator[str, None, None]:
                         last_position = 0
                         f.seek(0)
                     elif current_size > last_position:
-                        # New content available
                         f.seek(last_position)
                         new_lines = f.readlines()
                         last_position = f.tell()
 
-                        # Send each new line as an SSE event
                         for line in new_lines:
-                            # Strip trailing newlines
-                            # (we'll add them back in display)
-                            line_content = line.rstrip("\n\r")
-                            # Create JSON payload and encode it properly
                             payload = {
                                 "type": "log_line",
-                                "content": line_content,
+                                "content": line.rstrip("\n\r"),
                             }
-                            json_payload = json.dumps(payload)
-                            yield f"data: {json_payload}\n\n"
+                            yield f"data: {json.dumps(payload)}\n\n"
+            except FileNotFoundError:
+                error_payload = json.dumps(
+                    {"type": "error", "message": "Log file no longer exists"},
+                )
+                yield f"data: {error_payload}\n\n"
+                break
             except Exception as e:
                 error_payload = json.dumps(
                     {"type": "error", "message": f"Error reading log: {e!s}"},
@@ -731,7 +721,13 @@ class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
                 )
                 config.scheduler_weekly_analysis_hour = local_dt.hour
                 config.scheduler_weekly_analysis_minute = local_dt.minute
-                config.save()
+                config.save(
+                    update_fields=[
+                        "scheduler_weekly_analysis_day_of_week",
+                        "scheduler_weekly_analysis_hour",
+                        "scheduler_weekly_analysis_minute",
+                    ],
+                )
 
                 return JsonResponse({"status": "success"})
         except (

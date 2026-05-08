@@ -19,6 +19,7 @@ import dj_database_url
 from dotenv import load_dotenv
 
 from newsbot.constants import TIMEZONE_STR
+from utilities import is_dev_environment, is_truthy_env
 
 load_dotenv()
 
@@ -27,8 +28,7 @@ load_dotenv()
 # schema; otherwise they fall through to "public" (prod). The schema
 # name is interpolated into a SET search_path string below, so it must
 # be validated as a safe Postgres identifier.
-ENVIRONMENT = os.getenv("ENVIRONMENT", "prod").strip().lower()
-DB_SCHEMA = "dev" if ENVIRONMENT == "dev" else "public"
+DB_SCHEMA = "dev" if is_dev_environment() else "public"
 if not re.fullmatch(r"[a-z_][a-z0-9_]{0,62}", DB_SCHEMA):
     msg = f"Invalid DB_SCHEMA derived from ENVIRONMENT: {DB_SCHEMA!r}"
     raise ValueError(msg)
@@ -49,7 +49,7 @@ SECRET_KEY = os.getenv(
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG", "true").lower() in ("true", "1", "yes")
+DEBUG = is_truthy_env("DEBUG", default="true")
 
 ALLOWED_HOSTS = [
     "localhost",
@@ -260,16 +260,8 @@ SOCIALACCOUNT_PROVIDERS = {
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = os.getenv("EMAIL_SMTP_SERVER", "smtp.gmail.com")
 EMAIL_PORT = int(os.getenv("EMAIL_SMTP_PORT", "587"))
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_SSL", "false").lower() not in (
-    "true",
-    "1",
-    "yes",
-)
-EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "false").lower() in (
-    "true",
-    "1",
-    "yes",
-)
+EMAIL_USE_SSL = is_truthy_env("EMAIL_USE_SSL")
+EMAIL_USE_TLS = not EMAIL_USE_SSL
 EMAIL_HOST_USER = os.getenv("EMAIL_SENDER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_PASSWORD", "")
 # Sender format like report emails: "Display Name <email>"

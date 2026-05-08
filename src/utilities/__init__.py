@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+import os
 from typing import TYPE_CHECKING
 
 from tenacity import (
@@ -19,6 +20,18 @@ if TYPE_CHECKING:
     from utilities.models import ConfigModel
 
 logger = logging.getLogger(__name__)
+
+_TRUTHY_VALUES = frozenset({"true", "1", "yes"})
+
+
+def is_truthy_env(key: str, default: str = "false") -> bool:
+    """Return True when the given env var holds a truthy value."""
+    return os.getenv(key, default).strip().lower() in _TRUTHY_VALUES
+
+
+def is_dev_environment() -> bool:
+    """Return True when ENVIRONMENT is set to 'dev'."""
+    return os.getenv("ENVIRONMENT", "prod").strip().lower() == "dev"
 
 
 class ConfigNotFoundError(Exception):
@@ -69,4 +82,10 @@ def load_config(config_key: str) -> tuple[ConfigModel, NewsConfig]:
     return config, news_config
 
 
-__all__ = ["ConfigNotFoundError", "load_config", "setup_django"]
+__all__ = [
+    "ConfigNotFoundError",
+    "is_dev_environment",
+    "is_truthy_env",
+    "load_config",
+    "setup_django",
+]

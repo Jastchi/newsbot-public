@@ -291,6 +291,132 @@ class TestNewsScraperAgent:
         # Should return empty list but not crash
         assert isinstance(articles, list)
 
+    @patch.object(NewsScraperAgent, "_scrape_source")
+    def test_scrape_all_sources_groups_by_domain(
+        self, mock_scrape_source, sample_config
+    ):
+        """Sources sharing a domain run on the same thread; distinct
+        domains run in parallel (different threads)."""
+        import threading
+        from utilities.models import NewsSourceModel
+
+        thread_ids_by_source: dict[str, int] = {}
+        # Use a barrier so distinct domains must run concurrently for
+        # the test to pass — otherwise mock_scrape_source would block
+        # forever if executed serially.
+        barrier = threading.Barrier(2, timeout=5)
+
+        def record_thread(source):
+            name = source["name"]
+            if name.startswith("RFE"):
+                # Same-domain sources: do not block on barrier.
+                thread_ids_by_source[name] = threading.get_ident()
+            else:
+                barrier.wait()
+                thread_ids_by_source[name] = threading.get_ident()
+            return []
+
+        mock_scrape_source.side_effect = record_thread
+
+        # Two RFE feeds share a domain (must run sequentially); BBC and
+        # Guardian are distinct domains and must run in parallel for the
+        # barrier (parties=2) to release.
+        config = sample_config.model_copy(
+            update={
+                "news_sources": [
+                    NewsSourceModel(
+                        name="RFE-1",
+                        rss_url="https://rferl.org/feed1",
+                        type="rss",
+                    ),
+                    NewsSourceModel(
+                        name="RFE-2",
+                        rss_url="https://rferl.org/feed2",
+                        type="rss",
+                    ),
+                    NewsSourceModel(
+                        name="BBC",
+                        rss_url="https://bbc.co.uk/feed",
+                        type="rss",
+                    ),
+                    NewsSourceModel(
+                        name="Guardian",
+                        rss_url="https://theguardian.com/feed",
+                        type="rss",
+                    ),
+                ]
+            }
+        )
+
+        agent = NewsScraperAgent(config)
+        agent.scrape_all_sources()
+
+        assert mock_scrape_source.call_count == 4
+        # Both RFE sources share a thread (sequential within domain).
+        assert (
+            thread_ids_by_source["RFE-1"] == thread_ids_by_source["RFE-2"]
+        )
+        # Distinct domains use distinct threads.
+        assert (
+            thread_ids_by_source["BBC"] != thread_ids_by_source["Guardian"]
+        )
+
+    @patch.object(NewsScraperAgent, "_scrape_source")
+    @patch.object(NewsScraperAgent, "_get_topic_embeddings")
+    @patch.object(NewsScraperAgent, "_get_embedding_model")
+    def test_scrape_all_sources_pre_loads_embeddings(
+        self,
+        mock_get_model,
+        mock_get_topic_embeddings,
+        mock_scrape_source,
+        sample_config,
+    ):
+        """Embedding model + topic embeddings are loaded before any
+        source is scraped, to avoid a race in their lazy init."""
+        from utilities.models import NewsSourceModel, TopicModel
+
+        call_order: list[str] = []
+        mock_get_model.side_effect = lambda: call_order.append("model")
+        mock_get_topic_embeddings.side_effect = lambda: call_order.append(
+            "embeddings",
+        )
+        mock_scrape_source.side_effect = lambda source: (
+            call_order.append("scrape") or []
+        )
+
+        config = sample_config.model_copy(
+            update={
+                "news_sources": [
+                    NewsSourceModel(
+                        name="A",
+                        rss_url="https://a.com/feed",
+                        type="rss",
+                    ),
+                    NewsSourceModel(
+                        name="B",
+                        rss_url="https://b.com/feed",
+                        type="rss",
+                    ),
+                ],
+                "topics": [
+                    TopicModel(
+                        name="topic-1",
+                        description="Some topic",
+                        keywords=["kw"],
+                        similarity_threshold=0.5,
+                    ),
+                ],
+            }
+        )
+
+        agent = NewsScraperAgent(config)
+        agent.scrape_all_sources()
+
+        # Pre-load happens before any scrape call.
+        first_scrape_idx = call_order.index("scrape")
+        assert "model" in call_order[:first_scrape_idx]
+        assert "embeddings" in call_order[:first_scrape_idx]
+
     def test_scrape_source_unknown_type(self, sample_config):
         """Test handling of unknown source types"""
         from newsbot.models import NewsSource

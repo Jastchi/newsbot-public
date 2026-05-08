@@ -36,45 +36,31 @@ def run_once(args: Namespace) -> None:
         args: Command line arguments
 
     """
-    # Setup Django first (needed for load_config)
     setup_django()
-
-    # Load configuration from database
     config, news_config = load_config(args.config)
 
-    # Setup logging
     email_error_handler = get_email_error_handler()
     email_error_handler.config_name = config.name
     setup_logging(config, [email_error_handler], config_key=args.config)
-
-    # Validate environment based on configured provider
     validate_environment(config, email_error_handler)
 
     logger.info("Starting NewsBot - Single Run Mode")
 
     try:
-        # Create and run pipeline
         orchestrator = PipelineOrchestrator(
             config,
             config_key=args.config,
             news_config=news_config,
         )
 
-        # Set email receivers override if provided
-        if (
-            hasattr(args, "email_receivers")
-            and args.email_receivers is not None
-        ):
+        if args.email_receivers is not None:
             orchestrator.set_email_receivers_override(args.email_receivers)
 
-        # Get status
         status = orchestrator.get_pipeline_status()
         logger.info(f"Pipeline Status: {status}")
 
-        # Run daily scrape (only scrapes if not already done today)
         results = orchestrator.run_daily_scrape(force=args.force)
 
-        # Print summary
         print("\n" + "=" * 70)
         print("DAILY SCRAPE SUMMARY")
         print("=" * 70)
@@ -90,7 +76,6 @@ def run_once(args: Namespace) -> None:
 
         print("=" * 70 + "\n")
 
-        # Save summary to DB
         summary_writer = SummaryWriter()
         summary_writer.save_scrape_summary(
             config_key=args.config,
@@ -102,7 +87,6 @@ def run_once(args: Namespace) -> None:
         )
 
     finally:
-        # Send all collected errors in one email at the end of the run
         email_error_handler.flush()
 
 
@@ -114,26 +98,17 @@ def run_analysis(args: Namespace) -> None:
         args: Command line arguments
 
     """
-    # Setup Django first (needed for load_config)
     setup_django()
-
-    # Load configuration from database
     config, news_config = load_config(args.config)
 
-    # Setup logging
     email_error_handler = get_email_error_handler()
     email_error_handler.config_name = config.name
     setup_logging(config, [email_error_handler], config_key=args.config)
-
-    # Validate environment based on configured provider
     validate_environment(config, email_error_handler)
 
     logger.info("Starting NewsBot - Analysis Mode")
 
-    # Insert test articles if --test flag is provided
-    if hasattr(args, "test") and args.test:
-        # Only allow --test with test configs (because database is
-        # cleared)
+    if getattr(args, "test", False):
         if not args.config.startswith("test"):
             logger.error("--test requires a test config (i.e. test_*)")
             raise SystemExit(1)
@@ -143,31 +118,18 @@ def run_analysis(args: Namespace) -> None:
         logger.info("Inserted %d test articles (2 clusters)", count)
 
     try:
-        # Create orchestrator
         orchestrator = PipelineOrchestrator(
             config,
             config_key=args.config,
             news_config=news_config,
         )
 
-        # Set email receivers override if provided
-        if (
-            hasattr(args, "email_receivers")
-            and args.email_receivers is not None
-        ):
+        if args.email_receivers is not None:
             orchestrator.set_email_receivers_override(args.email_receivers)
 
-        # Get lookback days from config or args
-        lookback_days = (
-            args.days
-            if hasattr(args, "days") and args.days
-            else config.report.lookback_days
-        )
-
-        # Run weekly analysis
+        lookback_days = args.days or config.report.lookback_days
         results = orchestrator.run_weekly_analysis(days_back=lookback_days)
 
-        # Print summary
         print("\n" + "=" * 70)
         print("WEEKLY ANALYSIS SUMMARY")
         print("=" * 70)
@@ -177,7 +139,6 @@ def run_analysis(args: Namespace) -> None:
         print(f"Top Stories Identified: {results.stories_count}")
         print(f"Duration: {results.duration:.2f} seconds")
 
-        # Print top stories if available
         if results.top_stories:
             print(f"\nTop {len(results.top_stories)} Stories:")
             for i, story in enumerate(results.top_stories[:5], 1):
@@ -194,7 +155,6 @@ def run_analysis(args: Namespace) -> None:
 
         print("=" * 70 + "\n")
 
-        # Save summary to DB
         summary_writer = SummaryWriter()
         summary_writer.save_analysis_summary(
             config_key=args.config,
@@ -207,7 +167,6 @@ def run_analysis(args: Namespace) -> None:
         )
 
     finally:
-        # Send all collected errors in one email at the end of the run
         email_error_handler.flush()
 
 
@@ -523,8 +482,7 @@ def run_scheduled(args: Namespace) -> None:
         news_config=news_config,
     )
 
-    # Set email receivers override if provided
-    if hasattr(args, "email_receivers") and args.email_receivers is not None:
+    if args.email_receivers is not None:
         orchestrator.set_email_receivers_override(args.email_receivers)
 
     # Extract scheduler configuration

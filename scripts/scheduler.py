@@ -71,7 +71,7 @@ HEALTH_POLL_CAP = 5.0
 HTTP_OK = 200
 
 # Wait for run job: max time per config, poll interval
-JOB_WAIT_TIMEOUT = 3600 # 1 hour
+JOB_WAIT_TIMEOUT = 7200 # 2 hours
 JOB_POLL_INTERVAL = 60 # 1 minute
 
 
@@ -504,7 +504,7 @@ def print_scheduler_info(scheduler: BlockingScheduler) -> None:
     print("-" * 60)
 
     for job in jobs:
-        next_run = getattr(job, "next_run_time", None)
+        next_run = job.trigger.get_next_fire_time(None, utc_now)
         next_run_str = (
             next_run.strftime("%Y-%m-%d %H:%M:%S %Z") if next_run else "N/A"
         )

@@ -8,7 +8,8 @@ import json
 import logging
 import socket
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, cast
 from urllib.error import URLError
@@ -34,7 +35,7 @@ from tenacity import (
 if TYPE_CHECKING:
     from tenacity._utils import LoggerProtocol
 
-from newsbot.constants import EMBEDDING_BATCH_SIZE, TZ
+from newsbot.constants import EMBEDDING_BATCH_SIZE, SCRAPER_MAX_WORKERS, TZ
 from newsbot.model_cache import get_sentence_transformer
 from newsbot.models import Article, NewsSource
 from newsbot.utils import clean_text
@@ -246,29 +247,69 @@ class NewsScraperAgent:
         """
         Scrape news from all configured sources.
 
+        Sources are grouped by domain. Different domains run in parallel
+        via a thread pool; sources within a domain run sequentially so
+        per-host rate limiting is preserved.
+
         Returns:
             list of Article objects
 
         """
-        logger.info(f"Starting news scraping for {len(self.sources)} sources")
-        all_articles = []
-
+        domain_groups: dict[str, list[NewsSource]] = {}
         for source in self.sources:
+            domain = urlparse(source["rss_url"]).netloc
+            domain_groups.setdefault(domain, []).append(source)
+
+        logger.info(
+            "Starting news scraping for %d sources across %d domains",
+            len(self.sources), len(domain_groups),
+        )
+
+        # Pre-load embedding model + topic embeddings before spawning
+        # threads to avoid a race in their lazy initialization.
+        if self.topics:
+            self._get_embedding_model()
+            self._get_topic_embeddings()
+
+        all_articles: list[Article] = []
+        max_workers = min(SCRAPER_MAX_WORKERS, len(domain_groups)) or 1
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_domain = {
+                executor.submit(
+                    self._scrape_domain_group, sources,
+                ): domain
+                for domain, sources in domain_groups.items()
+            }
+            for future in as_completed(future_to_domain):
+                domain = future_to_domain[future]
+                try:
+                    all_articles.extend(future.result())
+                except Exception:
+                    logger.exception("Error scraping domain %s", domain)
+
+        logger.info(f"Total articles scraped: {len(all_articles)}")
+        return all_articles
+
+    def _scrape_domain_group(
+        self, sources: list[NewsSource],
+    ) -> list[Article]:
+        """Scrape all sources from a single domain sequentially."""
+        articles: list[Article] = []
+        for source in sources:
             try:
-                articles = self._scrape_source(source)
-                all_articles.extend(articles)
+                source_articles = self._scrape_source(source)
+                articles.extend(source_articles)
                 logger.info(
-                    f"Scraped {len(articles)} articles from {source['name']}",
+                    "Scraped %d articles from %s",
+                    len(source_articles), source["name"],
                 )
             except (
                 requests.exceptions.RequestException,
                 OSError,
                 URLError,
             ):
-                logger.exception(f"Error scraping {source['name']}")
-
-        logger.info(f"Total articles scraped: {len(all_articles)}")
-        return all_articles
+                logger.exception("Error scraping %s", source["name"])
+        return articles
 
     def _scrape_source(self, source: NewsSource) -> list[Article]:
         """
@@ -766,9 +807,6 @@ class NewsScraperAgent:
             if article:
                 articles.append(article)
 
-            # Add delay between articles from same source
-            time.sleep(1.5)
-
         return articles
 
     def _discover_article_links(
@@ -779,18 +817,33 @@ class NewsScraperAgent:
 
         Filters to same-domain links, drops mailto/tel/javascript and
         pure-fragment hrefs, strips fragments, dedupes preserving order,
-        and caps the result at MAX_LINKS_PER_LISTING.
+        and caps the result at MAX_LINKS_PER_LISTING. When the listing
+        URL responds with an RSS/Atom feed, links come from feedparser.
         """
-        soup = BeautifulSoup(html, "html.parser")
+        if self._looks_like_xml(html):
+            candidates: Iterable[object] = (
+                entry.get("link", "")
+                for entry in feedparser.parse(html).entries
+            )
+        else:
+            soup = BeautifulSoup(html, "html.parser")
+            candidates = (
+                anchor.get("href") or ""
+                for anchor in soup.find_all("a", href=True)
+            )
+        return self._filter_candidate_links(candidates, base_url)
+
+    def _filter_candidate_links(
+        self, candidates: Iterable[object], base_url: str,
+    ) -> list[str]:
+        """Apply domain, scheme, and dedup filters to candidates."""
         base_netloc = urlparse(base_url).netloc
         normalized_base = self._normalize_url(base_url)
-
         seen: dict[str, None] = {}
-        for anchor in soup.find_all("a", href=True):
-            href_attr = anchor.get("href") or ""
-            if isinstance(href_attr, list):
-                href_attr = href_attr[0] if href_attr else ""
-            href = href_attr.strip()
+
+        for raw in candidates:
+            href = (raw[0] if raw else "") if isinstance(raw, list) else raw
+            href = str(href).strip()
             if not href or href.startswith("#"):
                 continue
             if href.lower().startswith(_SKIP_LINK_SCHEMES):
@@ -804,15 +857,19 @@ class NewsScraperAgent:
                 continue
 
             normalized = self._normalize_url(absolute)
-            if normalized == normalized_base:
-                continue
-            if normalized in seen:
+            if normalized == normalized_base or normalized in seen:
                 continue
             seen[normalized] = None
             if len(seen) >= MAX_LINKS_PER_LISTING:
                 break
 
         return list(seen)
+
+    @staticmethod
+    def _looks_like_xml(content: str) -> bool:
+        """Check whether content starts with an XML/RSS/Atom tag."""
+        head = content.lstrip()[:200].lower()
+        return head.startswith(("<?xml", "<rss", "<feed"))
 
     @staticmethod
     def _normalize_url(url: str) -> str:
@@ -831,6 +888,8 @@ class NewsScraperAgent:
         <time datetime>, JSON-LD datePublished. Returns (title, None)
         when no parseable date is present; caller substitutes now().
         """
+        if self._looks_like_xml(html):
+            return "", None
         soup = BeautifulSoup(html, "html.parser")
         title = self._extract_title(soup)
         pub_date = self._extract_pub_date(soup)
