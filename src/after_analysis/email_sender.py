@@ -251,6 +251,8 @@ def _get_manage_subscriptions_url() -> str:
 def replace_placeholders_in_report(
     report_html: str,
     sender_email: str,
+    config_key: str = "default",
+    report_name: str = "",
 ) -> str:
     """
     Replace placeholders in the report HTML with actual values.
@@ -260,6 +262,7 @@ def replace_placeholders_in_report(
     - PLACEHOLDER_NEWSLETTERS
     - PLACEHOLDER_MANAGE_SUBSCRIPTIONS_LINK (manage/cancel link if
       NEWSSERVER_BASE_URL is set)
+    - PLACEHOLDER_WEB_REPORT_LINK (link to the full web report)
     """
     report_html = report_html.replace(
         "PLACEHOLDER_EMAIL_ADDRESS",
@@ -280,17 +283,32 @@ def replace_placeholders_in_report(
             f'contact us at <a href="mailto:{sender_email}">'
             f"{sender_email}</a> to manage your subscriptions"
         )
-    placeholder = "PLACEHOLDER_MANAGE_SUBSCRIPTIONS_LINK"
-    return report_html.replace(placeholder, manage_link)
+    report_html = report_html.replace(
+        "PLACEHOLDER_MANAGE_SUBSCRIPTIONS_LINK", manage_link,
+    )
+
+    if manage_url:
+        web_report_url = f"{manage_url.rstrip('/')}/config/{config_key}/"
+        if report_name:
+            web_report_url += f"?report={report_name}"
+        web_report_link = web_report_url
+    else:
+        web_report_link = "#"
+    return report_html.replace("PLACEHOLDER_WEB_REPORT_LINK", web_report_link)
 
 
-def _process_report_html(report_path: Path, sender_email: str) -> str | None:
+def _process_report_html(
+    report_path: Path,
+    sender_email: str,
+    config_key: str = "default",
+) -> str | None:
     """
     Read, inline CSS, and replace placeholders in a report HTML file.
 
     Args:
         report_path: Path to the report file
         sender_email: Sender email for placeholder replacement
+        config_key: Config key used to build the web report URL
 
     Returns:
         Processed HTML content or None if the file could not be read.
@@ -303,7 +321,9 @@ def _process_report_html(report_path: Path, sender_email: str) -> str | None:
         return None
 
     report_html = CSSInliner().inline(report_html)
-    return replace_placeholders_in_report(report_html, sender_email)
+    return replace_placeholders_in_report(
+        report_html, sender_email, config_key, report_path.name,
+    )
 
 
 # ----------------------------------------------------------------------
@@ -569,7 +589,7 @@ def execute(report_path: Path, analysis_data: AnalysisData) -> None:
         logger.warning("EMAIL_SENDER required for email report placeholders")
         return
 
-    email_body = _process_report_html(report_path, sender_email)
+    email_body = _process_report_html(report_path, sender_email, config_key)
     if not email_body:
         return
 
