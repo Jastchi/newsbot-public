@@ -190,7 +190,10 @@
             margin-left: 0;
         }
         .sentiment.source-sentiment {
-            padding: 2px 10px;
+            padding: 1px 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
         }
         .sentiment-positive { background: #d4edda; color: #155724; }
         .sentiment-negative { background: #f8d7da; color: #721c24; }
@@ -198,7 +201,6 @@
         .sentiment-score {
             font-size: 0.9em;
             color: #666;
-            margin-left: 4px;
         }
         .footer {
             text-align: center;
@@ -310,7 +312,7 @@
                 <span>{{ source }} <span style="font-weight: 400; color: #999; font-size: 0.9em;">({{ analysis.source_summaries.get(source, [])|length }} article{{ "s" if analysis.source_summaries.get(source, [])|length != 1 else "" }})</span></span>
                 {% if source in analysis.source_sentiments %}
                 <span class="sentiment source-sentiment sentiment-{{ analysis.source_sentiments[source].label }}">
-                    {{ analysis.source_sentiments[source].label|upper }}
+                    <span>{{ analysis.source_sentiments[source].label|upper }}</span>
                     <span class="sentiment-score">({{ "%.2f"|format(analysis.source_sentiments[source].avg_sentiment) }})</span>
                 </span>
                 {% endif %}

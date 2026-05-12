@@ -272,3 +272,29 @@ DEFAULT_FROM_EMAIL = (
 )
 # Recipient for daily subscriber-request digest
 EMAIL_ADMIN_NOTIFICATION_TO = os.getenv("EMAIL_SENDER", "")
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "WARNING",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
+}
