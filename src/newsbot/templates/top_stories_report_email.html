@@ -138,19 +138,6 @@
             margin-bottom: 10px;
             padding-bottom: 0;
         }
-        .source-header {
-            font-size: 1.05em;
-            font-weight: 700;
-            color: #667eea;
-            margin-bottom: 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            flex-wrap: wrap;
-            gap: 8px;
-            padding-bottom: 6px;
-            border-bottom: 1px solid #e0e0e0;
-        }
         .article-item-border {
             border: none;
             background: transparent;
@@ -177,31 +164,14 @@
             margin-right: 0;
             margin-top: 2px;
         }
-        .sentiment {
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 16px;
-            font-size: 0.85em;
-            font-weight: 600;
-            margin-left: 4px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        .scale-marker { width: 2px; height: 8px; }
+        .scale-bg {
+            background: linear-gradient(to right, #ef9a9a 0%, #757575 50%, #a5d6a7 100%);
+            background-color: #757575;
         }
-        .article-meta .sentiment {
-            margin-left: 0;
-        }
-        .sentiment.source-sentiment {
-            padding: 1px 10px;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .sentiment-positive { background: #d4edda; color: #155724; }
-        .sentiment-negative { background: #f8d7da; color: #721c24; }
-        .sentiment-neutral { background: #e2e3e5; color: #383d41; }
-        .sentiment-score {
-            font-size: 0.9em;
-            color: #666;
-        }
+        .dot-positive  { background: #2e7d32; }
+        .dot-negative  { background: #c62828; }
+        .dot-neutral   { background: #aaaaaa; }
         .footer {
             text-align: center;
             margin-top: 10px;
@@ -278,7 +248,7 @@
     <div class="intro">
         <div class="header">
             <h1>📰 Top Stories in {{ topic }}</h1>
-            <p class="header-subline">Cross-Source News Coverage & Sentiment Analysis</p>
+            <p class="header-subline">Cross-Source News Coverage &amp; Sentiment Analysis</p>
             <p class="header-subline">{{ date_range }}</p>
         </div>
         <div class="global-summary">
@@ -308,16 +278,38 @@
         
         {% for source in analysis.story.sources|unique|sort %}
         <div class="source-coverage">
-            <div class="source-header">
-                <span>{{ source }} <span style="font-weight: 400; color: #999; font-size: 0.9em;">({{ analysis.source_summaries.get(source, [])|length }} article{{ "s" if analysis.source_summaries.get(source, [])|length != 1 else "" }})</span></span>
-                {% if source in analysis.source_sentiments %}
-                <span class="sentiment source-sentiment sentiment-{{ analysis.source_sentiments[source].label }}">
-                    <span>{{ analysis.source_sentiments[source].label|upper }}</span>
-                    <span class="sentiment-score">({{ "%.2f"|format(analysis.source_sentiments[source].avg_sentiment) }})</span>
-                </span>
-                {% endif %}
-            </div>
-            
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse; margin-bottom:8px;">
+                <tr>
+                    <td style="font-size:1.05em; font-weight:700; color:#667eea; vertical-align:middle; padding:0 8px 6px 0; border-bottom:1px solid #e0e0e0;">
+                        {{ source }} <span style="font-weight:400; color:#999; font-size:0.9em;">({{ analysis.source_summaries.get(source, [])|length }} article{{ "s" if analysis.source_summaries.get(source, [])|length != 1 else "" }})</span>
+                    </td>
+                    <td width="80" align="right" valign="middle" style="width:80px; text-align:right; vertical-align:middle; padding:0 0 6px 0; border-bottom:1px solid #e0e0e0;">
+                        {% if source in analysis.source_sentiments and analysis.source_sentiments[source].sentiments|length > 0 %}
+                        {% set sd = analysis.source_sentiments[source] %}
+                        {% set ns = namespace(markers=[]) %}
+                        {% for s in sd.sentiments %}
+                        {% set m_left = [[((s.compound + 1) / 2 * 80 - 1)|round|int, 0]|max, 78]|min %}
+                        {% set ns.markers = ns.markers + [{'left': m_left, 'label': s.label, 'is_avg': false, 'val': s.compound}] %}
+                        {% endfor %}
+                        {% set sorted_markers = ns.markers|sort(attribute='left') %}
+                        <div class="scale-bg" style="width:80px; height:8px; border-radius:4px; overflow:hidden; display:inline-block; vertical-align:middle;" title="Sentiment: bars=articles">
+                            <table width="80" cellpadding="0" cellspacing="0" border="0" style="width:80px; height:8px; border-collapse:collapse; table-layout:fixed;" role="presentation">
+                                <tr>
+                                    {% set ns2 = namespace(cursor=0) %}
+                                    {% for m in sorted_markers %}
+                                    {% set spacer = [m.left - ns2.cursor, 0]|max %}
+                                    {% if spacer > 0 %}<td width="{{ spacer }}" style="padding:0; height:8px;"></td>{% endif %}
+                                    <td width="2" style="width:2px; padding:0; height:8px;" title="{{ '%.2f'|format(m.val) }}"><div class="scale-marker dot-{{ m.label }}"></div></td>
+                                    {% set ns2.cursor = m.left + 2 %}
+                                    {% endfor %}
+                                    <td style="padding:0; height:8px;"></td>
+                                </tr>
+                            </table>
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+            </table>
             {% if analysis.story.source_additional_points and source in analysis.story.source_additional_points and analysis.story.source_additional_points[source] %}
             <div class="additional-insights">
                 {{ analysis.story.source_additional_points[source] }}
@@ -329,6 +321,27 @@
     {% endfor %}
     
     <div class="footer">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse; margin-bottom:10px;">
+            <tr>
+                <td align="center" style="padding-bottom:4px; font-size:0.8em; color:#888; font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Sentiment Scale</td>
+            </tr>
+            <tr>
+                <td align="center" style="padding-bottom:2px;">
+                    <div class="scale-bg" style="width:200px; height:10px; border-radius:5px; overflow:hidden; display:inline-block;"></div>
+                </td>
+            </tr>
+            <tr>
+                <td align="center">
+                    <table width="200" cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse; margin:0 auto;">
+                        <tr>
+                            <td style="font-size:0.78em; color:#aaa; text-align:left; padding-top:2px;">← Negative</td>
+                            <td style="font-size:0.78em; color:#aaa; text-align:right; padding-top:2px;">Positive →</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+        <div class="footer-divider"></div>
         <p><strong>Total Stories:</strong> {{ story_count }} |
         <strong>Total Articles:</strong> {{ total_articles }} |
         <strong>Sources Analyzed:</strong> {{ sources|unique|list|length }}</p>
