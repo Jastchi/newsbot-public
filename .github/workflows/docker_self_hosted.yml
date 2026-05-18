@@ -23,8 +23,7 @@ jobs:
       - name: Free runner disk
         run: |
           # Stale buildx export from any prior failed build (prevents merging stale layers).
-          rm -rf /mnt/data/buildx-cache/api-new
-          # One-time sweep of the old /tmp cache location (cache was moved to /mnt/data).
+          rm -rf /data/buildx-cache/api-new
           rm -rf /tmp/.buildx-cache-api /tmp/.buildx-cache-api-new
           # Stale buildkitd config dirs from prior failed `setup-buildx-action` runs.
           rm -rf /tmp/buildkitd-config-* /tmp/buildkitd-config[0-9]*
@@ -47,13 +46,13 @@ jobs:
           tags: newsbot-api:latest
           push: false
           load: true
-          cache-from: type=local,src=/mnt/data/buildx-cache/api
-          cache-to: type=local,dest=/mnt/data/buildx-cache/api-new,mode=max
+          cache-from: type=local,src=/data/buildx-cache/api
+          cache-to: type=local,dest=/data/buildx-cache/api-new,mode=max
 
       - name: Move api cache
         run: |
-          rm -rf /mnt/data/buildx-cache/api
-          mv /mnt/data/buildx-cache/api-new /mnt/data/buildx-cache/api
+          rm -rf /data/buildx-cache/api
+          mv /data/buildx-cache/api-new /data/buildx-cache/api
       - name: Run migrations
         run: |
           docker run --rm \
