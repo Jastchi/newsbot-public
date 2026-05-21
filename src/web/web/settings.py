@@ -110,6 +110,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "web.newsserver.context_processors.has_logs",
+                "web.newsserver.context_processors.site_theme",
             ],
         },
     },
@@ -138,6 +139,10 @@ if DATABASES["default"].get("ENGINE") == "django.db.backends.postgresql":
     # connection. It is instead set via a `connection_created` signal
     # handler registered in newsserver/apps.py, which runs `SET
     # search_path` on every freshly opened connection.
+    # The search_path is set to the schema only (no "public" fallback)
+    # so that Django cannot silently fall through to prod tables when
+    # the dev schema is empty (which would also cause migrations to be
+    # skipped because django_migrations already exists in public).
 
     # Disable persistent connections when using a connection pooler.
     # Poolers (like Supabase) handle pooling themselves, so Django's

@@ -23,7 +23,7 @@ def _set_search_path(
     # at import time, so interpolation is safe.
     schema = settings.DB_SCHEMA
     with connection.cursor() as cursor:
-        cursor.execute(f'SET search_path TO "{schema}", public')
+        cursor.execute(f'SET search_path TO "{schema}"')
 
 
 class NewsserverConfig(AppConfig):

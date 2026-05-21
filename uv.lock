@@ -22,6 +22,10 @@ resolution-markers = [
     "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 
+[options]
+exclude-newer = "2026-05-13T14:12:36.991425Z"
+exclude-newer-span = "P7D"
+
 [[package]]
 name = "accelerate"
 version = "1.13.0"
@@ -1708,6 +1712,7 @@ serve = [
     { name = "django" },
     { name = "django-allauth" },
     { name = "gunicorn" },
+    { name = "jinja2" },
     { name = "psycopg2-binary" },
     { name = "requests" },
     { name = "supabase" },
@@ -1841,6 +1846,7 @@ serve = [
     { name = "django", specifier = ">=6.0.4" },
     { name = "django-allauth", specifier = ">=65.14.1" },
     { name = "gunicorn", specifier = ">=23.0.0" },
+    { name = "jinja2", specifier = ">=3.1.2" },
     { name = "psycopg2-binary", specifier = ">=2.9.9" },
     { name = "requests", specifier = ">=2.33.0" },
     { name = "supabase", specifier = ">=2.0.0" },

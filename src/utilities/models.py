@@ -149,6 +149,9 @@ class ConfigModel(BaseModel):
     )
     database: DatabaseConfigModel = Field(default_factory=DatabaseConfigModel)
     exclude_articles_from_config_keys: list[str] = Field(default_factory=list)
+    hero_color_primary: str = "#5b6ee8"
+    hero_color_secondary: str = "#8b52d4"
+    hero_color_middle: str | None = None
 
     model_config = ConfigDict(
         populate_by_name=True,

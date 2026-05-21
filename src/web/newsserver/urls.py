@@ -53,4 +53,10 @@ urlpatterns = [
         views.subscriber_subscriptions,
         name="subscriber_subscriptions",
     ),
+    path(
+        "admin-preview/email/<str:config_key>/",
+        views.EmailPreviewView.as_view(),
+        name="email_preview",
+    ),
+    path("theme/shuffle/", views.shuffle_theme, name="shuffle_theme"),
 ]

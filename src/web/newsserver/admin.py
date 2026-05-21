@@ -3,10 +3,13 @@
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, ClassVar, Protocol, cast
 
+from django import forms
 from django.contrib import admin, messages
 from django.db import models
 from django.forms import ModelMultipleChoiceField
 from django.http import HttpRequest
+from django.urls import reverse
+from django.utils.html import format_html
 
 from .models import (
     Article,
@@ -16,6 +19,7 @@ from .models import (
     SubscriberRequest,
     Topic,
 )
+from .widgets import OptionalColorWidget
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -87,10 +91,86 @@ class TopicInline(admin.TabularInline):
     verbose_name = "Topic"
     verbose_name_plural = "Topics"
 
+_COLOR_INPUT_STYLE = (
+    "width:60px; height:36px; padding:2px; cursor:pointer;"
+)
+
+_NEWS_CONFIG_FORM_FIELDS = (
+    "key",
+    "display_name",
+    "country",
+    "language",
+    "is_active",
+    "published_for_subscription",
+    "llm_provider",
+    "llm_model",
+    "llm_base_url",
+    "llm_temperature",
+    "llm_max_tokens",
+    "llm_judge_enabled",
+    "llm_judge_model",
+    "llm_judge_max_retries",
+    "llm_name_validation_enabled",
+    "llm_name_validation_max_retries",
+    "llm_spacy_model",
+    "summarization_two_pass_enabled",
+    "summarization_max_articles_batch",
+    "summarization_article_order",
+    "sentiment_method",
+    "sentiment_comparison_threshold",
+    "story_clustering_top_stories_count",
+    "story_clustering_min_sources",
+    "story_clustering_similarity_threshold",
+    "story_clustering_embedding_model",
+    "story_clustering_algorithm",
+    "story_clustering_dbscan_min_samples",
+    "story_clustering_sampling_central_count",
+    "story_clustering_sampling_recent_count",
+    "story_clustering_sampling_diverse_count",
+    "story_clustering_sampling_similarity_floor",
+    "report_format",
+    "report_include_summaries",
+    "report_include_sentiment_charts",
+    "report_max_articles_per_source",
+    "report_lookback_days",
+    "scheduler_daily_scrape_enabled",
+    "scheduler_weekly_analysis_enabled",
+    "scheduler_weekly_analysis_day_of_week",
+    "scheduler_weekly_analysis_hour",
+    "scheduler_weekly_analysis_minute",
+    "scheduler_weekly_analysis_lookback_days",
+    "exclude_articles_from_configs",
+    "hero_color_primary",
+    "hero_color_secondary",
+    "hero_color_middle",
+    "database_url",
+)
+
+
+class NewsConfigAdminForm(forms.ModelForm):
+    """ModelForm for NewsConfig with native color pickers."""
+
+    class Meta:
+        """NewsConfig admin form options."""
+
+        model = NewsConfig
+        fields = _NEWS_CONFIG_FORM_FIELDS
+        widgets: ClassVar[dict] = {
+            "hero_color_primary": forms.TextInput(
+                attrs={"type": "color", "style": _COLOR_INPUT_STYLE},
+            ),
+            "hero_color_secondary": forms.TextInput(
+                attrs={"type": "color", "style": _COLOR_INPUT_STYLE},
+            ),
+            "hero_color_middle": OptionalColorWidget(),
+        }
+
+
 @admin.register(NewsConfig)
 class NewsConfigAdmin(admin.ModelAdmin):
     """Admin for NewsConfig model."""
 
+    form = NewsConfigAdminForm
     filter_horizontal = ("exclude_articles_from_configs",)
 
     list_display = (
@@ -112,7 +192,7 @@ class NewsConfigAdmin(admin.ModelAdmin):
         "created_at",
     )
     search_fields = ("key", "display_name")
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = ("created_at", "updated_at", "email_preview_panel")
     inlines: ClassVar[list] = [NewsSourceInline, TopicInline]
 
     fieldsets = (
@@ -176,6 +256,14 @@ class NewsConfigAdmin(admin.ModelAdmin):
                 "report_lookback_days",
             ),
         }),
+        ("Email Preview", {
+            "fields": (
+                "hero_color_primary",
+                "hero_color_secondary",
+                "hero_color_middle",
+                "email_preview_panel",
+            ),
+        }),
         ("Scheduler", {
             "classes": ("collapse",),
             "fields": (
@@ -213,6 +301,26 @@ class NewsConfigAdmin(admin.ModelAdmin):
             if match and (obj_id := match.kwargs.get("object_id")):
                 kwargs["queryset"] = NewsConfig.objects.exclude(pk=obj_id)
         return super().formfield_for_manytomany(db_field, request, **kwargs)
+
+    def email_preview_panel(self, obj: NewsConfig) -> str:
+        """Render a live iframe preview of the email template."""
+        if not obj.pk:
+            return "Save the config first to enable preview."
+        preview_url = reverse("newsserver:email_preview", args=[obj.key])
+        iframe_style = (
+            "width:100%; height:700px; border:1px solid #ddd; "
+            "border-radius:4px;"
+        )
+        return format_html(
+            '<iframe id="email-preview-iframe" src="{}" style="{}">'
+            "</iframe>",
+            preview_url,
+            iframe_style,
+        )
+
+    cast("DisplayMethod", email_preview_panel).short_description = (
+        "Live Preview"
+    )
 
     def created_at_date(self, obj: NewsConfig) -> str:
         """Display created_at date."""

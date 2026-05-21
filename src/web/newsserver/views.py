@@ -19,12 +19,14 @@ from django.http import (
     JsonResponse,
     StreamingHttpResponse,
 )
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django.views import View
 from django.views.generic import TemplateView
 
+from newsbot.agents.report_agent import ReportGeneratorAgent
 from newsbot.constants import (
     DAY_NAME_TO_PYTHON_WEEKDAY,
     PYTHON_WEEKDAY_TO_DAY_NAME,
@@ -748,6 +750,39 @@ class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
         )
 
 
+class EmailPreviewView(View):
+    """Render the email template with mock data for admin preview."""
+
+    def get(self, request: HttpRequest, config_key: str) -> HttpResponse:
+        """Return rendered preview HTML for staff users."""
+        if not request.user.is_authenticated:
+            return HttpResponse(status=403)
+        if not cast("Subscriber", request.user).is_staff:
+            return HttpResponse(status=403)
+
+        config = get_object_or_404(NewsConfig, key=config_key)
+        primary = request.GET.get("primary") or config.hero_color_primary
+        secondary = request.GET.get("secondary") or config.hero_color_secondary
+        middle = request.GET.get("middle") or config.hero_color_middle or None
+
+        if primary and not primary.startswith("#"):
+            primary = f"#{primary}"
+        if secondary and not secondary.startswith("#"):
+            secondary = f"#{secondary}"
+        if middle and not middle.startswith("#"):
+            middle = f"#{middle}"
+
+        html = ReportGeneratorAgent.render_preview(
+            topic=config.display_name,
+            primary=primary,
+            secondary=secondary,
+            middle=middle,
+        )
+        response = HttpResponse(html)
+        response["X-Frame-Options"] = "SAMEORIGIN"
+        return response
+
+
 def signup_google_only(request: HttpRequest) -> HttpResponse:
     """
     Signup page: only Google signup is allowed (no email/password form).
@@ -931,3 +966,10 @@ def subscriber_subscriptions(request: HttpRequest) -> JsonResponse:
             {"status": "error", "message": str(e)},
             status=400,
         )
+
+
+def shuffle_theme(request: HttpRequest) -> HttpResponse:
+    """Clear the session theme so the next page load picks a new one."""
+    request.session.pop("site_theme", None)
+    referer = request.META.get("HTTP_REFERER", "/")
+    return redirect(referer)

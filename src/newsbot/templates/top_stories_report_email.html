@@ -13,94 +13,125 @@
             padding: 0;
         }
         .intro {
-            border-radius: 8px;
+            border-radius: 10px;
             overflow: hidden;
-            margin-bottom: 16px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            margin-bottom: 24px;
+            box-shadow: 0 2px 12px {{ hero_shadow }};
         }
         .header {
-            background: #667eea;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            background-color: #667eea;
+            background: linear-gradient(135deg, {{ hero_color_primary }} 0%{% if hero_color_middle %}, {{ hero_color_middle }} 50%{% endif %}, {{ hero_color_secondary }} 100%);
             color: white;
-            padding: 20px 16px 6px;
-            text-align: center;
+            padding: 0;
+            text-align: left;
+        }
+        .header-accent-bar {
+            display: none;
+        }
+        .header-content {
+            padding: 28px 0 24px;
+        }
+        .header-eyebrow {
+            font-family: sans-serif;
+            font-size: 0.68em;
+            font-weight: 500;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.55);
+            margin: 0 0 8px 0;
+            padding: 0 28px;
         }
         .header h1 {
-            margin: 0 0 4px 0;
+            font-family: Georgia, serif;
+            font-size: 2.4em;
+            font-weight: 700;
+            color: #ffffff;
+            margin: 0 0 18px 0;
+            line-height: 1.12;
+            letter-spacing: -0.01em;
+            word-wrap: break-word;
+            padding: 0 28px;
         }
         .header-subline {
-            font-size: 0.95em;
-            opacity: 0.95;
-            margin: 0;
+            font-family: sans-serif;
+            font-size: 0.8em;
+            font-weight: 400;
+            color: rgba(255,255,255,0.6);
+            letter-spacing: 0.01em;
+        }
+        .header-date-badge {
+            font-family: sans-serif;
+            font-size: 0.8em;
+            font-weight: 400;
+            color: rgba(255,255,255,0.6);
+            white-space: nowrap;
+            text-align: right;
         }
         .global-summary {
-            background: #e8e6f5;
-            background: linear-gradient(135deg, #e8e6f5 0%, #e5e4f2 100%);
-            background-color: #e8e6f5;
-            padding: 6px 16px 10px;
-            text-align: center;
-            border: none;
-            border-radius: 0 0 8px 8px;
-            line-height: 1.5;
+            background: {{ hero_color_tint }};
+            padding: 20px 16px 24px;
+            border-top: none;
+            border-radius: 0;
+            line-height: 1;
         }
-        h1 { 
-            margin: 0 0 4px 0; 
+        h1 {
+            margin: 0 0 4px 0;
             font-size: 2.2em;
             word-wrap: break-word;
             font-weight: 700;
         }
-        h2 { 
-            color: #667eea; 
-            border-bottom: 2px solid #667eea; 
-            padding: 0 0 4px 0; 
+        h2 {
+            color: {{ hero_color_primary }};
+            border-bottom: 1px solid {{ hero_color_border_dark }};
+            padding: 0 0 5px 0;
             margin: 6px 0 6px 0;
             font-size: 1.5em;
-            border-bottom-left-radius: 0;
-            border-bottom-right-radius: 0;
         }
-        h3 { 
-            color: #667eea; 
+        h3 {
+            color: {{ hero_color_primary }};
             margin: 10px 0 6px 0;
-            font-size: 1.3em;
+            font-size: 1.15em;
+            font-weight: 500;
         }
         h3.sources-header {
             margin-top: 10px;
+            font-size: 0.75em;
+            font-weight: 500;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: {{ hero_color_muted }};
         }
         .story {
             background: white;
             border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            box-shadow: 0 1px 4px {{ hero_story_shadow }};
+            margin-bottom: 16px;
         }
         .story-title {
-            font-size: 1.6em;
+            font-family: Georgia, serif;
+            font-size: 1.5em;
             margin-bottom: 0;
             font-weight: 700;
             word-wrap: break-word;
-            color: #667eea;
-            border-top: 2.5px solid #667eea;
-            padding-top: 6px;
-            border-top-left-radius: 0;
-            border-top-right-radius: 0;
+            color: {{ hero_color_headline }};
+            border-top: 2px solid {{ hero_color_primary }};
+            padding-top: 8px;
         }
         .story-summary {
             line-height: 1.6;
             text-align: justify;
             margin-bottom: 6px;
-            margin-left: 0;
-            margin-right: 0;
             padding: 14px 4px;
-            color: rgb(85,85,85);
-            background: #f8f9fa;
-            border: 1px solid #e8e8e8;
+            color: #444;
+            background: {{ hero_color_tint }};
+            border: 1px solid {{ hero_color_border }};
             border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
         }
         .story-summary .story-summary-title {
-            font-size: 1.6em;
+            font-family: Georgia, serif;
+            font-size: 1.45em;
             font-weight: 700;
             word-wrap: break-word;
-            color: #667eea;
+            color: {{ hero_color_headline }};
             margin: 0 0 10px 0;
             text-align: left;
         }
@@ -110,29 +141,25 @@
             text-align: justify;
         }
         .story-summary-label {
-            font-size: 0.85em;
-            font-weight: 700;
-            color: #667eea;
+            font-size: 0.7em;
+            font-weight: 500;
+            color: {{ hero_color_accent }};
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 8px;
+            letter-spacing: 0.12em;
+            margin-bottom: 10px;
             text-align: left;
         }
         .story-meta {
-            color: #666;
+            color: #888;
             font-size: 0.9em;
             margin-bottom: 8px;
-            padding: 6px 2px;
-            background: #f8f9fa;
-            border-radius: 4px;
+            padding: 4px 2px;
         }
         .source-coverage {
             margin-bottom: 6px;
             padding-bottom: 4px;
-            padding-left: 4px;
-            border-left: 1px solid #667eea;
-            border-bottom: 1px solid #667eea;
-            border-radius: 4px 0 4px 4px;
+            padding-left: 8px;
+            border-left: 2px solid {{ hero_color_border_dark }};
         }
         .source-coverage:last-child {
             margin-bottom: 10px;
@@ -143,25 +170,21 @@
             background: transparent;
         }
         .article-item {
-            padding: 6px 0 6px 0;
+            padding: 6px 0;
             margin: 0;
         }
         .article-title {
-            font-weight: 600;
-            color: #333;
+            font-weight: 500;
+            color: #222;
             word-wrap: break-word;
-            font-size: 1.05em;
+            font-size: 1.0em;
             margin-bottom: 0;
         }
         .summary {
-            color: #555;
+            color: #666;
             line-height: 1.6;
             word-wrap: break-word;
-            padding: 2px 2px;
-            background: white;
-            border-radius: 6px;
-            margin-left: 0;
-            margin-right: 0;
+            padding: 2px 0;
             margin-top: 2px;
         }
         .scale-marker { width: 2px; height: 8px; }
@@ -174,12 +197,13 @@
         .dot-neutral   { background: #aaaaaa; }
         .footer {
             text-align: center;
-            margin-top: 10px;
-            padding: 12px 2px;
-            color: #666;
-            font-size: 0.9em;
-            background: #f8f9fa;
+            margin-top: 16px;
+            padding: 16px 0;
+            color: #888;
+            font-size: 0.85em;
+            background: {{ hero_color_tint }};
             border-radius: 8px;
+            border: 1px solid {{ hero_color_border }};
         }
         .footer p {
             margin: 0 0 4px 0;
@@ -190,49 +214,74 @@
         .footer-divider {
             height: 0;
             border: none;
-            border-top: 1px solid #e0e0e0;
-            margin: 4px 0;
+            border-top: 1px solid {{ hero_color_border }};
+            margin: 8px 0;
         }
-        a { 
-            color: #667eea; 
+        a {
+            color: {{ hero_color_primary }};
             text-decoration: none;
             word-wrap: break-word;
             transition: color 0.2s ease;
         }
-        a:hover { 
-            text-decoration: underline; 
+        a:hover {
+            text-decoration: underline;
         }
         .stories-list-header {
-            text-align: center;
-            margin-top: 2px;
-            margin-bottom: 8px;
-            text-decoration: underline;
+            font-family: sans-serif;
+            font-size: 0.66em;
+            font-weight: 500;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: {{ hero_color_muted }} !important;
+            margin: 0 0 14px 0;
+            text-align: left;
+            text-decoration: none;
         }
         .stories-list {
-            text-align: center;
+            list-style: none;
+            text-align: left;
             margin: 0;
             padding: 0;
-            line-height: 1.8;
-            list-style: none;
+            line-height: 1;
         }
         .stories-list-item {
-            margin-bottom: 4px;
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            padding: 9px 0;
+            border-bottom: 1px solid {{ hero_color_border }};
+        }
+        .stories-list-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .stories-list-item-num {
+            font-family: sans-serif;
+            font-size: 0.7em;
+            font-weight: 500;
+            color: {{ hero_color_accent }};
+            min-width: 16px;
+            flex-shrink: 0;
         }
         .stories-list-item a {
-            color: #667eea;
+            font-family: sans-serif;
+            font-size: 0.9em;
+            font-weight: 400;
+            color: {{ hero_color_link_dark }} !important;
             text-decoration: none;
-            font-weight: 500;
+            line-height: 1.45;
         }
         .stories-list-item a:hover {
-            text-decoration: underline;
+            color: {{ hero_color_primary }} !important;
+            text-decoration: none;
         }
         .additional-insights {
             margin-bottom: 2px;
             padding: 2px 2px;
         }
         .additional-insights strong {
-            color: #667eea;
-            font-size: 1.05em;
+            color: {{ hero_color_primary }};
+            font-size: 1.0em;
         }
         .article-meta {
             color: #666;
@@ -247,20 +296,31 @@
 <body>
     <div class="intro">
         <div class="header">
-            <h1>📰 Top Stories in {{ topic }}</h1>
-            <p class="header-subline">Cross-Source News Coverage &amp; Sentiment Analysis</p>
-            <p class="header-subline">{{ date_range }}</p>
+            <div class="header-accent-bar"></div>
+            <div class="header-content">
+                <p class="header-eyebrow">Top Stories in</p>
+                <h1>{{ topic }}</h1>
+                <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
+                    <tr>
+                        <td style="padding: 0 0 0 14px;"><span class="header-subline">Cross-Source News Coverage &amp; Sentiment Analysis</span></td>
+                        <td style="padding: 0 14px 0 8px; text-align: right; white-space: nowrap;"><span class="header-date-badge">{{ date_range }}</span></td>
+                    </tr>
+                </table>
+            </div>
         </div>
         <div class="global-summary">
-            <h3 class="stories-list-header">Stories</h3>
+            <h3 class="stories-list-header">This edition</h3>
             <ol class="stories-list">
             {% for analysis in story_analyses %}
-                <li class="stories-list-item"><a href="#story-{{ loop.index }}">{{ analysis.story.title }}</a></li>
+                <li class="stories-list-item">
+                    <span class="stories-list-item-num">{{ loop.index }}</span>
+                    <a href="#story-{{ loop.index }}">{{ analysis.story.title }}</a>
+                </li>
             {% endfor %}
             </ol>
         </div>
     </div>
-    
+
     {% for analysis in story_analyses %}
     <div class="story" id="story-{{ loop.index }}">
         {% if analysis.story.story_summary %}
@@ -272,18 +332,18 @@
         {% else %}
         <div class="story-title">{{ loop.index }}. {{ analysis.story.title }}</div>
         {% endif %}
-        
-        
+
+
         <h3 class="sources-header">How Different Sources Cover This Story</h3>
-        
+
         {% for source in analysis.story.sources|unique|sort %}
         <div class="source-coverage">
             <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse; margin-bottom:8px;">
                 <tr>
-                    <td style="font-size:1.05em; font-weight:700; color:#667eea; vertical-align:middle; padding:0 8px 6px 0; border-bottom:1px solid #e0e0e0;">
+                    <td style="font-size:1.0em; font-weight:400; color:{{ hero_color_headline }}; vertical-align:middle; padding:0 8px 6px 0; border-bottom:1px solid {{ hero_color_border }};">
                         {{ source }} <span style="font-weight:400; color:#999; font-size:0.9em;">({{ analysis.source_summaries.get(source, [])|length }} article{{ "s" if analysis.source_summaries.get(source, [])|length != 1 else "" }})</span>
                     </td>
-                    <td width="80" align="right" valign="middle" style="width:80px; text-align:right; vertical-align:middle; padding:0 0 6px 0; border-bottom:1px solid #e0e0e0;">
+                    <td width="80" align="right" valign="middle" style="width:80px; text-align:right; vertical-align:middle; padding:0 0 6px 0; border-bottom:1px solid {{ hero_color_border }};">
                         {% if source in analysis.source_sentiments and analysis.source_sentiments[source].sentiments|length > 0 %}
                         {% set sd = analysis.source_sentiments[source] %}
                         {% set ns = namespace(markers=[]) %}
@@ -319,7 +379,7 @@
         {% endfor %}
     </div>
     {% endfor %}
-    
+
     <div class="footer">
         <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse; margin-bottom:10px;">
             <tr>

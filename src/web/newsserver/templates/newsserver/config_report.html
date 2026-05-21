@@ -31,13 +31,13 @@
     }
     
     .report-selector select:hover {
-        border-color: #667eea;
+        border-color: var(--site-primary);
     }
-    
+
     .report-selector select:focus {
         outline: none;
-        border-color: #667eea;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        border-color: var(--site-primary);
+        box-shadow: 0 0 0 3px var(--site-shadow);
     }
     
     .report-content {
@@ -70,7 +70,7 @@
     .back-button {
         display: inline-block;
         padding: 10px 20px;
-        background: #667eea;
+        background: var(--site-primary);
         color: white;
         text-decoration: none;
         border-radius: 8px;
@@ -78,16 +78,16 @@
         transition: all 0.3s ease;
         margin-bottom: 20px;
     }
-    
+
     .back-button:hover {
-        background: #5568d3;
+        filter: brightness(0.88);
         transform: translateX(-3px);
     }
-    
+
     .download-button {
         display: inline-block;
         padding: 10px 20px;
-        background: #5568d3;
+        background: var(--site-secondary);
         color: white;
         text-decoration: none;
         border-radius: 8px;
@@ -96,19 +96,19 @@
         border: none;
         cursor: pointer;
     }
-    
+
     .download-button:hover {
-        background: #059669;
+        filter: brightness(0.88);
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        box-shadow: 0 4px 12px var(--site-shadow);
     }
     
     /* Mobile optimizations for PDF viewing */
     @media (max-width: 768px) {
-        .container {
+        .page-body {
             padding: 0 !important;
         }
-        
+
         .report-content {
             padding: 0 !important;
             margin: 0 !important;

@@ -255,6 +255,7 @@ class TestNotifyAdminSubscriberRequest:
 # ----- request_magic_link (view) -----
 
 
+@pytest.mark.django_db
 class TestRequestMagicLinkView:
     """Tests for request_magic_link view."""
 
@@ -320,6 +321,7 @@ class TestRequestMagicLinkView:
 # ----- magic_link_sent -----
 
 
+@pytest.mark.django_db
 class TestMagicLinkSentView:
     """Tests for magic_link_sent view."""
 
@@ -422,6 +424,7 @@ class TestVerifyMagicLinkView:
 # ----- magic_link_signup_requested -----
 
 
+@pytest.mark.django_db
 class TestMagicLinkSignupRequestedView:
     """Tests for magic_link_signup_requested view."""
 

@@ -71,6 +71,7 @@ serve = [
     "requests>=2.33.0",
     "supabase>=2.0.0",
     "whitenoise>=6.8.0",
+    "jinja2>=3.1.2",
 ]
 api = [
     { include-group = "newsbot" },
@@ -149,6 +150,7 @@ docstring-code-line-length = 72
 "src/web/newsserver/migrations/*" = ["ALL"]
 "src/web/*" = ["TID253"]  # allow django/newsserver imports in Django app
 "src/web/newsserver/adapters.py" = ["ARG002"]  # request required by base class signature
+"src/web/newsserver/widgets.py" = ["ANN401"]  # Widget API uses Any for value/data
 "src/web/web/urls.py" = ["ARG001"]  # admin login replacement must match method signature
 "src/web/web/*sgi.py" = ["E402"] # import path manipulation is intentional
 "src/utilities/django_setup.py" = ["TID252", "TID253", "E402"]  # allow django import in setup module

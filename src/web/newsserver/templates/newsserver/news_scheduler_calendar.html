@@ -7,9 +7,7 @@
     <style>
         .schedule-page {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-            padding: 24px;
-            background: linear-gradient(160deg, #e8eef4 0%, #f0f4f8 100%);
-            min-height: 100%;
+            padding: 0;
         }
         .schedule-layout {
             display: grid;
@@ -23,13 +21,11 @@
             .schedule-main { order: 0; }
         }
         @media (max-width: 768px) {
-            .schedule-page { padding: 16px; }
             #calendar-container { padding: 16px; }
             .header h1 { font-size: 1.25rem; }
             .calendar-legend { gap: 12px; margin-top: 8px; font-size: 0.8rem; }
         }
         @media (max-width: 640px) {
-            .schedule-page { padding: 12px; }
             #calendar-container { padding: 12px; }
         }
         .schedule-main { min-width: 0; }
@@ -52,7 +48,7 @@
             margin: 0;
             font-size: 1.5rem;
             font-weight: 600;
-            color: #1a1d21;
+            color: var(--site-primary);
         }
         #status-msg {
             padding: 10px 16px;
@@ -69,7 +65,7 @@
             gap: 20px;
             margin-top: 12px;
             font-size: 0.85rem;
-            color: #546e7a;
+            color: var(--site-muted);
         }
         .calendar-legend span {
             display: inline-flex;
@@ -81,8 +77,8 @@
             height: 14px;
             border-radius: 4px;
         }
-        .calendar-legend .swatch-subscribed { background: #2e7d32; border: 1px solid #1b5e20; }
-        .calendar-legend .swatch-other { background: #78909c; border: 1px solid #546e7a; }
+        .calendar-legend .swatch-subscribed { background: var(--site-primary); border: 1px solid var(--site-secondary); }
+        .calendar-legend .swatch-other { background: var(--site-muted); border: 1px solid var(--site-border); }
         .my-subscriptions-card {
             background: #fff;
             border-radius: 12px;
@@ -96,7 +92,7 @@
             margin: 0 0 16px 0;
             font-size: 1.1rem;
             font-weight: 600;
-            color: #1a1d21;
+            color: var(--site-primary);
             display: flex;
             align-items: center;
             gap: 8px;
@@ -105,7 +101,7 @@
             content: "";
             width: 4px;
             height: 1.1em;
-            background: #2e7d32;
+            background: var(--site-primary);
             border-radius: 2px;
         }
         .my-subscriptions-list {
@@ -115,7 +111,7 @@
         }
         .my-subscriptions-list li {
             padding: 10px 0;
-            border-bottom: 1px solid #eceff1;
+            border-bottom: 1px solid var(--site-border);
             display: flex;
             align-items: center;
             gap: 10px;
@@ -133,7 +129,7 @@
         .my-subscriptions-list input[type="checkbox"] {
             width: 18px;
             height: 18px;
-            accent-color: #2e7d32;
+            accent-color: var(--site-primary);
             cursor: pointer;
         }
         .my-subscriptions-list .config-key {
@@ -149,7 +145,7 @@
         .my-subscriptions-saving {
             margin-top: 8px;
             font-size: 0.85rem;
-            color: #2e7d32;
+            color: var(--site-primary);
             display: none;
         }
         .subscriber-request-panel {
@@ -157,12 +153,12 @@
             padding: 20px;
             background: #fff;
             border-radius: 12px;
-            border: 1px solid #e0e0e0;
+            border: 1px solid var(--site-border);
             box-shadow: 0 2px 8px rgba(0,0,0,0.04);
         }
         .subscriber-request-panel .request-access-btn {
             padding: 10px 18px;
-            background: #3788d8;
+            background: var(--site-primary);
             color: white;
             border: none;
             border-radius: 8px;
@@ -170,7 +166,7 @@
             font-weight: 500;
         }
         .subscriber-request-panel .request-access-btn:hover {
-            background: #2c6cb8;
+            filter: brightness(0.88);
         }
         .request-access-message { margin-top: 10px; font-weight: 500; }
 
@@ -198,7 +194,7 @@
             margin: 0 0 8px 0;
             font-size: 1.1rem;
             font-weight: 600;
-            color: #1a1d21;
+            color: var(--site-primary);
         }
         .event-subscribe-modal .event-sources-wrap {
             margin: 0 0 12px 0;
@@ -248,17 +244,18 @@
         .event-subscribe-modal .btn-unsubscribe {
             background: #fff;
             color: #546e7a;
-            border: 1px solid #cfd8dc;
+            border: 1px solid var(--site-border);
         }
         .event-subscribe-modal .btn-unsubscribe:hover {
             background: #f5f5f5;
             border-color: #b0bec5;
         }
         .event-subscribe-modal .btn-close {
-            background: #eceff1;
+            background: var(--site-tint);
             color: #37474f;
+            border: 1px solid var(--site-border);
         }
-        .event-subscribe-modal .btn-close:hover { background: #cfd8dc; }
+        .event-subscribe-modal .btn-close:hover { background: var(--site-border); }
 
         /* Wrapping weekday labels in schedule calendar (works on all display sizes) */
         #calendar .fc-scrollgrid-section-header .fc-col-header-cell:not(.fc-timegrid-axis) {
@@ -278,15 +275,15 @@
 
         /* Calendar appearance: grid, colors, typography */
         #calendar {
-            --fc-border-color: #e2e8f0;
+            --fc-border-color: var(--site-border);
             --fc-page-bg-color: #fafbfc;
             --fc-neutral-bg-color: rgba(226, 232, 240, 0.25);
-            --fc-today-bg-color: rgba(102, 126, 234, 0.08);
-            --fc-now-indicator-color: #667eea;
-            --fc-event-bg-color: #78909c;
-            --fc-event-border-color: #607d8b;
+            --fc-today-bg-color: var(--site-tint);
+            --fc-now-indicator-color: var(--site-primary);
+            --fc-event-bg-color: var(--site-muted);
+            --fc-event-border-color: var(--site-muted);
             --fc-event-text-color: #fff;
-            --fc-highlight-color: rgba(102, 126, 234, 0.12);
+            --fc-highlight-color: var(--site-border);
         }
         #calendar .fc-scrollgrid {
             border-radius: 8px;
@@ -297,10 +294,10 @@
             font-weight: 600;
             font-size: 0.8rem;
             color: #475569;
-            border-color: #e2e8f0;
+            border-color: var(--site-border);
         }
         #calendar .fc-timegrid-slot {
-            border-color: #e2e8f0;
+            border-color: var(--site-border);
         }
         #calendar .fc-timegrid-slot-label {
             font-size: 0.8rem;
@@ -312,7 +309,7 @@
             color: #64748b;
         }
         #calendar .fc-timegrid-col.fc-day-today {
-            background: rgba(102, 126, 234, 0.04);
+            background: var(--site-tint);
         }
         #calendar .fc-event {
             border-radius: 6px;
@@ -452,6 +449,15 @@
                     openEventSubscribeModal(info.event);
                 },
                 eventDidMount: function(info) {
+                    var style = getComputedStyle(document.documentElement);
+                    var primary = style.getPropertyValue('--site-primary').trim();
+                    var secondary = style.getPropertyValue('--site-secondary').trim();
+                    var muted = style.getPropertyValue('--site-muted').trim();
+                    var subscribed = info.event.extendedProps && info.event.extendedProps.subscribed;
+                    var bg = subscribed ? primary : muted;
+                    var border = subscribed ? secondary : muted;
+                    info.el.style.backgroundColor = bg;
+                    info.el.style.borderColor = border;
                     var sourceNames = info.event.extendedProps && info.event.extendedProps.sourceNames;
                     if (sourceNames && Array.isArray(sourceNames) && sourceNames.length > 0) {
                         info.el.setAttribute('title', sourceNames.join(', '));

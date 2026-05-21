@@ -430,6 +430,30 @@ class NewsConfig(BaseModel):
         ),
     )
 
+    # Email branding fields
+    hero_color_primary = models.CharField(
+        max_length=7,
+        default="#5b6ee8",
+        help_text="Primary brand color for email hero (hex, e.g. #5b6ee8)",
+    )
+    hero_color_secondary = models.CharField(
+        max_length=7,
+        default="#8b52d4",
+        help_text=(
+            "Secondary brand color for email hero gradient end "
+            "(hex, e.g. #8b52d4)"
+        ),
+    )
+    hero_color_middle = models.CharField(
+        max_length=7,
+        blank=True,
+        default="",
+        help_text=(
+            "Optional middle color for email hero gradient "
+            "(hex, e.g. #7060da). Leave blank for a two-stop gradient."
+        ),
+    )
+
     # Logging Configuration fields
     # Database Configuration fields
     database_url = models.CharField(
@@ -564,6 +588,9 @@ class NewsConfig(BaseModel):
                     "key", flat=True,
                 ),
             ),
+            hero_color_primary=self.hero_color_primary,
+            hero_color_secondary=self.hero_color_secondary,
+            hero_color_middle=self.hero_color_middle or None,
         )
 
 

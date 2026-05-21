@@ -9,7 +9,19 @@ TZ = timezone(TIMEZONE_STR)
 DAILY_SCRAPE_HOUR = 0
 DAILY_SCRAPE_MINUTE = 5
 
-SENTIMENT_THRESHOLD = 0.2 # Threshold for sentiment classification
+SENTIMENT_THRESHOLD = 0.2  # Threshold for sentiment classification
+
+
+def label_for_score(
+    score: float,
+    threshold: float = SENTIMENT_THRESHOLD,
+) -> str:
+    """Return the sentiment label for a score, against a threshold."""
+    if score >= threshold:
+        return "positive"
+    if score <= -threshold:
+        return "negative"
+    return "neutral"
 POLARITY_THRESHOLD = 0.1  # Threshold for polarity classification
 
 # Minimum articles to form a story if fewer than config.min_sources

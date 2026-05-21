@@ -7,204 +7,210 @@
     {% load static %}
     <link rel="icon" type="image/svg+xml" href="{% static 'newsserver/favicon.svg' %}">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --site-primary:   {{ site_primary }};
+            --site-secondary: {{ site_secondary }};
+            --site-tint:      {{ site_tint }};
+            --site-border:    {{ site_border }};
+            --site-shadow:    {{ site_shadow }};
+            --site-muted:     {{ site_muted }};
         }
-        
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #f5f7fa;
+            background: var(--site-tint);
             color: #2c3e50;
+            min-height: 100vh;
         }
-        
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        header {
-            background: #667eea;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            background-color: #667eea;
+
+        /* ── Header ─────────────────────────────────────────────────── */
+        .site-header {
+            background: linear-gradient(135deg, var(--site-primary) 0%, var(--site-secondary) 100%);
             color: white;
+        }
+
+        .header-top {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 20px 16px 24px;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px 24px 20px;
+            gap: 16px;
         }
-        
-        header .container {
-            flex: 1;
+
+        .header-eyebrow {
+            font-size: 0.65em;
+            font-weight: 500;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.5);
+            margin: 0 0 5px 0;
         }
-        
-        .admin-link {
+
+        .site-header h1 {
+            font-family: Georgia, serif;
+            font-size: 2em;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1;
+            color: white;
+        }
+
+        /* ── Header actions ──────────────────────────────────────────── */
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .header-user {
+            font-size: 0.82em;
+            color: rgba(255,255,255,0.6);
+            margin-right: 4px;
+        }
+
+        .header-btn {
             color: white;
             text-decoration: none;
-            padding: 10px 20px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 5px;
-            font-size: 0.95em;
-            transition: background 0.3s ease;
+            padding: 7px 15px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            font-weight: 500;
+            border: 1px solid rgba(255,255,255,0.25);
+            background: rgba(255,255,255,0.12);
+            transition: background 0.15s, border-color 0.15s;
+            white-space: nowrap;
         }
-        
-        .admin-link:hover {
-            background: rgba(255, 255, 255, 0.3);
+
+        .header-btn:hover {
+            background: rgba(255,255,255,0.22);
+            border-color: rgba(255,255,255,0.4);
             text-decoration: none;
         }
-        
-        header h1 {
-            margin: 0 0 4px 0;
-            font-size: 2.2em;
-            font-weight: 700;
-        }
-        
-        header p {
-            font-size: 0.95em;
-            opacity: 0.95;
-            margin: 0;
-        }
-        
-        .breadcrumb {
-        }
-        
-        .breadcrumb a {
-            color: #667eea;
-            text-decoration: none;
-            margin-right: 5px;
-        }
-        
-        .breadcrumb a:hover {
-            text-decoration: underline;
-        }
-        
-        .breadcrumb span {
-            color: #95a5a6;
-            margin: 0 5px;
-        }
-        
-        h2 {
-            color: #2c3e50;
-            margin-bottom: 15px;
+
+        /* ── Nav tabs (inside header) ────────────────────────────────── */
+        .header-nav {
+            border-top: 1px solid rgba(255,255,255,0.12);
         }
 
         .nav-tabs {
             display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 0;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 16px;
+            gap: 0;
         }
 
         .nav-tab {
-            padding: 10px 20px;
+            padding: 11px 18px;
             text-decoration: none;
-            color: #718096;
-            font-weight: 600;
+            color: rgba(255,255,255,0.6);
+            font-size: 0.88em;
+            font-weight: 500;
             border-bottom: 2px solid transparent;
-            margin-bottom: -2px;
-            transition: all 0.2s;
+            transition: color 0.15s, background 0.15s, border-color 0.15s;
+            white-space: nowrap;
         }
 
         .nav-tab:hover {
-            color: #4a5568;
-            background: #f7fafc;
-            border-radius: 6px 6px 0 0;
+            color: rgba(255,255,255,0.9);
+            background: rgba(255,255,255,0.08);
         }
 
         .nav-tab.active {
-            color: #3182ce;
-            border-bottom-color: #3182ce;
+            color: white;
+            border-bottom-color: rgba(255,255,255,0.85);
+            background: rgba(255,255,255,0.1);
         }
 
-        /* Responsive: mobile and small screens */
+        /* ── Page body ───────────────────────────────────────────────── */
+        .page-body {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 28px 24px;
+        }
+
+        /* ── Breadcrumb ──────────────────────────────────────────────── */
+        .breadcrumb {
+            margin-bottom: 16px;
+            font-size: 0.9em;
+        }
+
+        .breadcrumb a {
+            color: var(--site-primary);
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover { text-decoration: underline; }
+
+        .breadcrumb span { color: #95a5a6; margin: 0 5px; }
+
+        h2 { color: #2c3e50; margin-bottom: 15px; }
+
+        /* ── Responsive ──────────────────────────────────────────────── */
         @media (max-width: 768px) {
-            .container {
-                padding: 12px 16px;
-            }
-            header {
+            .header-top {
+                padding: 18px 16px 14px;
                 flex-wrap: wrap;
-                padding: 16px 12px 20px;
                 gap: 12px;
             }
-            header .container {
-                flex: 1 1 100%;
-                min-width: 0;
-            }
-            header h1 {
-                font-size: 1.5em;
-            }
-            header p {
-                font-size: 0.85em;
-            }
-            .header-actions {
-                padding-right: 0;
-                gap: 8px;
-                justify-content: flex-end;
-            }
-            .admin-link {
-                padding: 8px 14px;
-                font-size: 0.9em;
-            }
-            .nav-tabs {
-                flex-wrap: wrap;
-                gap: 6px;
-                margin-bottom: 16px;
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-                padding-bottom: 2px;
-            }
-            .nav-tab {
-                padding: 8px 14px;
-                font-size: 0.9em;
-                white-space: nowrap;
-            }
+            .site-header h1 { font-size: 1.6em; }
+            .header-actions { gap: 6px; }
+            .header-user { display: none; }
+            .header-btn { padding: 6px 12px; font-size: 0.82em; }
+            .nav-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .nav-tab { padding: 10px 14px; font-size: 0.85em; }
+            .page-body { padding: 20px 16px; }
         }
+
         @media (max-width: 480px) {
-            .container {
-                padding: 10px 12px;
-            }
-            header h1 {
-                font-size: 1.35em;
-            }
+            .header-top { padding: 14px 12px 12px; }
+            .site-header h1 { font-size: 1.4em; }
+            .page-body { padding: 16px 12px; }
         }
     </style>
     {% block extra_styles %}{% endblock %}
 </head>
 <body>
-    <header>
-        <div class="container">
-            <h1>📰 NewsBot Dashboard</h1>
-            <p>Multi-Config News Analysis Reports</p>
+    <header class="site-header">
+        <div class="header-top">
+            <div class="header-brand">
+                <p class="header-eyebrow">NewsBot</p>
+                <h1>Dashboard</h1>
+            </div>
+            <div class="header-actions">
+                {% if user.is_authenticated %}
+                <span class="header-user">{{ user.email|default:user.username }}</span>
+                <a href="{% url 'account_logout' %}" class="header-btn">Log out</a>
+                {% else %}
+                <a href="{% url 'account_login' %}" class="header-btn">Log in</a>
+                {% endif %}
+                {% if user.is_authenticated and user.is_staff %}
+                <a href="{% url 'admin:index' %}" class="header-btn">Admin</a>
+                {% endif %}
+                <a href="{% url 'newsserver:shuffle_theme' %}" class="header-btn" title="Shuffle colour theme">&#x21BA;</a>
+            </div>
         </div>
-        <div class="header-actions" style="padding-right: 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-            {% if user.is_authenticated %}
-            <span style="opacity: 0.95; font-size: 0.9em;">{{ user.email|default:user.username }}</span>
-            <a href="{% url 'account_logout' %}" class="admin-link">Log out</a>
-            {% else %}
-            <a href="{% url 'account_login' %}" class="admin-link">Log in</a>
-            {% endif %}
-            {% if user.is_authenticated and user.is_staff %}
-            <a href="{% url 'admin:index' %}" class="admin-link">⚙️ Admin</a>
-            {% endif %}
-        </div>
+        <nav class="header-nav">
+            <div class="nav-tabs">
+                <a href="{% url 'newsserver:news_schedule' %}" class="nav-tab {% if request.resolver_match.url_name == 'news_schedule' %}active{% endif %}">Schedule</a>
+                <a href="{% url 'newsserver:overview' %}" class="nav-tab {% if request.resolver_match.url_name == 'overview' or request.resolver_match.url_name == 'config_report' %}active{% endif %}">Report archive</a>
+                <a href="{% url 'newsserver:runs_list' %}" class="nav-tab {% if request.resolver_match.url_name == 'runs_list' %}active{% endif %}">Runs</a>
+                {% if has_logs %}
+                <a href="{% url 'newsserver:logs_list' %}" class="nav-tab {% if request.resolver_match.url_name == 'logs_list' %}active{% endif %}">Logs</a>
+                {% endif %}
+                {% if user.is_authenticated and user.is_staff %}
+                <a href="{% url 'newsserver:pending_subscription_requests' %}" class="nav-tab {% if request.resolver_match.url_name == 'pending_subscription_requests' %}active{% endif %}">Pending requests</a>
+                {% endif %}
+            </div>
+        </nav>
     </header>
-    
-    <div class="container">
-        <div class="nav-tabs">
-            <a href="{% url 'newsserver:news_schedule' %}" class="nav-tab {% if request.resolver_match.url_name == 'news_schedule' %}active{% endif %}">Schedule</a>
-            <a href="{% url 'newsserver:overview' %}" class="nav-tab {% if request.resolver_match.url_name == 'overview' or request.resolver_match.url_name == 'config_report' %}active{% endif %}">Report archive</a>
-            <a href="{% url 'newsserver:runs_list' %}" class="nav-tab {% if request.resolver_match.url_name == 'runs_list' %}active{% endif %}">Runs</a>
-            {% if has_logs %}
-            <a href="{% url 'newsserver:logs_list' %}" class="nav-tab {% if request.resolver_match.url_name == 'logs_list' %}active{% endif %}">Logs</a>
-            {% endif %}
-            {% if user.is_authenticated and user.is_staff %}
-            <a href="{% url 'newsserver:pending_subscription_requests' %}" class="nav-tab {% if request.resolver_match.url_name == 'pending_subscription_requests' %}active{% endif %}">Pending requests</a>
-            {% endif %}
-        </div>
 
+    <div class="page-body">
         {% block content %}{% endblock %}
     </div>
 </body>

@@ -15,8 +15,7 @@ from typing import TYPE_CHECKING, cast
 from django.db import DatabaseError, IntegrityError, OperationalError
 
 from after_analysis import run_hooks
-from newsbot.agents.sentiment_agent import label_for_score
-from newsbot.constants import TZ
+from newsbot.constants import TZ, label_for_score
 from newsbot.managers import AgentManager, DatabaseManager
 from newsbot.models import (
     AnalysisData,

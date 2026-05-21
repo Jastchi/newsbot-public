@@ -18,7 +18,7 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from newsbot.constants import (
     POLARITY_THRESHOLD,
     SENTIMENT_MAX_CONTENT_LENGTH,
-    SENTIMENT_THRESHOLD,
+    label_for_score,
 )
 from newsbot.models import (
     Article,
@@ -34,18 +34,6 @@ else:
     AnalyzerForSequenceClassification = None
 
 logger = logging.getLogger(__name__)
-
-
-def label_for_score(
-    score: float,
-    threshold: float = SENTIMENT_THRESHOLD,
-) -> str:
-    """Return the sentiment label for a score, against a threshold."""
-    if score >= threshold:
-        return "positive"
-    if score <= -threshold:
-        return "negative"
-    return "neutral"
 
 
 class SentimentAnalysisAgent:

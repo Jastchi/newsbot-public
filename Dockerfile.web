@@ -85,4 +85,4 @@ EXPOSE 8000
 
 WORKDIR /app
 
-CMD ["gunicorn", "web.web.wsgi:application", "--bind", "0.0.0.0:8000", "--access-logfile", "-", "--error-logfile", "-"]
+CMD ["sh", "-c", "python src/web/manage.py migrate --noinput && gunicorn web.web.wsgi:application --bind 0.0.0.0:8000 --access-logfile - --error-logfile -"]
