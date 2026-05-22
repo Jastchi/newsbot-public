@@ -77,8 +77,15 @@
             height: 14px;
             border-radius: 4px;
         }
-        .calendar-legend .swatch-subscribed { background: var(--site-primary); border: 1px solid var(--site-secondary); }
-        .calendar-legend .swatch-other { background: var(--site-muted); border: 1px solid var(--site-border); }
+        .calendar-legend .swatch-subscribed {
+            background: linear-gradient(135deg, var(--site-primary) 0%, var(--site-secondary) 100%);
+            box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px var(--site-secondary);
+        }
+        .calendar-legend .swatch-other {
+            background: linear-gradient(135deg, var(--site-primary) 0%, var(--site-secondary) 100%);
+            opacity: 0.5;
+            border: 1px solid var(--site-border);
+        }
         .my-subscriptions-card {
             background: #fff;
             border-radius: 12px;
@@ -449,16 +456,22 @@
                     openEventSubscribeModal(info.event);
                 },
                 eventDidMount: function(info) {
-                    var style = getComputedStyle(document.documentElement);
-                    var primary = style.getPropertyValue('--site-primary').trim();
-                    var secondary = style.getPropertyValue('--site-secondary').trim();
-                    var muted = style.getPropertyValue('--site-muted').trim();
-                    var subscribed = info.event.extendedProps && info.event.extendedProps.subscribed;
-                    var bg = subscribed ? primary : muted;
-                    var border = subscribed ? secondary : muted;
-                    info.el.style.backgroundColor = bg;
-                    info.el.style.borderColor = border;
-                    var sourceNames = info.event.extendedProps && info.event.extendedProps.sourceNames;
+                    var props = info.event.extendedProps || {};
+                    var subscribed = props.subscribed;
+                    var primary = props.colorPrimary || '#5b6ee8';
+                    var secondary = props.colorSecondary || '#8b52d4';
+                    var middle = props.colorMiddle || '';
+                    var stops = middle
+                        ? (primary + ' 0%, ' + middle + ' 50%, ' + secondary + ' 100%')
+                        : (primary + ' 0%, ' + secondary + ' 100%');
+                    info.el.style.background = 'linear-gradient(135deg, ' + stops + ')';
+                    info.el.style.borderColor = 'transparent';
+                    if (subscribed) {
+                        info.el.style.boxShadow = '0 0 0 2px #fff, 0 0 0 3.5px ' + secondary;
+                    } else {
+                        info.el.style.opacity = '0.55';
+                    }
+                    var sourceNames = props.sourceNames;
                     if (sourceNames && Array.isArray(sourceNames) && sourceNames.length > 0) {
                         info.el.setAttribute('title', sourceNames.join(', '));
                     }
@@ -536,11 +549,12 @@
                     'X-CSRFToken': csrftoken,
                     'X-Requested-With': 'XMLHttpRequest'
                 };
+                var eventId = parseInt(event.id, 10);
                 fetch(subscriptionsUrl, { method: 'GET', headers: headers })
                     .then(function(r) { return r.json(); })
                     .then(function(data) {
                         var ids = data.config_ids || [];
-                        if (ids.indexOf(event.id) === -1) ids.push(event.id);
+                        if (ids.indexOf(eventId) === -1) ids.push(eventId);
                         return fetch(subscriptionsUrl, {
                             method: 'POST',
                             headers: headers,
@@ -569,10 +583,11 @@
                     'X-CSRFToken': csrftoken,
                     'X-Requested-With': 'XMLHttpRequest'
                 };
+                var eventId = parseInt(event.id, 10);
                 fetch(subscriptionsUrl, { method: 'GET', headers: headers })
                     .then(function(r) { return r.json(); })
                     .then(function(data) {
-                        var ids = (data.config_ids || []).filter(function(id) { return id !== event.id; });
+                        var ids = (data.config_ids || []).filter(function(id) { return id !== eventId; });
                         return fetch(subscriptionsUrl, {
                             method: 'POST',
                             headers: headers,

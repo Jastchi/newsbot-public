@@ -27,7 +27,7 @@
 
         /* ── Header ─────────────────────────────────────────────────── */
         .site-header {
-            background: linear-gradient(135deg, var(--site-primary) 0%, var(--site-secondary) 100%);
+            background: linear-gradient(135deg, {{ site_primary }} 0%{% if site_middle %}, {{ site_middle }} 50%{% endif %}, {{ site_secondary }} 100%);
             color: white;
         }
 

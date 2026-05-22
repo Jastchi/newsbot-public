@@ -29,9 +29,10 @@ def site_theme(request: HttpRequest) -> dict[str, str]:
 
     stored = request.session.get("site_theme")
 
-    if stored and not is_refresh:
+    if stored and not is_refresh and "middle" in stored:
         primary = stored["primary"]
         secondary = stored["secondary"]
+        middle = stored["middle"]
     else:
         configs = list(
             NewsConfig.objects.filter(
@@ -40,24 +41,29 @@ def site_theme(request: HttpRequest) -> dict[str, str]:
             ).values(
                 "hero_color_primary",
                 "hero_color_secondary",
+                "hero_color_middle",
             ),
         )
         if configs:
             picked = secrets.choice(configs)
             primary = picked["hero_color_primary"]
             secondary = picked["hero_color_secondary"]
+            middle = picked["hero_color_middle"] or ""
         else:
             primary = "#5b6ee8"
             secondary = "#8b52d4"
+            middle = ""
         request.session["site_theme"] = {
             "primary": primary,
             "secondary": secondary,
+            "middle": middle,
         }
 
-    palette = derive_color_palette(primary, secondary)
+    palette = derive_color_palette(primary, secondary, middle or None)
     return {
         "site_primary": primary,
         "site_secondary": secondary,
+        "site_middle": middle,
         "site_tint": palette["hero_color_tint"],
         "site_border": palette["hero_color_border"],
         "site_shadow": palette["hero_shadow"],

@@ -626,7 +626,7 @@ class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
         week_start: datetime,
         *,
         is_subscribed: bool = False,
-    ) -> dict[str, str | int | bool | dict[str, bool | list[str]]] | None:
+    ) -> dict[str, str | int | dict[str, bool | list[str] | str]] | None:
         """
         Create a calendar event for a config's weekly analysis.
 
@@ -657,23 +657,21 @@ class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
             analysis_ev_time,
         )).isoformat()
 
-        if is_subscribed:
-            bg_color = "#2e7d32"
-            border_color = "#1b5e20"
-        else:
-            bg_color = "#78909c"
-            border_color = "#546e7a"
-
         source_names = sorted({s.name for s in config.news_sources.all()})
         return {
             "id": config.pk,
             "title": config.display_name,
             "start": analysis_start_iso,
-            "backgroundColor": bg_color,
-            "borderColor": border_color,
+            "backgroundColor": config.hero_color_primary,
+            "borderColor": (
+                config.hero_color_secondary or config.hero_color_primary
+            ),
             "extendedProps": {
                 "subscribed": is_subscribed,
                 "sourceNames": source_names,
+                "colorPrimary": config.hero_color_primary,
+                "colorSecondary": config.hero_color_secondary,
+                "colorMiddle": config.hero_color_middle or "",
             },
         }
 
