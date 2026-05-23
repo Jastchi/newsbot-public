@@ -6,6 +6,9 @@
     <title>{% block title %}Newsbot Dashboard{% endblock %}</title>
     {% load static %}
     <link rel="icon" type="image/svg+xml" href="{% static 'newsserver/favicon.svg' %}">
+
+    {% include "partials/og_meta.html" %}
+
     <style>
         :root {
             --site-primary:   {{ site_primary }};

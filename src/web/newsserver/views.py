@@ -573,7 +573,7 @@ class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
         self,
         start_limit: datetime,
         end_limit: datetime,
-    ) -> list[dict[str, str | int | bool | dict[str, bool | list[str]]]]:
+    ) -> list[dict[str, str | int | dict[str, bool | list[str] | str]]]:
         """
         Generate calendar events for the given date range.
 

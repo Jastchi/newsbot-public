@@ -36,5 +36,6 @@ build/
 logs/
 reports/
 tests/screenshots/
+scripts/og-previews/
 *.db
 webserver.sqlite3

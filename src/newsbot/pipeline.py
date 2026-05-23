@@ -236,10 +236,11 @@ class PipelineOrchestrator:
                 )
 
             story_analyses.append(
-                {
-                    "story": story,
-                    "source_summaries": source_summaries,
-                },
+                StoryAnalysis(
+                    story=story,
+                    source_summaries=source_summaries,
+                    source_sentiments={},
+                ),
             )
 
         logger.info(

@@ -94,9 +94,10 @@ test = [
 ]
 dev = [
     "django-stubs>=5.2.8",
+    "pillow>=11.0.0",
     "prek",
-    "ruff",
-    "ty",
+    "ruff>=0.15.10",
+    "ty>=0.0.29",
 ]
 
 [tool.uv]
