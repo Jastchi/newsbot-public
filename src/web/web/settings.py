@@ -267,7 +267,7 @@ EMAIL_HOST = os.getenv("EMAIL_SMTP_SERVER", "smtp.gmail.com")
 EMAIL_PORT = int(os.getenv("EMAIL_SMTP_PORT", "587"))
 EMAIL_USE_SSL = is_truthy_env("EMAIL_USE_SSL")
 EMAIL_USE_TLS = not EMAIL_USE_SSL
-EMAIL_HOST_USER = os.getenv("EMAIL_SENDER", "")
+EMAIL_HOST_USER = os.getenv("EMAIL_LOGIN") or os.getenv("EMAIL_SENDER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_PASSWORD", "")
 # Sender format like report emails: "Display Name <email>"
 _email_sender = os.getenv("EMAIL_SENDER", "")

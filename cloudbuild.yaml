@@ -38,11 +38,38 @@ steps:
       - "push"
       - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_SERVICE}/${_IMAGE}:${SHORT_SHA}"
 
-  # 3. Deploy to Cloud Run
+  # 3. Run database migrations via a Cloud Run Job before deploying
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: migrate
+    entrypoint: "bash"
+    waitFor: ["push"]
+    args:
+      - "-c"
+      - |
+        gcloud run jobs create newsbot-migrate \
+          --image ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_SERVICE}/${_IMAGE}:${SHORT_SHA} \
+          --region ${_REGION} \
+          --command "python" \
+          --args "src/web/manage.py,migrate,--noinput" \
+          --set-secrets "DJANGO_SECRET_KEY=DJANGO_SECRET_KEY:latest,DATABASE_URL=DATABASE_URL:latest" \
+          --set-env-vars "PYTHONPATH=/app/src,DJANGO_SETTINGS_MODULE=web.web.settings" \
+          --task-timeout 120s \
+          --quiet 2>/dev/null || \
+        gcloud run jobs update newsbot-migrate \
+          --image ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_SERVICE}/${_IMAGE}:${SHORT_SHA} \
+          --region ${_REGION} \
+          --command "python" \
+          --args "src/web/manage.py,migrate,--noinput" \
+          --set-secrets "DJANGO_SECRET_KEY=DJANGO_SECRET_KEY:latest,DATABASE_URL=DATABASE_URL:latest" \
+          --set-env-vars "PYTHONPATH=/app/src,DJANGO_SETTINGS_MODULE=web.web.settings" \
+          --task-timeout 120s
+        gcloud run jobs execute newsbot-migrate --region ${_REGION} --wait
+
+  # 4. Deploy to Cloud Run
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
     id: deploy
     entrypoint: "gcloud"
-    waitFor: ["push"] # Wait for the PUSH, not the build
+    waitFor: ["migrate"]
     args:
       - "run"
       - "deploy"
