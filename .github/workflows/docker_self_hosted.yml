@@ -22,26 +22,11 @@ jobs:
 
       - name: Free runner disk
         run: |
-          # Stale buildkitd config dirs from prior failed `setup-buildx-action` runs.
-          rm -rf /tmp/buildkitd-config-* /tmp/buildkitd-config[0-9]*
           docker container prune -f
           docker image prune -f
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-        with:
-          driver: docker-container
-          name: newsbot-api-builder
-
       - name: Build API image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: Dockerfile.api
-          target: production
-          tags: newsbot-api:latest
-          push: false
-          load: true
+        run: docker build -t newsbot-api:latest --target production -f Dockerfile.api .
       - name: Run migrations
         run: |
           docker run --rm \
@@ -69,9 +54,12 @@ jobs:
             -e SUPABASE_SERVICE_KEY="${{ secrets.SUPABASE_SECRET_KEY }}" \
             -e GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
             -e EMAIL_ENABLED="${{ vars.EMAIL_ENABLED }}" \
+            -e EMAIL_PROVIDER="${{ vars.EMAIL_PROVIDER }}" \
+            -e EMAIL_LOGIN="${{ vars.EMAIL_LOGIN }}" \
             -e EMAIL_SENDER="${{ vars.EMAIL_SENDER }}" \
             -e EMAIL_RECIPIENT="${{ vars.EMAIL_RECIPIENT }}" \
             -e EMAIL_PASSWORD="${{ secrets.EMAIL_PASSWORD }}" \
+            -e RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}" \
             -e EMAIL_SMTP_SERVER="${{ vars.EMAIL_SMTP_SERVER }}" \
             -e EMAIL_SMTP_PORT="${{ vars.EMAIL_SMTP_PORT }}" \
             -e EMAIL_USE_SSL="${{ vars.EMAIL_USE_SSL }}" \

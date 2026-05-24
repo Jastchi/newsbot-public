@@ -45,8 +45,9 @@ GLOW_POWER = 1.2    # falloff steepness (higher = sharper visible edge)
 
 # Text
 TITLE = "The Newsbot"
-DESC_LINE1 = "Curated news digests with sentiment insights, on the"
-DESC_LINE2 = "topics you choose, delivered weekly to your inbox."
+DESC_LINE1 = "Curated news digests with"
+DESC_LINE2 = "sentiment insights, on the topics"
+DESC_LINE3 = "you choose, delivered weekly."
 URL_TEXT = "thenewsbot.com"
 
 # Accent line and description colours (derived from glow by default)
@@ -149,14 +150,15 @@ def draw_text(img: Image.Image) -> None:
     """Render the title, description, accent line, and URL."""
     draw = ImageDraw.Draw(img)
     f_title = ImageFont.truetype(str(FONT_SERIF_PATH), 108)
-    f_desc = ImageFont.truetype(str(FONT_SANS_PATH), 26)
-    f_url = ImageFont.truetype(str(FONT_SANS_PATH), 22)
+    f_desc = ImageFont.truetype(str(FONT_SANS_PATH), 38)
+    f_url = ImageFont.truetype(str(FONT_SANS_PATH), 30)
 
-    draw.rectangle([60, 185, 200, 191], fill=ACCENT_COLOR)
-    draw.text((60, 200), TITLE, font=f_title, fill="white")
-    draw.text((60, 348), DESC_LINE1, font=f_desc, fill=DESC_COLOR)
-    draw.text((60, 382), DESC_LINE2, font=f_desc, fill=DESC_COLOR)
-    draw.text((60, H - 48), URL_TEXT, font=f_url, fill=DESC_COLOR)
+    draw.rectangle([60, 98, 200, 104], fill=ACCENT_COLOR)
+    draw.text((60, 114), TITLE, font=f_title, fill="white")
+    draw.text((60, 268), DESC_LINE1, font=f_desc, fill=DESC_COLOR)
+    draw.text((60, 330), DESC_LINE2, font=f_desc, fill=DESC_COLOR)
+    draw.text((60, 392), DESC_LINE3, font=f_desc, fill=DESC_COLOR)
+    draw.text((60, 474), URL_TEXT, font=f_url, fill=DESC_COLOR)
 
 
 # Main

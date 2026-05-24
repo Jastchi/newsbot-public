@@ -12,6 +12,7 @@ from utilities.storage import (
 
 from .common import (
     clean_text,
+    set_log_config_name,
     setup_logging,
     validate_environment,
 )
@@ -23,6 +24,7 @@ __all__ = [
     "get_supabase_client",
     "list_supabase_reports",
     "parse_database_url",
+    "set_log_config_name",
     "setup_logging",
     "should_use_supabase_for_config",
     "upload_to_supabase",

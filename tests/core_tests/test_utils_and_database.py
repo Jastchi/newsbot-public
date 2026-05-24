@@ -785,11 +785,15 @@ class TestSetupLogging:
 
     def test_setup_logging_includes_config_name(self, tmp_path, monkeypatch):
         """Test setup_logging injects config name into every log line."""
+        import io
         import logging
 
+        import newsbot.utils.common as common_module
         from newsbot.utils import setup_logging
 
         monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(common_module, "_file_handlers", {})
+        monkeypatch.setattr(common_module, "_active_error_handlers", {})
 
         root_logger = logging.getLogger()
         original_handlers = root_logger.handlers[:]
@@ -800,9 +804,21 @@ class TestSetupLogging:
             setup_logging(config, [], config_key="test")
 
             assert (tmp_path / "logs").exists()
-            # Check that the root logger's formatter uses the config name.
-            formatter = root_logger.handlers[0].formatter
-            assert formatter._fmt is not None and "MyConfig" in formatter._fmt
+
+            # Config name is injected dynamically via thread-local; verify
+            # by capturing an actual log line.
+            buf = io.StringIO()
+            capture = logging.StreamHandler(buf)
+            capture.setFormatter(logging.Formatter("%(config_name)s"))
+            # _ConfigNameFilter must run before the formatter can use
+            # %(config_name)s — attach one to the capture handler.
+            capture.addFilter(common_module._ConfigNameFilter())
+            root_logger.addHandler(capture)
+            try:
+                logging.getLogger("test.check").info("ping")
+                assert "MyConfig" in buf.getvalue()
+            finally:
+                root_logger.removeHandler(capture)
         finally:
             root_logger.handlers = original_handlers
 

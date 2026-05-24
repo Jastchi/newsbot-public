@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_GEMINI_MODEL = "gemini-3-flash"
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 
 # Retry configuration for Gemini transient errors (429/503)
 GEMINI_MAX_RETRIES = 12

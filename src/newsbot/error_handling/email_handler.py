@@ -47,6 +47,7 @@ class EmailErrorHandler(logging.Handler):
         from_email: str,
         to_email: str,
         password: str,
+        login_email: str = "",
         subject_prefix: str = "[NewsBot Error]",
     ) -> None:
         """Initialize the email handler."""
@@ -54,6 +55,7 @@ class EmailErrorHandler(logging.Handler):
         self.smtp_host = smtp_host
         self.smtp_port = smtp_port
         self.from_email = from_email
+        self.login_email = login_email or from_email
         self.to_email = to_email
         self.password = password
         self.subject_prefix = subject_prefix
@@ -188,7 +190,7 @@ class EmailErrorHandler(logging.Handler):
             # Send email
             with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
                 server.starttls()
-                server.login(self.from_email, self.password)
+                server.login(self.login_email, self.password)
                 server.send_message(msg)
 
             logger.info(
@@ -198,10 +200,11 @@ class EmailErrorHandler(logging.Handler):
             )
 
         except Exception:
-            # Don't let email failures crash the application
             logger.warning(
-                f"Failed to send error email to {self.to_email} "
-                f"for {len(self.error_records)} distinct error(s)",
+                "Failed to send error email to %s for %d distinct error(s)",
+                self.to_email,
+                len(self.error_records),
+                exc_info=True,
             )
         finally:
             # Clear collected errors after attempting to send
@@ -221,12 +224,14 @@ def get_email_error_handler() -> EmailErrorHandler:
             password="",
         )
 
+    sender = os.getenv("EMAIL_SENDER", "")
     return EmailErrorHandler(
         smtp_host=os.getenv("EMAIL_SMTP_SERVER", ""),
         smtp_port=int(os.getenv("EMAIL_SMTP_PORT", "0")),
-        from_email=os.getenv("EMAIL_SENDER", ""),
+        from_email=sender,
         to_email=os.getenv("EMAIL_RECIPIENT", ""),
         password=os.getenv("EMAIL_PASSWORD", ""),
+        login_email=os.getenv("EMAIL_LOGIN", sender),
         subject_prefix=os.getenv("EMAIL_SUBJECT_PREFIX", "[NewsBot Error]"),
     )
 
@@ -267,6 +272,7 @@ def send_error_email_once(
 
     smtp_port = int(os.getenv("EMAIL_SMTP_PORT", "0"))
     from_email = os.getenv("EMAIL_SENDER", "")
+    login_email = os.getenv("EMAIL_LOGIN", from_email)
     to_email = os.getenv("EMAIL_RECIPIENT", "")
     password = os.getenv("EMAIL_PASSWORD", "")
     subject_prefix = os.getenv("EMAIL_SUBJECT_PREFIX", "[NewsBot Error]")
@@ -296,7 +302,7 @@ def send_error_email_once(
 
         with smtplib.SMTP(smtp_host, smtp_port) as server:
             server.starttls()
-            server.login(from_email, password)
+            server.login(login_email, password)
             server.send_message(msg)
 
         logger.info(
@@ -307,4 +313,5 @@ def send_error_email_once(
         logger.warning(
             "Failed to send one-off error email to %s (no handler yet)",
             to_email,
+            exc_info=True,
         )

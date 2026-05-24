@@ -6,6 +6,7 @@
 {% block card_content %}
 <h1>NewsBot Dashboard</h1>
 <p>Sign in to view the schedule and your subscriptions.</p>
+<p style="font-size: 0.8rem; color: rgba(255,255,255,0.55); margin-top: -0.75rem; margin-bottom: 1.5rem; line-height: 1.5;"><strong style="font-weight: 600; color: rgba(255,255,255,0.75);">Your inbox stays quiet.</strong> Sign in, explore, and we'll only send you emails if you choose to subscribe to a news digest.</p>
 {% if messages %}
 <ul class="messages">
     {% for message in messages %}
@@ -53,5 +54,4 @@
 {% else %}
 <p class="error-msg">Google sign-in is not configured.</p>
 {% endif %}
-<p class="footer">Don't have an account? <a href="{% url 'account_signup' %}">Sign up</a></p>
 {% endblock %}

@@ -57,9 +57,12 @@ jobs:
                 -e SUPABASE_SERVICE_KEY="${{ secrets.SUPABASE_SECRET_KEY }}" \
                 -e GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
                 -e EMAIL_ENABLED="${{ vars.EMAIL_ENABLED }}" \
+                -e EMAIL_PROVIDER="${{ vars.EMAIL_PROVIDER }}" \
+                -e EMAIL_LOGIN="${{ vars.EMAIL_LOGIN }}" \
                 -e EMAIL_SENDER="${{ vars.EMAIL_SENDER }}" \
                 -e EMAIL_RECIPIENT="${{ vars.EMAIL_RECIPIENT }}" \
                 -e EMAIL_PASSWORD="${{ secrets.EMAIL_PASSWORD }}" \
+                -e RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}" \
                 -e EMAIL_SMTP_SERVER="${{ vars.EMAIL_SMTP_SERVER }}" \
                 -e EMAIL_SMTP_PORT="${{ vars.EMAIL_SMTP_PORT }}" \
                 -e EMAIL_USE_SSL="${{ vars.EMAIL_USE_SSL }}" \

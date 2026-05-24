@@ -61,14 +61,17 @@ jobs:
         run: uv run newsbot run --config test --force
         env:
           EMAIL_ENABLED: 'true'
+          EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER }}
           EMAIL_SMTP_SERVER: ${{ vars.EMAIL_SMTP_SERVER }}
           EMAIL_SMTP_PORT: ${{ vars.EMAIL_SMTP_PORT }}
           EMAIL_USE_SSL: ${{ vars.EMAIL_USE_SSL }}
+          EMAIL_LOGIN: ${{ vars.EMAIL_LOGIN }}
           EMAIL_SENDER: ${{ vars.EMAIL_SENDER }}
           EMAIL_RECIPIENT: ${{ vars.EMAIL_RECIPIENT }}
           EMAIL_FOR_CANCELLATION: ${{ vars.EMAIL_FOR_CANCELLATION }}
           NEWSSERVER_BASE_URL: ${{ vars.NEWSSERVER_BASE_URL }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
@@ -78,14 +81,17 @@ jobs:
         run: uv run newsbot analyze --config test --test --email-receivers 2>&1 | tee analysis_output.log
         env:
           EMAIL_ENABLED: 'true'
+          EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER }}
           EMAIL_SMTP_SERVER: ${{ vars.EMAIL_SMTP_SERVER }}
           EMAIL_SMTP_PORT: ${{ vars.EMAIL_SMTP_PORT }}
           EMAIL_USE_SSL: ${{ vars.EMAIL_USE_SSL }}
+          EMAIL_LOGIN: ${{ vars.EMAIL_LOGIN }}
           EMAIL_SENDER: ${{ vars.EMAIL_SENDER }}
           EMAIL_RECIPIENT: ${{ vars.EMAIL_RECIPIENT }}
           EMAIL_FOR_CANCELLATION: ${{ vars.EMAIL_FOR_CANCELLATION }}
           NEWSSERVER_BASE_URL: ${{ vars.NEWSSERVER_BASE_URL }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -110,14 +116,17 @@ jobs:
         run: uv run newsbot analyze --config test_ollama --test --email-receivers 2>&1 | tee analysis_output_ollama.log
         env:
           EMAIL_ENABLED: 'true'
+          EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER }}
           EMAIL_SMTP_SERVER: ${{ vars.EMAIL_SMTP_SERVER }}
           EMAIL_SMTP_PORT: ${{ vars.EMAIL_SMTP_PORT }}
           EMAIL_USE_SSL: ${{ vars.EMAIL_USE_SSL }}
+          EMAIL_LOGIN: ${{ vars.EMAIL_LOGIN }}
           EMAIL_SENDER: ${{ vars.EMAIL_SENDER }}
           EMAIL_RECIPIENT: ${{ vars.EMAIL_RECIPIENT }}
           EMAIL_FOR_CANCELLATION: ${{ vars.EMAIL_FOR_CANCELLATION }}
           NEWSSERVER_BASE_URL: ${{ vars.NEWSSERVER_BASE_URL }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
 

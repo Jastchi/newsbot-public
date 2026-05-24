@@ -21,7 +21,11 @@ from newsbot.error_handling.email_handler import (
 from newsbot.pipeline import PipelineOrchestrator
 from newsbot.summary_writer import SummaryWriter
 from newsbot.test_data import insert_test_articles
-from newsbot.utils import setup_logging, validate_environment
+from newsbot.utils import (
+    set_log_config_name,
+    setup_logging,
+    validate_environment,
+)
 from utilities import load_config, setup_django
 from utilities import models as config_models
 
@@ -210,13 +214,15 @@ def _refresh_config_and_jobs(
         config_key: Configuration key to reload
 
     """
-    logger.info(
-        "Refreshing configuration from database (midnight refresh)...",
-    )
+    set_log_config_name(config_key)
 
     try:
         # Reload configuration from database
         new_config, _ = load_config(config_key)
+        set_log_config_name(new_config.name or config_key)
+        logger.info(
+            "Refreshing configuration from database (midnight refresh)...",
+        )
 
         # Extract new scheduler configuration
         new_daily_config, new_weekly_config = (
@@ -675,6 +681,7 @@ def _schedule_daily_scrape(
         try:
             # Instantiate a fresh orchestrator
             job_config, job_news_config = load_config(config_key)
+            set_log_config_name(job_config.name or config_key)
             orchestrator = PipelineOrchestrator(
                 job_config,
                 config_key=config_key,
@@ -743,6 +750,7 @@ def _schedule_weekly_analysis(
         try:
             # Instantiate a fresh orchestrator
             job_config, job_news_config = load_config(config_key)
+            set_log_config_name(job_config.name or config_key)
             orchestrator = PipelineOrchestrator(
                 job_config,
                 config_key=config_key,

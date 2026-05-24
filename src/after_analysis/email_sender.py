@@ -51,8 +51,17 @@ EMAIL_PROVIDER=smtp
 EMAIL_SMTP_SERVER=smtp.gmail.com
 EMAIL_SMTP_PORT=587
 EMAIL_SENDER=mybot@gmail.com
+EMAIL_LOGIN=mylogin@gmail.com  # optional, defaults to EMAIL_SENDER
 EMAIL_SENDER_NAME=My News Bot
 EMAIL_PASSWORD=abcd efgh ijkl mnop
+
+Example .env (Resend):
+---------------------
+EMAIL_ENABLED=true
+EMAIL_PROVIDER=resend
+EMAIL_SENDER=newsletter@yourdomain.com  # verified Resend domain
+EMAIL_SENDER_NAME=My News Bot
+RESEND_API_KEY=re_xxxxxxxxxxxx
 
 Example .env (EmailJS):
 ----------------------
@@ -76,6 +85,7 @@ from email.utils import formataddr
 from pathlib import Path
 
 import requests
+import resend as resend_lib
 from css_inline import CSSInliner
 from dotenv import load_dotenv
 
@@ -112,7 +122,18 @@ class SMTPConfig:
     smtp_port: int
     use_ssl: bool
     sender_email: str
+    login_email: str
     sender_password: str
+    cancellation_email: str
+
+
+@dataclass
+class ResendConfig:
+    """Resend configuration."""
+
+    api_key: str
+    sender_email: str
+    sender_name: str
     cancellation_email: str
 
 
@@ -336,8 +357,7 @@ def create_mime_text(
     sender_name: str,
     recipient_emails: list[str],
     cancellation_email: str,
-    topic: str,
-    analysis_data: AnalysisData,
+    subject: str,
 ) -> MIMEMultipart:
     """Create the MIME email message."""
     msg = MIMEMultipart()
@@ -351,9 +371,9 @@ def create_mime_text(
     if manage_url:
         list_unsubscribe_parts.append(f"<{manage_url}>")
     msg["List-Unsubscribe"] = ", ".join(list_unsubscribe_parts)
-    msg["List-ID"] = "newsletter.gmx.com"
+    msg["List-ID"] = "newsletter.thenewsbot.net"
     msg["Precedence"] = "bulk"
-    msg["Subject"] = _build_subject(topic, analysis_data)
+    msg["Subject"] = subject
     return msg
 
 
@@ -379,13 +399,44 @@ def _get_smtp_config() -> SMTPConfig | None:
         )
         return None
 
+    login_email = os.getenv(
+        "EMAIL_LOGIN",
+        sender_email,
+    ).strip() or sender_email
+
     return SMTPConfig(
         smtp_server=os.getenv("EMAIL_SMTP_SERVER", "smtp.gmail.com"),
         smtp_port=int(os.getenv("EMAIL_SMTP_PORT", "587")),
         use_ssl=is_truthy_env("EMAIL_USE_SSL"),
         sender_email=sender_email,
+        login_email=login_email,
         sender_password=sender_password,
         cancellation_email=os.getenv("EMAIL_FOR_CANCELLATION", sender_email),
+    )
+
+
+def _get_resend_config() -> ResendConfig | None:
+    """
+    Get and validate Resend configuration from environment.
+
+    Returns:
+        ResendConfig if all required vars are set, else None.
+
+    """
+    api_key = _env_str("RESEND_API_KEY")
+    sender_email = _env_str("EMAIL_SENDER")
+
+    if not api_key or not sender_email:
+        logger.warning(
+            "Resend not configured: RESEND_API_KEY and EMAIL_SENDER required",
+        )
+        return None
+
+    return ResendConfig(
+        api_key=api_key,
+        sender_email=sender_email,
+        sender_name=_env_str("EMAIL_SENDER_NAME", "NewsBot"),
+        cancellation_email=_env_str("EMAIL_FOR_CANCELLATION", sender_email),
     )
 
 
@@ -447,7 +498,7 @@ def _send_via_smtp(
         ) as server:
             if not smtp_config.use_ssl:
                 server.starttls()
-            server.login(smtp_config.sender_email, smtp_config.sender_password)
+            server.login(smtp_config.login_email, smtp_config.sender_password)
             server.send_message(msg)
 
         logger.info(
@@ -457,6 +508,60 @@ def _send_via_smtp(
         )
     except Exception:
         logger.exception("Failed to send email")
+
+
+def _send_via_resend(
+    resend_config: ResendConfig,
+    subject: str,
+    html_body: str,
+    recipient_emails: list[str],
+    sender_name: str,
+) -> None:
+    """
+    Send email via Resend API.
+
+    To = sender (self), BCC = subscribers — mirrors SMTP bulk pattern.
+
+    """
+    resend_lib.api_key = resend_config.api_key
+
+    from_header = formataddr(
+        (str(Header(sender_name, "utf-8")), resend_config.sender_email),
+    )
+    bcc = [e for e in recipient_emails if e != resend_config.sender_email]
+
+    list_unsubscribe_parts = [
+        f"<mailto:{resend_config.cancellation_email}?subject=Unsubscribe>",
+    ]
+    manage_url = _get_manage_subscriptions_url()
+    if manage_url:
+        list_unsubscribe_parts.append(f"<{manage_url}>")
+
+    params: resend_lib.Emails.SendParams = {
+        "from": from_header,
+        "to": [resend_config.sender_email],
+        "subject": subject,
+        "html": html_body,
+        "headers": {
+            "List-Unsubscribe": ", ".join(list_unsubscribe_parts),
+            "List-ID": "newsletter.thenewsbot.net",
+            "Precedence": "bulk",
+        },
+    }
+    if bcc:
+        params["bcc"] = bcc
+
+    try:
+        resend_lib.Emails.send(params)
+        logger.info(
+            "Email sent via Resend to %d recipient(s): To=%s, BCC=%s",
+            1 + len(bcc),
+            resend_config.sender_email,
+            ", ".join(bcc) or "(none)",
+        )
+    except Exception:
+        logger.exception("Resend send failed")
+        raise
 
 
 def _send_via_emailjs(
@@ -594,6 +699,34 @@ def execute(report_path: Path, analysis_data: AnalysisData) -> None:
         return
 
     provider = _env_str("EMAIL_PROVIDER", "smtp").lower()
+    subject = _build_subject(topic, analysis_data)
+
+    _dispatch_send(
+        provider, subject, email_body, recipient_emails, sender_name, topic,
+    )
+
+
+def _dispatch_send(
+    provider: str,
+    subject: str,
+    email_body: str,
+    recipient_emails: list[str],
+    sender_name: str,
+    topic: str,
+) -> None:
+    """Dispatch email sending to the configured provider."""
+    if provider == "resend":
+        resend_config = _get_resend_config()
+        if not resend_config:
+            return
+        _send_via_resend(
+            resend_config,
+            subject=subject,
+            html_body=email_body,
+            recipient_emails=recipient_emails,
+            sender_name=sender_name,
+        )
+        return
 
     if provider == "emailjs":
         emailjs_config = _get_emailjs_config()
@@ -601,7 +734,7 @@ def execute(report_path: Path, analysis_data: AnalysisData) -> None:
             return
         _send_via_emailjs(
             emailjs_config,
-            subject=_build_subject(topic, analysis_data),
+            subject=subject,
             html_body=email_body,
             recipient_emails=recipient_emails,
             sender_name=sender_name,
@@ -618,8 +751,7 @@ def execute(report_path: Path, analysis_data: AnalysisData) -> None:
         sender_name,
         recipient_emails,
         smtp_config.cancellation_email,
-        topic,
-        analysis_data,
+        subject,
     )
     msg.attach(MIMEText(email_body, "html"))
     _send_via_smtp(msg, smtp_config, recipient_emails)
