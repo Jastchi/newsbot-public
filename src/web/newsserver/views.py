@@ -34,9 +34,13 @@ from newsbot.constants import (
 )
 
 from .adapters import SESSION_KEY_SUBSCRIPTION_REQUEST_FROM_SOCIAL
-from .auth_helpers import notify_admin_subscriber_request
+from .auth_helpers import (
+    notify_admin_config_suggestion,
+    notify_admin_subscriber_request,
+)
 from .models import (
     AnalysisSummary,
+    ConfigSuggestion,
     NewsConfig,
     ScrapeSummary,
     Subscriber,
@@ -466,11 +470,12 @@ def log_stream_view(
     response["X-Accel-Buffering"] = "no"  # Disable nginx buffering
     return response
 
-class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
+class NewsSchedulerDashboardView(TemplateView):
     """
     View for displaying the news scheduler dashboard.
 
-    Any authenticated user can view the schedule. Only staff can update
+    Anonymous users can view the schedule but not news sources.
+    Only authenticated users can subscribe; only staff can update
     the schedule (POST / drag-and-drop).
     """
 
@@ -596,7 +601,9 @@ class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
                 is_active=True,
                 published_for_subscription=True,
             )
-        configs = configs.prefetch_related("news_sources")
+        include_sources = self.request.user.is_authenticated
+        if include_sources:
+            configs = configs.prefetch_related("news_sources")
         subscribed_ids = self._get_subscribed_config_ids()
 
         # Generate events for each week in the visible range
@@ -612,6 +619,7 @@ class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
                     config,
                     curr_week_start,
                     is_subscribed=config.pk in subscribed_ids,
+                    include_sources=include_sources,
                 )
                 if event:
                     events.append(event)
@@ -626,6 +634,7 @@ class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
         week_start: datetime,
         *,
         is_subscribed: bool = False,
+        include_sources: bool = True,
     ) -> dict[str, str | int | dict[str, bool | list[str] | str]] | None:
         """
         Create a calendar event for a config's weekly analysis.
@@ -634,6 +643,7 @@ class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
             config: NewsConfig instance
             week_start: Start of the week (Monday)
             is_subscribed: True if the user is subscribed to this config
+            include_sources: If True, include news source names
 
         Returns:
             Event dictionary for FullCalendar, or None if invalid
@@ -657,7 +667,11 @@ class NewsSchedulerDashboardView(LoginRequiredMixin, TemplateView):
             analysis_ev_time,
         )).isoformat()
 
-        source_names = sorted({s.name for s in config.news_sources.all()})
+        source_names = (
+            sorted({s.name for s in config.news_sources.all()})
+            if include_sources
+            else []
+        )
         return {
             "id": config.pk,
             "title": config.display_name,
@@ -964,6 +978,64 @@ def subscriber_subscriptions(request: HttpRequest) -> JsonResponse:
             {"status": "error", "message": str(e)},
             status=400,
         )
+
+
+@login_required
+def suggest_config_view(request: HttpRequest) -> HttpResponse:
+    """
+    GET: show the config suggestion form.
+
+    POST: create a ConfigSuggestion and notify admin.
+    """
+    if request.method == "POST":
+        name = (request.POST.get("name") or "").strip()
+        sources = (request.POST.get("sources") or "").strip()
+        note = (request.POST.get("note") or "").strip()
+
+        errors: dict[str, str] = {}
+        if not name:
+            errors["name"] = "Please provide a name for the config."
+        if not sources:
+            errors["sources"] = "Please list at least one source."
+
+        if errors:
+            return render(
+                request,
+                "newsserver/suggest_config.html",
+                {
+                    "errors": errors,
+                    "name": name,
+                    "sources": sources,
+                    "note": note,
+                },
+                status=400,
+            )
+
+        subscriber = cast("Subscriber", request.user)
+        suggestion = ConfigSuggestion.objects.create(
+            name=name,
+            sources=sources,
+            note=note,
+            email=(getattr(subscriber, "email", None) or "").strip().lower(),
+            submitted_by=subscriber,
+        )
+        notify_admin_config_suggestion(suggestion)
+        return render(request, "newsserver/suggest_config_thanks.html", {})
+
+    return render(request, "newsserver/suggest_config.html", {})
+
+
+@user_passes_test(_staff_required, login_url=None)
+def config_suggestions_list(request: HttpRequest) -> HttpResponse:
+    """Staff-only page listing all config suggestions."""
+    suggestions = list(
+        ConfigSuggestion.objects.all().order_by("-created_at")[:200],
+    )
+    return render(
+        request,
+        "newsserver/config_suggestions.html",
+        {"suggestions": suggestions},
+    )
 
 
 def shuffle_theme(request: HttpRequest) -> HttpResponse:

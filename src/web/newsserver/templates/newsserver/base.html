@@ -175,6 +175,66 @@
             .site-header h1 { font-size: 1.4em; }
             .page-body { padding: 16px 12px; }
         }
+
+        /* ── Auth-required modal ─────────────────────────────────────── */
+        .auth-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .auth-modal-overlay.is-open { display: flex; }
+        .auth-modal {
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+            padding: 28px 28px 24px;
+            max-width: 380px;
+            width: 100%;
+        }
+        .auth-modal h3 {
+            margin: 0 0 10px 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--site-primary);
+        }
+        .auth-modal p {
+            margin: 0 0 20px 0;
+            font-size: 0.95rem;
+            color: #546e7a;
+            line-height: 1.5;
+        }
+        .auth-modal .auth-modal-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .auth-modal .btn-login {
+            padding: 10px 20px;
+            background: var(--site-primary);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.95rem;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .auth-modal .btn-login:hover { filter: brightness(0.88); }
+        .auth-modal .btn-cancel {
+            padding: 10px 16px;
+            background: #fff;
+            color: #546e7a;
+            border: 1px solid var(--site-border);
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.95rem;
+            cursor: pointer;
+        }
+        .auth-modal .btn-cancel:hover { background: #f5f5f5; }
     </style>
     {% block extra_styles %}{% endblock %}
 </head>
@@ -190,7 +250,7 @@
                 <span class="header-user">{{ user.email|default:user.username }}</span>
                 <a href="{% url 'account_logout' %}" class="header-btn">Log out</a>
                 {% else %}
-                <a href="{% url 'account_login' %}" class="header-btn">Log in</a>
+                <a href="{% url 'account_login' %}" class="header-btn">Sign in</a>
                 {% endif %}
                 {% if user.is_authenticated and user.is_staff %}
                 <a href="{% url 'admin:index' %}" class="header-btn">Admin</a>
@@ -201,13 +261,15 @@
         <nav class="header-nav">
             <div class="nav-tabs">
                 <a href="{% url 'newsserver:news_schedule' %}" class="nav-tab {% if request.resolver_match.url_name == 'news_schedule' %}active{% endif %}">Schedule</a>
-                <a href="{% url 'newsserver:overview' %}" class="nav-tab {% if request.resolver_match.url_name == 'overview' or request.resolver_match.url_name == 'config_report' %}active{% endif %}">Report archive</a>
-                <a href="{% url 'newsserver:runs_list' %}" class="nav-tab {% if request.resolver_match.url_name == 'runs_list' %}active{% endif %}">Runs</a>
+                <a href="{% url 'newsserver:overview' %}" class="nav-tab {% if request.resolver_match.url_name == 'overview' or request.resolver_match.url_name == 'config_report' %}active{% endif %}"{% if not user.is_authenticated %} data-auth-required{% endif %}>Report archive</a>
+                <a href="{% url 'newsserver:runs_list' %}" class="nav-tab {% if request.resolver_match.url_name == 'runs_list' %}active{% endif %}"{% if not user.is_authenticated %} data-auth-required{% endif %}>Runs</a>
                 {% if has_logs %}
-                <a href="{% url 'newsserver:logs_list' %}" class="nav-tab {% if request.resolver_match.url_name == 'logs_list' %}active{% endif %}">Logs</a>
+                <a href="{% url 'newsserver:logs_list' %}" class="nav-tab {% if request.resolver_match.url_name == 'logs_list' %}active{% endif %}"{% if not user.is_authenticated %} data-auth-required{% endif %}>Logs</a>
                 {% endif %}
+                <a href="{% url 'newsserver:suggest_config' %}" class="nav-tab {% if request.resolver_match.url_name == 'suggest_config' %}active{% endif %}"{% if not user.is_authenticated %} data-auth-required{% endif %}>Suggest a topic</a>
                 {% if user.is_authenticated and user.is_staff %}
                 <a href="{% url 'newsserver:pending_subscription_requests' %}" class="nav-tab {% if request.resolver_match.url_name == 'pending_subscription_requests' %}active{% endif %}">Pending requests</a>
+                <a href="{% url 'newsserver:config_suggestions' %}" class="nav-tab {% if request.resolver_match.url_name == 'config_suggestions' %}active{% endif %}">Topic suggestions</a>
                 {% endif %}
             </div>
         </nav>
@@ -216,5 +278,46 @@
     <div class="page-body">
         {% block content %}{% endblock %}
     </div>
+
+    {% if not user.is_authenticated %}
+    <div id="auth-modal-overlay" class="auth-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+        <div class="auth-modal">
+            <h3 id="auth-modal-title">Access required</h3>
+            <p id="auth-modal-message">This section is only available to registered users. Use your email or Google account to sign in.</p>
+            <div class="auth-modal-actions">
+                <a id="auth-modal-login-btn" href="{% url 'account_login' %}" class="btn-login">Sign in</a>
+                <button id="auth-modal-close" class="btn-cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        (function() {
+            var overlay = document.getElementById('auth-modal-overlay');
+            var loginBtn = document.getElementById('auth-modal-login-btn');
+            var closeBtn = document.getElementById('auth-modal-close');
+            var loginBase = loginBtn.getAttribute('href');
+
+            document.querySelectorAll('[data-auth-required]').forEach(function(el) {
+                el.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    loginBtn.href = loginBase + '?next=' + encodeURIComponent(el.getAttribute('href'));
+                    overlay.classList.add('is-open');
+                });
+            });
+
+            closeBtn.addEventListener('click', function() {
+                overlay.classList.remove('is-open');
+            });
+
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) overlay.classList.remove('is-open');
+            });
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') overlay.classList.remove('is-open');
+            });
+        })();
+    </script>
+    {% endif %}
 </body>
 </html>

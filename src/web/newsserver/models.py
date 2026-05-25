@@ -747,6 +747,55 @@ class SubscriberRequest(BaseModel):
         return f"{name} <{self.email}>"
 
 
+class ConfigSuggestion(BaseModel):
+    """A user-submitted suggestion for a new news configuration."""
+
+    name = models.CharField(
+        max_length=200,
+        help_text="Suggested name for the config (e.g., 'Austrian Tech News')",
+    )
+    sources = models.TextField(
+        help_text="One source URL or name per line",
+    )
+    note = models.TextField(
+        blank=True,
+        help_text="Optional notes or context for this suggestion",
+    )
+    email = models.EmailField(
+        help_text="Email of the submitter (denormalized)",
+    )
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="config_suggestions",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    if TYPE_CHECKING:
+        objects: Manager[ConfigSuggestion]
+
+    class Meta:
+        """Meta options for ConfigSuggestion."""
+
+        verbose_name = "Config suggestion"
+        verbose_name_plural = "Config suggestions"
+        ordering: ClassVar[list[str]] = ["-created_at"]
+
+    def __str__(self) -> str:
+        """Represent the suggestion as a string."""
+        return f"{self.name} <{self.email}>"
+
+    def sources_list(self) -> list[str]:
+        """Return sources as a list of non-empty stripped lines."""
+        return [
+            line.strip()
+            for line in self.sources.splitlines()
+            if line.strip()
+        ]
+
+
 class ScrapeSummary(BaseModel):
     """Model for storing summary of daily scrape runs."""
 

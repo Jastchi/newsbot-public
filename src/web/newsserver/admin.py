@@ -13,6 +13,7 @@ from django.utils.html import format_html
 
 from .models import (
     Article,
+    ConfigSuggestion,
     NewsConfig,
     NewsSource,
     Subscriber,
@@ -462,6 +463,55 @@ class SubscriberRequestAdmin(admin.ModelAdmin):
                 "No requests selected or all already accepted.",
                 level=messages.WARNING,
             )
+
+
+@admin.register(ConfigSuggestion)
+class ConfigSuggestionAdmin(admin.ModelAdmin):
+    """Admin for ConfigSuggestion (read-only list for review)."""
+
+    preview_length = 80
+
+    list_display = (
+        "name",
+        "email",
+        "submitted_by",
+        "sources_preview",
+        "note_preview",
+        "created_at",
+    )
+    list_filter = ("created_at",)
+    search_fields = ("name", "email", "sources", "note")
+    readonly_fields = (
+        "name",
+        "sources",
+        "note",
+        "email",
+        "submitted_by",
+        "created_at",
+    )
+    ordering = ("-created_at",)
+
+    @admin.display(description="Sources")
+    def sources_preview(self, obj: ConfigSuggestion) -> str:
+        """Show first preview_length chars of sources."""
+        length = self.preview_length
+        return (
+            obj.sources[:length] + "…"
+            if len(obj.sources) > length
+            else obj.sources
+        )
+
+    @admin.display(description="Note")
+    def note_preview(self, obj: ConfigSuggestion) -> str:
+        """Show first preview_length chars of note."""
+        if not obj.note:
+            return "—"
+        length = self.preview_length
+        return (
+            obj.note[:length] + "…"
+            if len(obj.note) > length
+            else obj.note
+        )
 
 
 @admin.register(Article)

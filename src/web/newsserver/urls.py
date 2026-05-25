@@ -59,4 +59,14 @@ urlpatterns = [
         name="email_preview",
     ),
     path("theme/shuffle/", views.shuffle_theme, name="shuffle_theme"),
+    path(
+        "suggest-config/",
+        views.suggest_config_view,
+        name="suggest_config",
+    ),
+    path(
+        "suggest-config/all/",
+        views.config_suggestions_list,
+        name="config_suggestions",
+    ),
 ]

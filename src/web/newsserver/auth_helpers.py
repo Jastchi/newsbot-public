@@ -18,7 +18,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Subscriber, SubscriberRequest
+from .models import ConfigSuggestion, Subscriber, SubscriberRequest
 
 # Magic-link: rate limit 2 per window (per IP and per email), in-memory
 MAGIC_LINK_RATE_LIMIT_WINDOW_SECONDS = 15 * 60
@@ -182,6 +182,38 @@ def notify_admin_subscriber_request(req: SubscriberRequest) -> None:
     )
     req.admin_notified_at = timezone.now()
     req.save(update_fields=["admin_notified_at"])
+
+
+def notify_admin_config_suggestion(suggestion: ConfigSuggestion) -> None:
+    """
+    Send immediate email to admin when new config suggestion created.
+
+    Uses EMAIL_ADMIN_NOTIFICATION_TO; no-op if unset.
+    """
+    to = getattr(settings, "EMAIL_ADMIN_NOTIFICATION_TO", "").strip()
+    if not to:
+        return
+
+    subject = "NewsBot: New config suggestion"
+    sources_preview = "\n".join(
+        f"  - {s}" for s in suggestion.sources_list()[:10]
+    )
+    message = (
+        f"A user has suggested a new news configuration.\n\n"
+        f"Name: {suggestion.name}\n"
+        f"From: {suggestion.email}\n"
+        f"Sources:\n{sources_preview}\n"
+    )
+    if suggestion.note:
+        message += f"\nNote: {suggestion.note}\n"
+    message += "\nReview it in the Config suggestions tab or Django Admin."
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL or None,
+        recipient_list=[to],
+        fail_silently=True,
+    )
 
 
 def request_magic_link(request: HttpRequest) -> HttpResponse:

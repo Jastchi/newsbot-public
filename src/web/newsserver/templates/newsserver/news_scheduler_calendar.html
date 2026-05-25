@@ -349,7 +349,12 @@
     <div class="error-message">{{ error }}</div>
 {% else %}
 
-<div class="schedule-page" id="schedule-page" data-can-subscribe="{% if subscriber %}true{% else %}false{% endif %}">
+<div class="schedule-page" id="schedule-page"
+     data-can-subscribe="{% if subscriber %}true{% else %}false{% endif %}"
+     data-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}"
+     data-can-edit-schedule="{% if user_can_edit_schedule %}true{% else %}false{% endif %}"
+     data-calendar-timezone="{{ calendar_timezone|escapejs }}"
+     data-login-url="{% url 'account_login' %}">
     <div id="event-subscribe-overlay" class="event-subscribe-overlay" aria-hidden="true">
         <div class="event-subscribe-modal" role="dialog" aria-labelledby="event-subscribe-title" aria-modal="true">
             <h3 id="event-subscribe-title">Report</h3>
@@ -380,7 +385,15 @@
     </div>
         </div>
 
-    {% if subscriber and subscribable_configs %}
+    {% if not user.is_authenticated %}
+    <aside class="my-subscriptions-aside" aria-label="Sign in or join">
+        <div class="my-subscriptions-card">
+            <h2>Sign in or join</h2>
+            <p style="font-size:0.9rem;color:#546e7a;margin:0 0 16px 0;">Sign in to see news sources, subscribe to reports, and manage your schedule.</p>
+            <a href="{% url 'account_login' %}" class="request-access-btn" style="display:inline-block;padding:10px 18px;background:var(--site-primary);color:#fff;border-radius:8px;font-weight:500;text-decoration:none;">Sign in</a>
+        </div>
+    </aside>
+    {% elif subscriber and subscribable_configs %}
     <aside class="my-subscriptions-aside" aria-label="My subscriptions">
         <div class="my-subscriptions-card" id="my-subscriptions-card">
             <h2>My subscriptions</h2>
@@ -411,12 +424,15 @@
             const calendarEl = document.getElementById('calendar');
             const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
             const statusMsg = document.getElementById('status-msg');
+            var schedulePage = document.getElementById('schedule-page');
+            var canEditSchedule = schedulePage.getAttribute('data-can-edit-schedule') === 'true';
+            var calendarTimezone = schedulePage.getAttribute('data-calendar-timezone');
 
-            const calendar = new FullCalendar.Calendar(calendarEl, {
+            var calendarOptions = {
                 initialView: 'timeGridWeek',
                 firstDay: 1,
                 weekends: false,
-                timeZone: '{{ calendar_timezone|escapejs }}',
+                timeZone: calendarTimezone,
                 scrollTime: '07:00:00',
                 slotMinTime: "00:00:00",
                 slotMaxTime: "24:00:00",
@@ -444,13 +460,8 @@
                     .then(successCallback)
                     .catch(failureCallback);
                 },
-                
-                editable: {{ user_can_edit_schedule|yesno:"true,false" }},
-                {% if user_can_edit_schedule %}
-                eventDrop: function(info) {
-                    updateSchedule(info.event);
-                },
-                {% endif %}
+
+                editable: canEditSchedule,
                 eventClick: function(info) {
                     info.jsEvent.preventDefault();
                     openEventSubscribeModal(info.event);
@@ -476,7 +487,15 @@
                         info.el.setAttribute('title', sourceNames.join(', '));
                     }
                 }
-            });
+            };
+
+            if (canEditSchedule) {
+                calendarOptions.eventDrop = function(info) {
+                    updateSchedule(info.event);
+                };
+            }
+
+            const calendar = new FullCalendar.Calendar(calendarEl, calendarOptions);
 
             calendar.render();
 
@@ -490,7 +509,9 @@
             window.addEventListener('resize', applyContentHeight);
 
             var subscriptionsUrl = "{% url 'newsserver:subscriber_subscriptions' %}";
-            var canSubscribe = document.getElementById('schedule-page').getAttribute('data-can-subscribe') === 'true';
+            var canSubscribe = schedulePage.getAttribute('data-can-subscribe') === 'true';
+            var isAuthenticated = schedulePage.getAttribute('data-authenticated') === 'true';
+            var loginUrl = schedulePage.getAttribute('data-login-url');
 
             function openEventSubscribeModal(event) {
                 var overlay = document.getElementById('event-subscribe-overlay');
@@ -504,7 +525,7 @@
                 var sourceNames = event.extendedProps && event.extendedProps.sourceNames;
                 if (sourcesWrap && sourcesList) {
                     sourcesList.innerHTML = '';
-                    if (sourceNames && Array.isArray(sourceNames) && sourceNames.length > 0) {
+                    if (isAuthenticated && sourceNames && Array.isArray(sourceNames) && sourceNames.length > 0) {
                         sourceNames.forEach(function(name) {
                             var li = document.createElement('li');
                             li.textContent = name;
@@ -525,7 +546,13 @@
                 } else {
                     subscribeBtn.style.display = 'none';
                     unsubscribeBtn.style.display = 'none';
-                    if (hint) hint.textContent = 'Request to be added as a subscriber to choose which reports you receive.';
+                    if (hint) {
+                        if (!isAuthenticated) {
+                            hint.innerHTML = '<a href="' + loginUrl + '">Sign in</a> to see news sources and subscribe.';
+                        } else {
+                            hint.textContent = 'Request to be added as a subscriber to choose which reports you receive.';
+                        }
+                    }
                 }
                 subscribeBtn.onclick = function() { doSubscribe(event); };
                 unsubscribeBtn.onclick = function() { doUnsubscribe(event); };
