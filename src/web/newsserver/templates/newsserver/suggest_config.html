@@ -17,7 +17,7 @@
 
     .suggest-form .subtitle {
         margin: 0 0 28px 0;
-        color: #546e7a;
+        color: var(--text-secondary);
     }
 
     .form-group {
@@ -29,12 +29,12 @@
         font-weight: 600;
         font-size: 0.9rem;
         margin-bottom: 6px;
-        color: #2c3e50;
+        color: var(--text-primary);
     }
 
     .form-group .hint {
         font-size: 0.82rem;
-        color: #78909c;
+        color: var(--text-muted);
         margin-bottom: 6px;
         display: block;
     }
@@ -47,8 +47,8 @@
         border-radius: 8px;
         font-size: 0.93rem;
         font-family: inherit;
-        background: #fff;
-        color: #2c3e50;
+        background: var(--bg-card);
+        color: var(--text-primary);
         transition: border-color 0.15s, box-shadow 0.15s;
         resize: vertical;
     }
@@ -128,7 +128,7 @@
         </div>
 
         <div class="form-group">
-            <label for="note">Note <span style="font-weight:400; color:#78909c;">(optional)</span></label>
+            <label for="note">Note <span style="font-weight:400; color:var(--text-muted);">(optional)</span></label>
             <span class="hint">Any context or special requirements</span>
             <textarea id="note" name="note" rows="3">{{ note|default:'' }}</textarea>
         </div>

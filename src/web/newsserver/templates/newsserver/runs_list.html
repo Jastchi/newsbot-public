@@ -9,10 +9,10 @@
         justify-content: space-between;
         align-items: center;
         margin-bottom: 30px;
-        background: white;
+        background: var(--bg-card);
         padding: 15px;
         border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 8px var(--shadow);
     }
 
     .date-nav h2 {
@@ -24,15 +24,15 @@
 
     .nav-btn {
         text-decoration: none;
-        color: #2c3e50;
+        color: var(--text-primary);
         padding: 8px 16px;
-        border: 1px solid #e0e6ed;
+        border: 1px solid var(--border);
         border-radius: 6px;
         transition: all 0.2s;
     }
 
     .nav-btn:hover {
-        background: #f8f9fa;
+        background: var(--bg-subtle);
         border-color: var(--site-border);
     }
 
@@ -50,7 +50,7 @@
         display: flex;
         align-items: center;
         margin-bottom: 20px;
-        color: #2c3e50;
+        color: var(--text-primary);
     }
 
     .section-badge {
@@ -64,11 +64,11 @@
     }
 
     .run-card {
-        background: white;
+        background: var(--bg-card);
         border-radius: 12px;
         padding: 20px;
         margin-bottom: 15px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 8px var(--shadow);
         border-left: 5px solid var(--site-border);
     }
 
@@ -90,11 +90,11 @@
     .run-config {
         font-weight: 600;
         font-size: 1.1em;
-        color: #2d3748;
+        color: var(--text-primary);
     }
 
     .run-time {
-        color: #718096;
+        color: var(--text-muted);
         font-size: 0.9em;
     }
 
@@ -114,13 +114,13 @@
 
     .stat-label {
         font-size: 0.85em;
-        color: #718096;
+        color: var(--text-muted);
         margin-bottom: 4px;
     }
 
     .stat-value {
         font-weight: 600;
-        color: #2d3748;
+        color: var(--text-primary);
     }
 
     .error-list {
@@ -146,8 +146,8 @@
     .empty-message {
         text-align: center;
         padding: 40px;
-        color: #a0aec0;
-        background: white;
+        color: var(--text-muted);
+        background: var(--bg-card);
         border-radius: 12px;
         border: 2px dashed var(--site-border);
     }

@@ -16,7 +16,7 @@
 {% block content %}
 <div style="max-width: 860px; margin: 24px 0;">
     <h2 style="margin: 0 0 8px 0; font-size: 1.5rem; color: var(--site-primary);">Topic suggestions</h2>
-    <p style="margin: 0 0 24px 0; color: #546e7a;">
+    <p style="margin: 0 0 24px 0; color: var(--text-secondary);">
         Suggestions submitted by users. Review here or manage them in
         <a href="{% url 'admin:newsserver_configsuggestion_changelist' %}" style="color: var(--site-primary);">Django Admin</a>.
     </p>
@@ -24,25 +24,25 @@
     {% if suggestions %}
     <ul style="list-style: none; padding: 0; margin: 0;">
         {% for s in suggestions %}
-        <li class="suggestion-item" style="padding: 16px; margin-bottom: 10px; background: #fff; border-radius: 8px; border: 1px solid var(--site-border); display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
+        <li class="suggestion-item" style="padding: 16px; margin-bottom: 10px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--site-border); display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
             <div style="min-width: 0;">
                 <strong style="font-size: 1rem;">{{ s.name }}</strong>
-                <span style="color: #78909c; font-size: 0.88rem; margin-left: 8px;">{{ s.email }}</span>
-                <ul style="margin: 8px 0 0 0; padding-left: 18px; color: #546e7a; font-size: 0.9rem;">
+                <span style="color: var(--text-muted); font-size: 0.88rem; margin-left: 8px;">{{ s.email }}</span>
+                <ul style="margin: 8px 0 0 0; padding-left: 18px; color: var(--text-secondary); font-size: 0.9rem;">
                     {% for src in s.sources_list %}
                     <li>{{ src }}</li>
                     {% endfor %}
                 </ul>
                 {% if s.note %}
-                <p style="margin: 8px 0 0 0; font-size: 0.9rem; color: #546e7a; font-style: italic;">{{ s.note }}</p>
+                <p style="margin: 8px 0 0 0; font-size: 0.9rem; color: var(--text-secondary); font-style: italic;">{{ s.note }}</p>
                 {% endif %}
             </div>
-            <span style="white-space: nowrap; font-size: 0.88rem; color: #78909c; flex-shrink: 0;">{{ s.created_at|date:"M j, Y H:i" }}</span>
+            <span style="white-space: nowrap; font-size: 0.88rem; color: var(--text-muted); flex-shrink: 0;">{{ s.created_at|date:"M j, Y H:i" }}</span>
         </li>
         {% endfor %}
     </ul>
     {% else %}
-    <p style="color: #546e7a;">No suggestions yet.</p>
+    <p style="color: var(--text-secondary);">No suggestions yet.</p>
     {% endif %}
 </div>
 {% endblock %}

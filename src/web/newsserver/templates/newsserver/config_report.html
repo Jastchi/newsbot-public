@@ -15,16 +15,16 @@
     
     .report-selector label {
         font-weight: 600;
-        color: #34495e;
+        color: var(--text-primary);
     }
     
     .report-selector select {
         padding: 10px 15px;
-        border: 2px solid #e0e6ed;
+        border: 2px solid var(--border);
         border-radius: 8px;
         font-size: 1em;
-        background: white;
-        color: #2c3e50;
+        background: var(--bg-card);
+        color: var(--text-primary);
         cursor: pointer;
         min-width: 300px;
         transition: all 0.3s ease;
@@ -41,17 +41,18 @@
     }
     
     .report-content {
-        background: white;
         border-radius: 12px;
-        padding: 30px;
+        overflow: hidden;
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         min-height: 500px;
+        background: transparent;
     }
-    
+
     .report-content iframe {
         width: 100%;
         min-height: 800px;
         border: none;
+        display: block;
     }
     
     .error-message {
@@ -103,58 +104,19 @@
         box-shadow: 0 4px 12px var(--site-shadow);
     }
     
-    /* Mobile optimizations for PDF viewing */
     @media (max-width: 768px) {
-        .page-body {
-            padding: 0 !important;
-        }
-
-        .report-content {
-            padding: 0 !important;
-            margin: 0 !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-        }
-        
-        .report-content iframe {
-            border-radius: 0 !important;
-        }
-        
-        .back-button,
-        .report-selector {
-            margin-left: 10px;
-            margin-right: 10px;
-        }
-        
-        .breadcrumb {
-            padding: 10px;
-        }
-
-        .report-selector {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 12px;
-        }
-        .report-selector select {
-            min-width: 0;
-            width: 100%;
-        }
-        .report-selector label {
-            display: block;
-        }
-        .download-button {
-            text-align: center;
-        }
+        .page-body { padding: 0 !important; }
+        .report-content { margin: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+        .back-button, .report-selector { margin-left: 10px; margin-right: 10px; }
+        .breadcrumb { padding: 10px; }
+        .report-selector { flex-direction: column; align-items: stretch; gap: 12px; }
+        .report-selector select { min-width: 0; width: 100%; }
+        .report-selector label { display: block; }
+        .download-button { text-align: center; }
     }
     @media (max-width: 480px) {
-        .back-button,
-        .report-selector {
-            margin-left: 8px;
-            margin-right: 8px;
-        }
-        .report-content iframe {
-            min-height: 600px;
-        }
+        .back-button, .report-selector { margin-left: 8px; margin-right: 8px; }
+        .report-content iframe { min-height: 600px; }
     }
     
 </style>
@@ -166,6 +128,27 @@
         const currentUrl = window.location.pathname;
         window.location.href = currentUrl + '?report=' + encodeURIComponent(selectedReport);
     }
+
+    function resizeIframe(iframe) {
+        try {
+            const h = iframe.contentDocument.documentElement.scrollHeight;
+            iframe.style.height = h + 'px';
+        } catch (e) {}
+    }
+
+    function toggleFullscreen() {
+        const iframe = document.getElementById('report-iframe');
+        if (!document.fullscreenElement) {
+            iframe.requestFullscreen();
+        } else {
+            document.exitFullscreen();
+        }
+    }
+
+    document.addEventListener('fullscreenchange', function () {
+        const btn = document.getElementById('fullscreen-btn');
+        btn.textContent = document.fullscreenElement ? '✕ Exit' : '⛶ Maximise';
+    });
 </script>
 {% endblock %}
 
@@ -196,10 +179,16 @@
         {% endfor %}
     </select>
     <a href="?report={{ current_report }}&download=1" class="download-button" download>⬇️ Download Report</a>
+    <button class="download-button" id="fullscreen-btn" onclick="toggleFullscreen()">⛶ Maximise</button>
 </div>
 
 <div class="report-content">
-    {{ report_content|safe }}
+    <iframe
+        id="report-iframe"
+        src="?report={{ current_report }}&raw=1"
+        onload="resizeIframe(this)"
+        title="{{ config_name }} report"
+    ></iframe>
 </div>
 {% endif %}
 {% endblock %}

@@ -9,6 +9,14 @@
 
     {% include "partials/og_meta.html" %}
 
+    <!-- Apply stored theme before paint to prevent flash -->
+    <script>
+        (function () {
+            var t = localStorage.getItem('newsbot-theme');
+            if (t) document.documentElement.setAttribute('data-theme', t);
+        }());
+    </script>
+
     <style>
         :root {
             --site-primary:   {{ site_primary }};
@@ -17,15 +25,78 @@
             --site-border:    {{ site_border }};
             --site-shadow:    {{ site_shadow }};
             --site-muted:     {{ site_muted }};
+
+            /* Neutral palette */
+            --bg-page:        {{ site_tint }};
+            --bg-card:        #ffffff;
+            --bg-subtle:      #f8f9fa;
+            --text-primary:   #2c3e50;
+            --text-secondary: #546e7a;
+            --text-muted:     #7f8c8d;
+            --border:         #e0e6ed;
+            --shadow-sm:      rgba(0,0,0,0.06);
+            --shadow:         rgba(0,0,0,0.08);
+            --shadow-md:      rgba(0,0,0,0.15);
+        }
+
+        /* ── Dark mode (system) ── */
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --site-tint:      rgba(255,255,255,0.04);
+                --site-border:    rgba(255,255,255,0.1);
+                --bg-page:        #202020;
+                --bg-card:        #2a2a2a;
+                --bg-subtle:      #1a1a1a;
+                --text-primary:   #e8e8e8;
+                --text-secondary: #a8a8a8;
+                --text-muted:     #787878;
+                --border:         rgba(255,255,255,0.1);
+                --shadow-sm:      rgba(0,0,0,0.25);
+                --shadow:         rgba(0,0,0,0.35);
+                --shadow-md:      rgba(0,0,0,0.5);
+            }
+        }
+
+        /* ── Dark mode (explicit toggle) ── */
+        [data-theme="dark"] {
+            --site-tint:      rgba(255,255,255,0.04);
+            --site-border:    rgba(255,255,255,0.1);
+            --bg-page:        #0f1117;
+            --bg-card:        #1a1d27;
+            --bg-subtle:      #13161f;
+            --text-primary:   #e0e4f0;
+            --text-secondary: #a0a8c0;
+            --text-muted:     #6b7192;
+            --border:         rgba(255,255,255,0.1);
+            --shadow-sm:      rgba(0,0,0,0.25);
+            --shadow:         rgba(0,0,0,0.35);
+            --shadow-md:      rgba(0,0,0,0.5);
+        }
+
+        /* ── Light mode (explicit toggle) ── */
+        [data-theme="light"] {
+            --site-tint:      {{ site_tint }};
+            --site-border:    {{ site_border }};
+            --bg-page:        {{ site_tint }};
+            --bg-card:        #ffffff;
+            --bg-subtle:      #f8f9fa;
+            --text-primary:   #2c3e50;
+            --text-secondary: #546e7a;
+            --text-muted:     #7f8c8d;
+            --border:         #e0e6ed;
+            --shadow-sm:      rgba(0,0,0,0.06);
+            --shadow:         rgba(0,0,0,0.08);
+            --shadow-md:      rgba(0,0,0,0.15);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: var(--site-tint);
-            color: #2c3e50;
+            background: var(--bg-page);
+            color: var(--text-primary);
             min-height: 100vh;
+            transition: background 0.2s ease, color 0.2s ease;
         }
 
         /* ── Header ─────────────────────────────────────────────────── */
@@ -87,6 +158,8 @@
             background: rgba(255,255,255,0.12);
             transition: background 0.15s, border-color 0.15s;
             white-space: nowrap;
+            cursor: pointer;
+            font-family: inherit;
         }
 
         .header-btn:hover {
@@ -150,9 +223,9 @@
 
         .breadcrumb a:hover { text-decoration: underline; }
 
-        .breadcrumb span { color: #95a5a6; margin: 0 5px; }
+        .breadcrumb span { color: var(--text-muted); margin: 0 5px; }
 
-        h2 { color: #2c3e50; margin-bottom: 15px; }
+        h2 { color: var(--text-primary); margin-bottom: 15px; }
 
         /* ── Responsive ──────────────────────────────────────────────── */
         @media (max-width: 768px) {
@@ -189,12 +262,13 @@
         }
         .auth-modal-overlay.is-open { display: flex; }
         .auth-modal {
-            background: #fff;
+            background: var(--bg-card);
             border-radius: 14px;
-            box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+            box-shadow: 0 8px 40px var(--shadow-md);
             padding: 28px 28px 24px;
             max-width: 380px;
             width: 100%;
+            transition: background 0.2s;
         }
         .auth-modal h3 {
             margin: 0 0 10px 0;
@@ -205,7 +279,7 @@
         .auth-modal p {
             margin: 0 0 20px 0;
             font-size: 0.95rem;
-            color: #546e7a;
+            color: var(--text-secondary);
             line-height: 1.5;
         }
         .auth-modal .auth-modal-actions {
@@ -226,15 +300,16 @@
         .auth-modal .btn-login:hover { filter: brightness(0.88); }
         .auth-modal .btn-cancel {
             padding: 10px 16px;
-            background: #fff;
-            color: #546e7a;
+            background: var(--bg-card);
+            color: var(--text-secondary);
             border: 1px solid var(--site-border);
             border-radius: 8px;
             font-weight: 500;
             font-size: 0.95rem;
             cursor: pointer;
+            transition: background 0.15s;
         }
-        .auth-modal .btn-cancel:hover { background: #f5f5f5; }
+        .auth-modal .btn-cancel:hover { background: var(--bg-subtle); }
     </style>
     {% block extra_styles %}{% endblock %}
 </head>
@@ -256,6 +331,7 @@
                 <a href="{% url 'admin:index' %}" class="header-btn">Admin</a>
                 {% endif %}
                 <a href="{% url 'newsserver:shuffle_theme' %}" class="header-btn" title="Shuffle colour theme">&#x21BA;</a>
+                <button class="header-btn" id="site-theme-toggle" aria-label="Toggle colour theme" title="Toggle dark mode">☾</button>
             </div>
         </div>
         <nav class="header-nav">
@@ -319,5 +395,32 @@
         })();
     </script>
     {% endif %}
+
+    <script>
+        (function () {
+            var btn = document.getElementById('site-theme-toggle');
+            if (!btn) return;
+
+            function getEffective() {
+                var stored = document.documentElement.getAttribute('data-theme');
+                if (stored === 'dark' || stored === 'light') return stored;
+                return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+
+            function updateLabel() {
+                btn.textContent = getEffective() === 'dark' ? '☀' : '☾';
+                btn.title = getEffective() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+            }
+
+            updateLabel();
+
+            btn.addEventListener('click', function () {
+                var next = getEffective() === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', next);
+                localStorage.setItem('newsbot-theme', next);
+                updateLabel();
+            });
+        }());
+    </script>
 </body>
 </html>

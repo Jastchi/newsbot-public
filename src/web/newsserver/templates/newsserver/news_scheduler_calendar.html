@@ -30,7 +30,7 @@
         }
         .schedule-main { min-width: 0; }
         #calendar-container {
-            background: #fff;
+            background: var(--bg-card);
             padding: 24px;
             border-radius: 12px;
             box-shadow: 0 2px 12px rgba(0,0,0,0.06);
@@ -87,7 +87,7 @@
             border: 1px solid var(--site-border);
         }
         .my-subscriptions-card {
-            background: #fff;
+            background: var(--bg-card);
             border-radius: 12px;
             box-shadow: 0 2px 12px rgba(0,0,0,0.06);
             border: 1px solid rgba(0,0,0,0.06);
@@ -130,7 +130,7 @@
             gap: 10px;
             cursor: pointer;
             font-size: 0.95rem;
-            color: #37474f;
+            color: var(--text-primary);
             flex: 1;
         }
         .my-subscriptions-list input[type="checkbox"] {
@@ -141,13 +141,13 @@
         }
         .my-subscriptions-list .config-key {
             font-size: 0.8rem;
-            color: #78909c;
+            color: var(--text-muted);
             font-weight: 500;
         }
         .my-subscriptions-save-hint {
             margin-top: 12px;
             font-size: 0.8rem;
-            color: #78909c;
+            color: var(--text-muted);
         }
         .my-subscriptions-saving {
             margin-top: 8px;
@@ -158,7 +158,7 @@
         .subscriber-request-panel {
             margin-top: 20px;
             padding: 20px;
-            background: #fff;
+            background: var(--bg-card);
             border-radius: 12px;
             border: 1px solid var(--site-border);
             box-shadow: 0 2px 8px rgba(0,0,0,0.04);
@@ -190,7 +190,7 @@
         }
         .event-subscribe-overlay.is-open { display: flex; }
         .event-subscribe-modal {
-            background: #fff;
+            background: var(--bg-card);
             border-radius: 12px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.15);
             padding: 24px;
@@ -206,7 +206,7 @@
         .event-subscribe-modal .event-sources-wrap {
             margin: 0 0 12px 0;
             font-size: 0.9rem;
-            color: #37474f;
+            color: var(--text-primary);
         }
         .event-subscribe-modal .event-sources-label {
             display: block;
@@ -227,7 +227,7 @@
         .event-subscribe-modal .event-subscribe-hint {
             margin: 0 0 16px 0;
             font-size: 0.95rem;
-            color: #546e7a;
+            color: var(--text-secondary);
         }
         .event-subscribe-modal .modal-actions {
             display: flex;
@@ -249,17 +249,17 @@
         }
         .event-subscribe-modal .btn-subscribe:hover { background: #1b5e20; }
         .event-subscribe-modal .btn-unsubscribe {
-            background: #fff;
-            color: #546e7a;
+            background: var(--bg-card);
+            color: var(--text-secondary);
             border: 1px solid var(--site-border);
         }
         .event-subscribe-modal .btn-unsubscribe:hover {
             background: #f5f5f5;
-            border-color: #b0bec5;
+            border-color: var(--site-border);
         }
         .event-subscribe-modal .btn-close {
             background: var(--site-tint);
-            color: #37474f;
+            color: var(--text-primary);
             border: 1px solid var(--site-border);
         }
         .event-subscribe-modal .btn-close:hover { background: var(--site-border); }
@@ -283,7 +283,7 @@
         /* Calendar appearance: grid, colors, typography */
         #calendar {
             --fc-border-color: var(--site-border);
-            --fc-page-bg-color: #fafbfc;
+            --fc-page-bg-color: var(--bg-subtle);
             --fc-neutral-bg-color: rgba(226, 232, 240, 0.25);
             --fc-today-bg-color: var(--site-tint);
             --fc-now-indicator-color: var(--site-primary);
@@ -297,10 +297,10 @@
             overflow: hidden;
         }
         #calendar .fc-col-header-cell {
-            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+            background: var(--bg-subtle);
             font-weight: 600;
             font-size: 0.8rem;
-            color: #475569;
+            color: var(--text-secondary);
             border-color: var(--site-border);
         }
         #calendar .fc-timegrid-slot {
@@ -308,12 +308,12 @@
         }
         #calendar .fc-timegrid-slot-label {
             font-size: 0.8rem;
-            color: #64748b;
+            color: var(--text-muted);
             font-weight: 500;
         }
         #calendar .fc-timegrid-axis-cushion {
             font-size: 0.8rem;
-            color: #64748b;
+            color: var(--text-muted);
         }
         #calendar .fc-timegrid-col.fc-day-today {
             background: var(--site-tint);

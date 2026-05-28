@@ -1,106 +1,411 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
+        /* ── Adaptive palette (brand vars injected by Jinja, neutrals override in dark) ─ */
+        :root {
+            --headline-color:   {{ hero_color_headline }};
+            --muted-color:      {{ hero_color_muted }};
+            --tint-bg:          {{ hero_color_tint }};
+            --border-color:     {{ hero_color_border }};
+            --border-dark-color:{{ hero_color_border_dark }};
+            --link-text-color:  {{ hero_color_link_dark }};
+
+            --bg-page:          #f0f2f5;
+            --bg-card:          #ffffff;
+            --bg-sidebar:       #ffffff;
+            --text-body:        #333333;
+            --text-secondary:   #555555;
+            --text-muted:       #888888;
+            --border-neutral:   rgba(0,0,0,0.08);
+            --shadow-card:      0 1px 4px rgba(0,0,0,0.07);
+            --shadow-intro:     {{ hero_shadow }};
+            --shadow-sidebar:   0 2px 12px rgba(0,0,0,0.07);
+        }
+
+        /* ── Dark mode (system) ── */
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --headline-color:    {{ hero_color_primary }};
+                --tint-bg:           rgba(255,255,255,0.04);
+                --border-color:      rgba(255,255,255,0.08);
+                --border-dark-color: rgba(255,255,255,0.13);
+                --link-text-color:   {{ hero_color_primary }};
+
+                --bg-page:           #202020;
+                --bg-card:           #2a2a2a;
+                --bg-sidebar:        #1a1a1a;
+                --text-body:         #e8e8e8;
+                --text-secondary:    #a8a8a8;
+                --text-muted:        #787878;
+                --border-neutral:    rgba(255,255,255,0.07);
+                --shadow-card:       0 1px 6px rgba(0,0,0,0.5);
+                --shadow-intro:      0 2px 14px rgba(0,0,0,0.6);
+                --shadow-sidebar:    0 2px 12px rgba(0,0,0,0.5);
+            }
+        }
+
+        /* ── Dark mode (explicit toggle) ── */
+        [data-theme="dark"] {
+            --headline-color:    {{ hero_color_primary }};
+            --tint-bg:           rgba(255,255,255,0.04);
+            --border-color:      rgba(255,255,255,0.08);
+            --border-dark-color: rgba(255,255,255,0.13);
+            --link-text-color:   {{ hero_color_primary }};
+
+            --bg-page:           #0f1117;
+            --bg-card:           #1a1d27;
+            --bg-sidebar:        #13161f;
+            --text-body:         #dde1ec;
+            --text-secondary:    #a8afc8;
+            --text-muted:        #6b7192;
+            --border-neutral:    rgba(255,255,255,0.07);
+            --shadow-card:       0 1px 6px rgba(0,0,0,0.5);
+            --shadow-intro:      0 2px 14px rgba(0,0,0,0.6);
+            --shadow-sidebar:    0 2px 12px rgba(0,0,0,0.5);
+        }
+
+        /* ── Light mode (explicit toggle) ── */
+        [data-theme="light"] {
+            --headline-color:    {{ hero_color_headline }};
+            --tint-bg:           {{ hero_color_tint }};
+            --border-color:      {{ hero_color_border }};
+            --border-dark-color: {{ hero_color_border_dark }};
+            --link-text-color:   {{ hero_color_link_dark }};
+
+            --bg-page:           #f0f2f5;
+            --bg-card:           #ffffff;
+            --bg-sidebar:        #ffffff;
+            --text-body:         #333333;
+            --text-secondary:    #555555;
+            --text-muted:        #888888;
+            --border-neutral:    rgba(0,0,0,0.08);
+            --shadow-card:       0 1px 4px rgba(0,0,0,0.07);
+            --shadow-intro:      {{ hero_shadow }};
+            --shadow-sidebar:    0 2px 12px rgba(0,0,0,0.07);
+        }
+
+        /* ── Reset & base ── */
+        *, *::before, *::after { box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             font-size: 16px;
             line-height: 1.6;
-            color: #333;
-            max-width: 1200px;
+            color: var(--text-body);
+            background: var(--bg-page);
+            margin: 0;
+            padding: 0;
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+
+        a {
+            color: {{ hero_color_primary }};
+            text-decoration: none;
+            word-wrap: break-word;
+            transition: color 0.15s ease;
+        }
+        a:hover { text-decoration: underline; }
+
+        /* ── Progress bar ── */
+        #progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            width: 0%;
+            background: linear-gradient(to right, {{ hero_color_primary }}, {{ hero_color_secondary }});
+            z-index: 1000;
+            transition: width 0.08s linear;
+            pointer-events: none;
+        }
+
+        /* ── Theme toggle ── */
+        .theme-toggle {
+            position: fixed;
+            top: 14px;
+            right: 16px;
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-neutral);
+            border-radius: 20px;
+            padding: 5px 12px;
+            cursor: pointer;
+            font-size: 0.78em;
+            font-weight: 500;
+            color: var(--text-muted);
+            box-shadow: var(--shadow-card);
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+        }
+        .theme-toggle:hover { color: var(--text-body); }
+
+        /* Show/hide sun vs moon based on current theme */
+        .toggle-dark-icon { display: none; }
+        .toggle-light-icon { display: inline; }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) .toggle-dark-icon  { display: inline; }
+            :root:not([data-theme="light"]) .toggle-light-icon { display: none; }
+        }
+        [data-theme="dark"]  .toggle-dark-icon  { display: inline; }
+        [data-theme="dark"]  .toggle-light-icon { display: none; }
+        [data-theme="light"] .toggle-dark-icon  { display: none; }
+        [data-theme="light"] .toggle-light-icon { display: inline; }
+
+        /* ── Page layout ── */
+        .layout {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 20px 16px 32px;
+            display: flex;
+            gap: 28px;
+            align-items: flex-start;
+        }
+
+        .main-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            width: 230px;
+            flex-shrink: 0;
+            position: sticky;
+            top: 20px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+            background: var(--bg-sidebar);
+            border-radius: 10px;
+            box-shadow: var(--shadow-sidebar);
+            padding: 16px 14px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-neutral) transparent;
+            transition: background 0.2s, box-shadow 0.2s;
+        }
+        .sidebar-header {
+            font-size: 0.62em;
+            font-weight: 600;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--muted-color);
+            margin: 0 0 12px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .sidebar-toc {
+            list-style: none;
             margin: 0;
             padding: 0;
         }
+        .sidebar-toc-item {
+            border-left: 2px solid transparent;
+            margin-bottom: 2px;
+            border-radius: 0 4px 4px 0;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .sidebar-toc-item a {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            padding: 6px 8px;
+            font-size: 0.78em;
+            line-height: 1.4;
+            color: var(--link-text-color);
+            text-decoration: none;
+            border-radius: 0 4px 4px 0;
+            transition: color 0.15s;
+        }
+        .sidebar-toc-item a:hover { color: {{ hero_color_primary }}; text-decoration: none; }
+        .sidebar-num {
+            font-size: 0.75em;
+            font-weight: 600;
+            color: {{ hero_color_accent }};
+            min-width: 14px;
+            flex-shrink: 0;
+        }
+        .sidebar-toc-item.active {
+            border-left-color: {{ hero_color_primary }};
+            background: var(--tint-bg);
+        }
+        .sidebar-toc-item.active a {
+            color: {{ hero_color_primary }};
+            font-weight: 600;
+        }
+
+        @media (max-width: 960px) {
+            .sidebar { display: none; }
+            .layout { padding: 12px 10px 24px; }
+        }
+
+        /* ── Hero intro ── */
         .intro {
-            border-radius: 8px;
+            border-radius: 10px;
             overflow: hidden;
-            margin-bottom: 16px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-intro);
         }
         .header {
-            background: #667eea;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            background-color: #667eea;
+            background: linear-gradient(135deg, {{ hero_color_primary }} 0%{% if hero_color_middle %}, {{ hero_color_middle }} 50%{% endif %}, {{ hero_color_secondary }} 100%);
             color: white;
-            padding: 20px 16px 6px;
-            text-align: center;
+            padding: 0;
+            text-align: left;
+        }
+        .header-accent-bar { display: none; }
+        .header-content { padding: 28px 0 24px; }
+        .header-eyebrow {
+            font-family: sans-serif;
+            font-size: 0.68em;
+            font-weight: 500;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.55);
+            margin: 0 0 8px 0;
+            padding: 0 28px;
         }
         .header h1 {
-            margin: 0 0 4px 0;
+            font-family: Georgia, serif;
+            font-size: 2.4em;
+            font-weight: 700;
+            color: #ffffff;
+            margin: 0 0 18px 0;
+            line-height: 1.12;
+            letter-spacing: -0.01em;
+            word-wrap: break-word;
+            padding: 0 28px;
         }
         .header-subline {
-            font-size: 0.95em;
-            opacity: 0.95;
-            margin: 0;
+            font-family: sans-serif;
+            font-size: 0.8em;
+            font-weight: 400;
+            color: rgba(255,255,255,0.6);
+            letter-spacing: 0.01em;
+        }
+        .header-date-badge {
+            font-family: sans-serif;
+            font-size: 0.8em;
+            color: rgba(255,255,255,0.6);
+            white-space: nowrap;
+            text-align: right;
         }
         .global-summary {
-            background: #e8e6f5;
-            background: linear-gradient(135deg, #e8e6f5 0%, #e5e4f2 100%);
-            background-color: #e8e6f5;
-            padding: 6px 16px 10px;
-            text-align: center;
-            border: none;
-            border-radius: 0 0 8px 8px;
-            line-height: 1.5;
+            background: var(--tint-bg);
+            padding: 20px 16px 24px;
+            line-height: 1;
         }
-        h1 {
-            margin: 0 0 4px 0;
-            font-size: 2.2em;
-            word-wrap: break-word;
-            font-weight: 700;
-        }
+
+        /* ── Typography ── */
+        h1 { margin: 0 0 4px 0; font-size: 2.2em; word-wrap: break-word; font-weight: 700; }
         h2 {
-            color: #667eea;
-            border-bottom: 2px solid #667eea;
-            padding: 0 0 4px 0;
-            margin: 6px 0 6px 0;
+            color: {{ hero_color_primary }};
+            border-bottom: 1px solid var(--border-dark-color);
+            padding: 0 0 5px 0;
+            margin: 6px 0;
             font-size: 1.5em;
-            border-bottom-left-radius: 0;
-            border-bottom-right-radius: 0;
         }
         h3 {
-            color: #667eea;
+            color: {{ hero_color_primary }};
             margin: 10px 0 6px 0;
-            font-size: 1.3em;
+            font-size: 1.15em;
+            font-weight: 500;
         }
         h3.sources-header {
+            font-size: 0.75em;
+            font-weight: 500;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--muted-color);
             margin-top: 10px;
         }
+
+        /* ── Stories list (in hero) ── */
+        .stories-list-header {
+            font-family: sans-serif;
+            font-size: 0.66em;
+            font-weight: 500;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--muted-color) !important;
+            margin: 0 0 14px 0;
+            text-align: left;
+            text-decoration: none;
+        }
+        .stories-list {
+            list-style: none;
+            text-align: left;
+            margin: 0;
+            padding: 0;
+            line-height: 1;
+        }
+        .stories-list-item {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            padding: 9px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .stories-list-item:last-child { border-bottom: none; padding-bottom: 0; }
+        .stories-list-item-num {
+            font-family: sans-serif;
+            font-size: 0.7em;
+            font-weight: 500;
+            color: {{ hero_color_accent }};
+            min-width: 16px;
+            flex-shrink: 0;
+        }
+        .stories-list-item a {
+            font-family: sans-serif;
+            font-size: 0.9em;
+            font-weight: 400;
+            color: var(--link-text-color) !important;
+            text-decoration: none;
+            line-height: 1.45;
+        }
+        .stories-list-item a:hover {
+            color: {{ hero_color_primary }} !important;
+            text-decoration: none;
+        }
+
+        /* ── Story cards ── */
         .story {
-            background: white;
+            background: var(--bg-card);
             border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            box-shadow: var(--shadow-card);
+            margin-bottom: 16px;
+            transition: background 0.2s, box-shadow 0.2s;
         }
         .story-title {
-            font-size: 1.6em;
+            font-family: Georgia, serif;
+            font-size: 1.5em;
             margin-bottom: 0;
             font-weight: 700;
             word-wrap: break-word;
-            color: #667eea;
-            border-top: 2.5px solid #667eea;
-            padding-top: 6px;
-            border-top-left-radius: 0;
-            border-top-right-radius: 0;
+            color: var(--headline-color);
+            border-top: 2px solid {{ hero_color_primary }};
+            padding-top: 8px;
         }
         .story-summary {
             line-height: 1.6;
             text-align: justify;
             margin-bottom: 6px;
-            margin-left: 0;
-            margin-right: 0;
             padding: 14px 4px;
-            color: rgb(85,85,85);
-            background: #f8f9fa;
-            border: 1px solid #e8e8e8;
+            color: var(--text-secondary);
+            background: var(--tint-bg);
+            border: 1px solid var(--border-color);
             border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
         }
         .story-summary .story-summary-title {
-            font-size: 1.6em;
+            font-family: Georgia, serif;
+            font-size: 1.45em;
             font-weight: 700;
             word-wrap: break-word;
-            color: #667eea;
+            color: var(--headline-color);
             margin: 0 0 10px 0;
             text-align: left;
         }
@@ -110,283 +415,443 @@
             text-align: justify;
         }
         .story-summary-label {
-            font-size: 0.85em;
-            font-weight: 700;
-            color: #667eea;
+            font-size: 0.7em;
+            font-weight: 500;
+            color: var(--headline-color);
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 8px;
+            letter-spacing: 0.12em;
+            margin-bottom: 10px;
             text-align: left;
         }
         .story-meta {
-            color: #666;
+            color: var(--text-muted);
             font-size: 0.9em;
             margin-bottom: 8px;
-            padding: 6px 2px;
-            background: #f8f9fa;
-            border-radius: 4px;
+            padding: 4px 2px;
         }
+
+        /* ── Sources section header row ── */
+        .sources-header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 10px 0 6px;
+            gap: 8px;
+        }
+        .toggle-all-btn {
+            font-family: sans-serif;
+            font-size: 0.7em;
+            font-weight: 500;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: {{ hero_color_primary }};
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 3px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.15s, color 0.15s;
+        }
+        .toggle-all-btn:hover { background: var(--tint-bg); }
+
+        /* ── Source coverage ── */
         .source-coverage {
             margin-bottom: 6px;
             padding-bottom: 4px;
-            padding-left: 4px;
-            border-left: 1px solid #667eea;
-            border-bottom: 1px solid #667eea;
-            border-radius: 4px 0 4px 4px;
+            padding-left: 8px;
+            border-left: 2px solid var(--border-dark-color);
         }
-        .source-coverage:last-child {
-            margin-bottom: 10px;
-            padding-bottom: 0;
-        }
+        .source-coverage:last-child { margin-bottom: 10px; padding-bottom: 0; }
+
         .source-header {
-            font-size: 1.05em;
-            font-weight: 700;
-            color: #667eea;
-            margin-bottom: 8px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            flex-wrap: wrap;
+            justify-content: space-between;
             gap: 8px;
             padding-bottom: 6px;
-            border-bottom: 1px solid #e0e0e0;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 8px;
             cursor: pointer;
             user-select: none;
+            border-radius: 2px;
+            transition: background 0.15s;
         }
-        .source-header:hover {
-            background: rgba(102, 126, 234, 0.1);
+        .source-header:hover { background: var(--tint-bg); }
+
+        .source-header-left {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 1.0em;
+            font-weight: 400;
+            color: var(--headline-color);
         }
-        .source-header::before {
-            content: '▼ ';
+        .source-header-toggle {
+            font-size: 0.7em;
+            color: var(--muted-color);
             display: inline-block;
-            transition: transform 0.3s ease;
+            transition: transform 0.2s ease;
+            line-height: 1;
         }
-        .source-header.collapsed::before {
-            transform: rotate(-90deg);
+        .source-header.collapsed .source-header-toggle { transform: rotate(-90deg); }
+        .source-header-count {
+            font-weight: 400;
+            color: var(--text-muted);
+            font-size: 0.9em;
         }
+
+        /* ── Collapsible (grid animation) ── */
         .articles-container {
-            max-height: 5000px;
-            overflow: hidden;
-            transition: max-height 0.3s ease;
+            display: grid;
+            grid-template-rows: 1fr;
+            transition: grid-template-rows 0.25s ease;
         }
         .articles-container.collapsed {
-            max-height: 0;
+            grid-template-rows: 0fr;
         }
-        .article-item-border {
-            border: none;
-            background: transparent;
+        .articles-container-inner {
+            overflow: hidden;
+            min-height: 0;
         }
-        .article-item {
-            padding: 6px 0 6px 0;
-            margin: 0;
-        }
+
+        /* ── Article items ── */
+        .article-item-border { border: none; background: transparent; }
+        .article-item { padding: 6px 0; margin: 0; }
         .article-title {
-            font-weight: 600;
-            color: #333;
+            font-weight: 500;
+            color: var(--text-body);
             word-wrap: break-word;
-            font-size: 1.05em;
+            font-size: 1.0em;
             margin-bottom: 0;
         }
         .summary {
-            color: #555;
+            color: var(--text-secondary);
             line-height: 1.6;
             word-wrap: break-word;
-            padding: 2px 2px;
-            background: white;
-            border-radius: 6px;
-            margin-left: 0;
-            margin-right: 0;
+            padding: 2px 0;
             margin-top: 2px;
-        }
-        .sentiment {
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 16px;
-            font-size: 0.85em;
-            font-weight: 600;
-            margin-left: 4px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-        .article-meta .sentiment {
-            margin-left: 0;
-        }
-        .sentiment.source-sentiment {
-            padding: 6px 14px;
-        }
-        .sentiment-positive { background: #d4edda; color: #155724; }
-        .sentiment-negative { background: #f8d7da; color: #721c24; }
-        .sentiment-neutral { background: #e2e3e5; color: #383d41; }
-        .sentiment-score {
-            font-size: 0.9em;
-            color: #666;
-            margin-left: 4px;
-        }
-        .footer {
-            text-align: center;
-            margin-top: 10px;
-            padding: 12px 2px;
-            color: #666;
-            font-size: 0.9em;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-        .footer p {
-            margin: 0 0 4px 0;
-        }
-        .footer p:last-child {
-            margin-bottom: 0;
-        }
-        .footer-divider {
-            height: 0;
-            border: none;
-            border-top: 1px solid #e0e0e0;
-            margin: 4px 0;
-        }
-        a {
-            color: #667eea;
-            text-decoration: none;
-            word-wrap: break-word;
-            transition: color 0.2s ease;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-        .stories-list-header {
-            text-align: center;
-            margin-top: 2px;
-            margin-bottom: 8px;
-            text-decoration: underline;
-        }
-        .stories-list {
-            text-align: center;
-            margin: 0;
-            padding: 0;
-            line-height: 1.8;
-            list-style: none;
-        }
-        .stories-list-item {
-            margin-bottom: 4px;
-        }
-        .stories-list-item a {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 500;
-        }
-        .stories-list-item a:hover {
-            text-decoration: underline;
-        }
-        .additional-insights {
-            margin-bottom: 2px;
-            padding: 2px 2px;
-        }
-        .additional-insights strong {
-            color: #667eea;
-            font-size: 1.05em;
         }
         .article-meta {
-            color: #666;
+            color: var(--text-muted);
             font-size: 0.9em;
             margin-top: 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-    </style>
-    <script>
-        function toggleSource(header) {
-            header.classList.toggle('collapsed');
-            const container = header.nextElementSibling;
-            container.classList.toggle('collapsed');
+
+        /* ── Additional insights ── */
+        .additional-insights { margin-bottom: 2px; padding: 2px; }
+        .additional-insights strong { color: {{ hero_color_primary }}; font-size: 1.0em; }
+
+        /* ── Sentiment pills ── */
+        .sentiment {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.78em;
+            font-weight: 600;
         }
+        .sentiment-positive { background: #d4edda; color: #155724; }
+        .sentiment-negative { background: #f8d7da; color: #721c24; }
+        .sentiment-neutral  { background: #e2e3e5; color: #383d41; }
+
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) .sentiment-positive { background: #1a3d22; color: #7ee89a; }
+            :root:not([data-theme="light"]) .sentiment-negative { background: #3d1a1e; color: #f09099; }
+            :root:not([data-theme="light"]) .sentiment-neutral  { background: #2a2c35; color: #a0a4b8; }
+        }
+        [data-theme="dark"] .sentiment-positive { background: #1a3d22; color: #7ee89a; }
+        [data-theme="dark"] .sentiment-negative { background: #3d1a1e; color: #f09099; }
+        [data-theme="dark"] .sentiment-neutral  { background: #2a2c35; color: #a0a4b8; }
+
+        /* ── Sentiment bar ── */
+        .scale-marker { width: 2px; height: 8px; }
+        .scale-bg {
+            background: linear-gradient(to right, #ef9a9a 0%, #757575 50%, #a5d6a7 100%);
+            background-color: #757575;
+        }
+        .dot-positive { background: #2e7d32; }
+        .dot-negative { background: #c62828; }
+        .dot-neutral  { background: #aaaaaa; }
+
+        /* ── Footer ── */
+        .footer {
+            text-align: center;
+            margin-top: 16px;
+            padding: 16px 0;
+            color: var(--text-muted);
+            font-size: 0.85em;
+            background: var(--tint-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .footer p { margin: 0 0 4px 0; }
+        .footer p:last-child { margin-bottom: 0; }
+        .footer-divider {
+            height: 0;
+            border: none;
+            border-top: 1px solid var(--border-color);
+            margin: 8px 0;
+        }
+    </style>
+
+    <!-- Apply stored theme before paint to avoid flash -->
+    <script>
+        (function () {
+            var t = localStorage.getItem('newsbot-theme');
+            if (t) document.documentElement.setAttribute('data-theme', t);
+        }());
     </script>
 </head>
 <body>
-    <div class="intro">
-        <div class="header">
-            <h1>📰 Top Stories in {{ topic }}</h1>
-            <p class="header-subline">Cross-Source News Coverage & Sentiment Analysis</p>
-            <p class="header-subline">{{ date_range }}</p>
-        </div>
-        <div class="global-summary">
-            <h3 class="stories-list-header">Stories</h3>
-            <ol class="stories-list">
+    <div id="progress-bar"></div>
+
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle colour theme">
+        <span class="toggle-light-icon">☀ Light</span>
+        <span class="toggle-dark-icon">☾ Dark</span>
+    </button>
+
+    <div class="layout">
+        <!-- ── Sticky sidebar TOC ── -->
+        <nav class="sidebar" aria-label="Stories navigation">
+            <p class="sidebar-header">In this report</p>
+            <ol class="sidebar-toc">
             {% for analysis in story_analyses %}
-                <li class="stories-list-item"><a href="#story-{{ loop.index }}">{{ analysis.story.title }}</a></li>
+                <li class="sidebar-toc-item" id="toc-{{ loop.index }}">
+                    <a href="#story-{{ loop.index }}">
+                        <span class="sidebar-num">{{ loop.index }}</span>
+                        {{ analysis.story.title }}
+                    </a>
+                </li>
             {% endfor %}
             </ol>
-        </div>
-    </div>
+        </nav>
 
-    {% for analysis in story_analyses %}
-    <div class="story" id="story-{{ loop.index }}">
-        {% if analysis.story.story_summary %}
-        <div class="story-summary">
-            <div class="story-summary-title">{{ loop.index }}. {{ analysis.story.title }}</div>
-            <div class="story-summary-label">Story summary</div>
-            <span class="story-summary-content">{{ analysis.story.story_summary }}</span>
-        </div>
-        {% else %}
-        <div class="story-title">{{ loop.index }}. {{ analysis.story.title }}</div>
-        {% endif %}
-
-        <div class="story-meta">
-            <strong>Coverage:</strong> {{ analysis.story.sources|unique|list|length }} sources, {{ analysis.story.article_count }} articles<br>
-            <strong>Sources:</strong> {{ analysis.story.sources|unique|sort|join(', ') }}<br>
-            <strong>Time Range:</strong> {{ analysis.story.earliest_date.strftime('%Y-%m-%d %H:%M') }} to {{ analysis.story.latest_date.strftime('%Y-%m-%d %H:%M') }}
-        </div>
-
-        <h3 class="sources-header">How Different Sources Cover This Story</h3>
-
-        {% for source in analysis.story.sources|unique|sort %}
-        <div class="source-coverage">
-            <div class="source-header collapsed" onclick="toggleSource(this)">
-                <span>{{ source }}</span>
-                {% if source in analysis.source_sentiments %}
-                <span class="sentiment source-sentiment sentiment-{{ analysis.source_sentiments[source].label }}">
-                    {{ analysis.source_sentiments[source].label|upper }}
-                    <span class="sentiment-score">({{ "%.2f"|format(analysis.source_sentiments[source].avg_sentiment) }})</span>
-                </span>
-                {% endif %}
-            </div>
-
-            <div class="articles-container collapsed">
-            {% if analysis.story.source_additional_points and source in analysis.story.source_additional_points and analysis.story.source_additional_points[source] %}
-            <div class="additional-insights">
-                <strong>Additional insights</strong><br>
-                {{ analysis.story.source_additional_points[source] }}
-            </div>
-            {% endif %}
-            <div class="summary">
-                {% for item in analysis.source_summaries.get(source, []) %}
-                <div class="article-item-border">
-                <div class="article-item">
-                    <div class="article-title"><a href="{{ item.article.url }}" target="_blank">{{ item.article.title }}</a></div>
-                    <div class="article-meta">
-                        <span>Published: {{ item.article.published_date.strftime('%Y-%m-%d %H:%M') }}</span>
-                        {% if item.article.sentiment %}
-                        <span class="sentiment sentiment-{{ item.article.sentiment.label }}">
-                            {{ item.article.sentiment.label }}
-                        </span>
-                        {% endif %}
+        <!-- ── Main content ── -->
+        <main class="main-content">
+            <div class="intro">
+                <div class="header">
+                    <div class="header-accent-bar"></div>
+                    <div class="header-content">
+                        <p class="header-eyebrow">Top Stories in</p>
+                        <h1>{{ topic }}</h1>
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
+                            <tr>
+                                <td style="padding: 0 0 0 14px;"><span class="header-subline">Cross-Source News Coverage &amp; Sentiment Analysis</span></td>
+                                <td style="padding: 0 14px 0 8px; text-align: right; white-space: nowrap;"><span class="header-date-badge">{{ date_range }}</span></td>
+                            </tr>
+                        </table>
                     </div>
                 </div>
+                <div class="global-summary">
+                    <h3 class="stories-list-header">This edition</h3>
+                    <ol class="stories-list">
+                    {% for analysis in story_analyses %}
+                        <li class="stories-list-item">
+                            <span class="stories-list-item-num">{{ loop.index }}</span>
+                            <a href="#story-{{ loop.index }}">{{ analysis.story.title }}</a>
+                        </li>
+                    {% endfor %}
+                    </ol>
+                </div>
+            </div>
+
+            {% for analysis in story_analyses %}
+            <div class="story" id="story-{{ loop.index }}">
+                {% if analysis.story.story_summary %}
+                <div class="story-summary">
+                    <div class="story-summary-title">{{ loop.index }}. {{ analysis.story.title }}</div>
+                    <div class="story-summary-label">Story summary</div>
+                    <span class="story-summary-content">{{ analysis.story.story_summary }}</span>
+                </div>
+                {% else %}
+                <div class="story-title">{{ loop.index }}. {{ analysis.story.title }}</div>
+                {% endif %}
+
+                <div class="story-meta">
+                    <strong>Coverage:</strong> {{ analysis.story.sources|unique|list|length }} sources, {{ analysis.story.article_count }} articles &nbsp;·&nbsp;
+                    <strong>Time Range:</strong> {{ analysis.story.earliest_date.strftime('%Y-%m-%d %H:%M') }} to {{ analysis.story.latest_date.strftime('%Y-%m-%d %H:%M') }}
+                </div>
+
+                <div class="sources-header-row">
+                    <h3 class="sources-header" style="margin:0;">How Different Sources Cover This Story</h3>
+                    <button class="toggle-all-btn" data-state="collapsed">Expand all</button>
+                </div>
+
+                {% for source in analysis.story.sources|unique|sort %}
+                <div class="source-coverage">
+                    <div class="source-header collapsed" onclick="toggleSource(this)">
+                        <span class="source-header-left">
+                            <span class="source-header-toggle">▼</span>
+                            {{ source }}
+                            <span class="source-header-count">({{ analysis.source_summaries.get(source, [])|length }} article{{ "s" if analysis.source_summaries.get(source, [])|length != 1 else "" }})</span>
+                        </span>
+                        {% if source in analysis.source_sentiments and analysis.source_sentiments[source].sentiments|length > 0 %}
+                        {% set sd = analysis.source_sentiments[source] %}
+                        {% set ns = namespace(markers=[]) %}
+                        {% for s in sd.sentiments %}
+                        {% set m_left = [[((s.compound + 1) / 2 * 80 - 1)|round|int, 0]|max, 78]|min %}
+                        {% set ns.markers = ns.markers + [{'left': m_left, 'label': s.label, 'is_avg': false, 'val': s.compound}] %}
+                        {% endfor %}
+                        {% set sorted_markers = ns.markers|sort(attribute='left') %}
+                        <div class="scale-bg" style="width:80px; height:8px; border-radius:4px; overflow:hidden; display:inline-block; vertical-align:middle; flex-shrink:0;" title="Sentiment: bars=articles">
+                            <table width="80" cellpadding="0" cellspacing="0" border="0" style="width:80px; height:8px; border-collapse:collapse; table-layout:fixed;" role="presentation">
+                                <tr>
+                                    {% set ns2 = namespace(cursor=0) %}
+                                    {% for m in sorted_markers %}
+                                    {% set spacer = [m.left - ns2.cursor, 0]|max %}
+                                    {% if spacer > 0 %}<td width="{{ spacer }}" style="padding:0; height:8px;"></td>{% endif %}
+                                    <td width="2" style="width:2px; padding:0; height:8px;" title="{{ '%.2f'|format(m.val) }}"><div class="scale-marker dot-{{ m.label }}"></div></td>
+                                    {% set ns2.cursor = m.left + 2 %}
+                                    {% endfor %}
+                                    <td style="padding:0; height:8px;"></td>
+                                </tr>
+                            </table>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="articles-container collapsed">
+                        <div class="articles-container-inner">
+                            {% if analysis.story.source_additional_points and source in analysis.story.source_additional_points and analysis.story.source_additional_points[source] %}
+                            <div class="additional-insights">
+                                {{ analysis.story.source_additional_points[source] }}
+                            </div>
+                            {% endif %}
+                            <div class="summary">
+                                {% for item in analysis.source_summaries.get(source, []) %}
+                                <div class="article-item-border">
+                                <div class="article-item">
+                                    <div class="article-title"><a href="{{ item.article.url }}" target="_blank">{{ item.article.title }}</a></div>
+                                    <div class="article-meta">
+                                        <span>Published: {{ item.article.published_date.strftime('%Y-%m-%d %H:%M') }}</span>
+                                        {% if item.article.sentiment %}
+                                        <span class="sentiment sentiment-{{ item.article.sentiment.label }}">{{ item.article.sentiment.label }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 {% endfor %}
             </div>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-    {% endfor %}
+            {% endfor %}
 
-    <div class="footer">
-        <p>Generated by NewsBot on {{ date }}</p>
-        <p><strong>Total Stories:</strong> {{ story_count }} |
-        <strong>Total Articles:</strong> {{ total_articles }} |
-        <strong>Sources Analyzed:</strong> {{ sources|unique|list|length }}</p>
-        <p><strong>Sources:</strong> {{ sources|unique|sort|join(', ') }}</p>
-        <div class="footer-divider"></div>
-        <p>This report analyzes how different news sources cover the same stories.</p>
+            <div class="footer">
+                <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse; margin-bottom:10px;">
+                    <tr>
+                        <td align="center" style="padding-bottom:4px; font-size:0.8em; font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Sentiment Scale</td>
+                    </tr>
+                    <tr>
+                        <td align="center" style="padding-bottom:2px;">
+                            <div class="scale-bg" style="width:200px; height:10px; border-radius:5px; overflow:hidden; display:inline-block;"></div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td align="center">
+                            <table width="200" cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse; margin:0 auto;">
+                                <tr>
+                                    <td style="font-size:0.78em; text-align:left; padding-top:2px;">← Negative</td>
+                                    <td style="font-size:0.78em; text-align:right; padding-top:2px;">Positive →</td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+                <div class="footer-divider"></div>
+                <p><strong>Total Stories:</strong> {{ story_count }} |
+                <strong>Total Articles:</strong> {{ total_articles }} |
+                <strong>Sources Analyzed:</strong> {{ sources|unique|list|length }}</p>
+                <p><strong>Sources:</strong> {{ sources|unique|sort|join(', ') }}</p>
+                <div class="footer-divider"></div>
+                <p>Generated by NewsBot on {{ date }}</p>
+                <p><em>This report is AI-generated. Please verify any information yourself.</em></p>
+            </div>
+        </main>
     </div>
+
+    <script>
+        // ── Reading progress bar ──────────────────────────────────────────────
+        const progressBar = document.getElementById('progress-bar');
+        window.addEventListener('scroll', function () {
+            const scrolled = window.scrollY;
+            const total = document.documentElement.scrollHeight - window.innerHeight;
+            progressBar.style.width = total > 0 ? (scrolled / total * 100) + '%' : '0%';
+        }, { passive: true });
+
+        // ── Theme toggle ─────────────────────────────────────────────────────
+        const themeToggle = document.getElementById('themeToggle');
+
+        function getEffectiveTheme() {
+            const stored = document.documentElement.getAttribute('data-theme');
+            if (stored === 'dark' || stored === 'light') return stored;
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+
+        themeToggle.addEventListener('click', function () {
+            const next = getEffectiveTheme() === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('newsbot-theme', next);
+        });
+
+        // ── Sidebar active story highlighting (IntersectionObserver) ─────────
+        const storyEls = document.querySelectorAll('.story[id]');
+        const tocItems = document.querySelectorAll('.sidebar-toc-item');
+
+        if (storyEls.length && tocItems.length) {
+            const observer = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (entry.isIntersecting) {
+                        const idx = entry.target.id.replace('story-', '');
+                        tocItems.forEach(function (item) { item.classList.remove('active'); });
+                        const active = document.getElementById('toc-' + idx);
+                        if (active) {
+                            active.classList.add('active');
+                            active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                        }
+                    }
+                });
+            }, { rootMargin: '-10% 0px -75% 0px', threshold: 0 });
+
+            storyEls.forEach(function (el) { observer.observe(el); });
+        }
+
+        // ── Collapsible source sections ───────────────────────────────────────
+        function toggleSource(header) {
+            header.classList.toggle('collapsed');
+            header.nextElementSibling.classList.toggle('collapsed');
+            syncToggleAllBtn(header.closest('.story'));
+        }
+
+        function syncToggleAllBtn(story) {
+            const btn = story.querySelector('.toggle-all-btn');
+            if (!btn) return;
+            const allCollapsed = [...story.querySelectorAll('.articles-container')]
+                .every(function (c) { return c.classList.contains('collapsed'); });
+            btn.textContent = allCollapsed ? 'Expand all' : 'Collapse all';
+            btn.dataset.state = allCollapsed ? 'collapsed' : 'expanded';
+        }
+
+        document.querySelectorAll('.toggle-all-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const story = btn.closest('.story');
+                const expand = btn.dataset.state === 'collapsed';
+                story.querySelectorAll('.source-header').forEach(function (h) {
+                    h.classList.toggle('collapsed', !expand);
+                });
+                story.querySelectorAll('.articles-container').forEach(function (c) {
+                    c.classList.toggle('collapsed', !expand);
+                });
+                btn.textContent = expand ? 'Collapse all' : 'Expand all';
+                btn.dataset.state = expand ? 'expanded' : 'collapsed';
+            });
+        });
+    </script>
 </body>
 </html>

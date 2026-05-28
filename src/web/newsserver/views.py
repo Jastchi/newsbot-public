@@ -98,6 +98,7 @@ class ConfigReportView(LoginRequiredMixin, TemplateView):
             raise Http404("Invalid config name")
         selected_report = request.GET.get("report", None)
         download = request.GET.get("download", None)
+        raw = request.GET.get("raw", None)
 
         if download and selected_report:
             content = ReportService.download_report(
@@ -112,6 +113,20 @@ class ConfigReportView(LoginRequiredMixin, TemplateView):
                 response["Content-Disposition"] = (
                     f'attachment; filename="{selected_report}"'
                 )
+                return response
+            raise Http404("Report file not found")
+
+        if raw and selected_report:
+            content = ReportService.get_report_content(
+                config_key,
+                selected_report,
+            )
+            if content:
+                response = HttpResponse(
+                    content,
+                    content_type="text/html; charset=utf-8",
+                )
+                response["X-Frame-Options"] = "SAMEORIGIN"
                 return response
             raise Http404("Report file not found")
 

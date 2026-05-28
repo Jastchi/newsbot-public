@@ -12,20 +12,20 @@
     }
     
     .config-card {
-        background: white;
+        background: var(--bg-card);
         border-radius: 12px;
         padding: 25px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 8px var(--shadow);
         transition: all 0.3s ease;
         cursor: pointer;
         text-decoration: none;
         color: inherit;
         display: block;
     }
-    
+
     .config-card:hover {
         transform: translateY(-5px);
-        box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        box-shadow: 0 5px 20px var(--shadow-md);
     }
     
     .config-header {
@@ -42,21 +42,21 @@
     .config-title {
         font-size: 1.5em;
         font-weight: 600;
-        color: #2c3e50;
+        color: var(--text-primary);
     }
-    
+
     .config-info {
-        color: #7f8c8d;
+        color: var(--text-muted);
         font-size: 0.95em;
         margin-top: 10px;
     }
-    
+
     .config-info div {
         margin: 5px 0;
     }
-    
+
     .config-info strong {
-        color: #34495e;
+        color: var(--text-secondary);
     }
     
     .badge {
@@ -73,18 +73,18 @@
     .empty-state {
         text-align: center;
         padding: 60px 20px;
-        background: white;
+        background: var(--bg-card);
         border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 8px var(--shadow);
     }
-    
+
     .empty-state h2 {
-        color: #7f8c8d;
+        color: var(--text-muted);
         margin-bottom: 10px;
     }
-    
+
     .empty-state p {
-        color: #95a5a6;
+        color: var(--text-muted);
     }
 
     @media (max-width: 768px) {
@@ -118,7 +118,7 @@
 {% endblock %}
 
 {% block content %}
-<p style="color: #7f8c8d; margin-bottom: 15px;">
+<p style="color: var(--text-muted); margin-bottom: 15px;">
     Select a topic to view its reports
 </p>
 
@@ -142,7 +142,7 @@
 <div class="empty-state">
     <h2>📭 No Reports Found</h2>
     <p>Run NewsBot to generate reports for your configs.</p>
-    <p style="margin-top: 20px; color: #95a5a6; font-size: 0.9em;">
+    <p style="margin-top: 20px; color: var(--text-muted); font-size: 0.9em;">
         Reports should be located in: <code>reports/&lt;config_name&gt;/*.html</code>
     </p>
 </div>

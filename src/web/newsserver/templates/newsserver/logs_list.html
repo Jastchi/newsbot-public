@@ -17,7 +17,7 @@
 
     .config-filters-label {
         font-weight: 600;
-        color: #4a5568;
+        color: var(--text-secondary);
         margin-right: 8px;
     }
 
@@ -34,8 +34,8 @@
         cursor: pointer;
         display: inline-block;
         transition: all 0.2s;
-        background: white;
-        color: #4a5568;
+        background: var(--bg-card);
+        color: var(--text-secondary);
         user-select: none;
     }
 
@@ -57,10 +57,10 @@
     }
 
     .logs-header {
-        background: white;
+        background: var(--bg-card);
         padding: 20px;
         border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 8px var(--shadow);
         margin-bottom: 20px;
     }
 
@@ -83,8 +83,8 @@
         border: 1px solid var(--site-border);
         border-radius: 8px;
         font-size: 0.95em;
-        background: white;
-        color: #2c3e50;
+        background: var(--bg-card);
+        color: var(--text-primary);
         cursor: pointer;
     }
 
@@ -152,7 +152,7 @@
         padding-top: 15px;
         border-top: 1px solid var(--site-border);
         font-size: 0.9em;
-        color: #718096;
+        color: var(--text-muted);
     }
 
     .log-container {
@@ -161,7 +161,7 @@
         padding: 20px;
         border-radius: 12px;
         overflow-x: auto;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 8px var(--shadow);
         max-height: 70vh;
         overflow-y: auto;
     }
@@ -177,8 +177,8 @@
     .error-message {
         text-align: center;
         padding: 40px;
-        color: #a0aec0;
-        background: white;
+        color: var(--text-muted);
+        background: var(--bg-card);
         border-radius: 12px;
         border: 2px dashed var(--site-border);
     }
