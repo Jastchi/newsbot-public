@@ -254,7 +254,6 @@ class TestSentimentAnalysisAgent:
         self, sample_config, monkeypatch
     ):
         """Hybrid method averages VADER and TextBlob scores."""
-        from utilities.models import SentimentConfigModel
         config = sample_config.model_copy(
             update={
                 "sentiment": sample_config.sentiment.model_copy(
@@ -264,11 +263,11 @@ class TestSentimentAnalysisAgent:
         )
 
         agent = SentimentAnalysisAgent(config)
-        agent._analyze_vader: Callable = lambda *_: {"compound": 0.6}
-        agent._analyze_textblob: Callable = lambda *_: {
+        monkeypatch.setattr(agent, "_analyze_vader", lambda _: {"compound": 0.6})
+        monkeypatch.setattr(agent, "_analyze_textblob", lambda _: {
             "polarity": -0.19,
             "subjectivity": 0.1,
-        }
+        })
 
         result = agent._analyze_hybrid("sample text")
 

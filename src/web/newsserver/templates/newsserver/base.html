@@ -17,6 +17,34 @@
         }());
     </script>
 
+    <!-- Shared scrollbar helpers (also used by config_report iframe styling) -->
+    <script>
+        function getEffectiveTheme() {
+            var stored = document.documentElement.getAttribute('data-theme');
+            if (stored === 'dark' || stored === 'light') return stored;
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+
+        function applyScrollbarTheme(doc, theme) {
+            var el = doc.getElementById('newsbot-scrollbar');
+            if (!el) {
+                el = doc.createElement('style');
+                el.id = 'newsbot-scrollbar';
+                doc.head.appendChild(el);
+            }
+            if (theme === 'dark') {
+                el.textContent = '::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:#1a1d27}::-webkit-scrollbar-thumb{background:#3a3f55;border-radius:4px}::-webkit-scrollbar-thumb:hover{background:#4a5070}html{scrollbar-color:#3a3f55 #1a1d27;scrollbar-width:thin}';
+            } else {
+                el.textContent = '::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:#f0f0f0}::-webkit-scrollbar-thumb{background:#c0c5d0;border-radius:4px}::-webkit-scrollbar-thumb:hover{background:#a0a8b8}html{scrollbar-color:#c0c5d0 #f0f0f0;scrollbar-width:thin}';
+            }
+        }
+
+        applyScrollbarTheme(document, getEffectiveTheme());
+        new MutationObserver(function () {
+            applyScrollbarTheme(document, getEffectiveTheme());
+        }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    </script>
+
     <style>
         :root {
             --site-primary:   {{ site_primary }};

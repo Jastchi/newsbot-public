@@ -104,8 +104,8 @@ class TestNewsConfigAdmin:
         """New NewsConfig instances default to the gemini provider."""
         config = NewsConfig()
         assert config.llm_provider == "gemini"
-        assert config.llm_model == "gemini-3-flash"
-        assert config.llm_judge_model == "gemini-3-flash"
+        assert config.llm_model == "gemini-2.5-flash"
+        assert config.llm_judge_model == "gemini-2.0-flash"
 
     def test_logging_and_database_fieldsets_removed(self, admin_site):
         """Logging and Database fieldsets are not exposed in the admin."""

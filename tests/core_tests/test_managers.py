@@ -250,6 +250,12 @@ class TestAgentManager:
 class TestDatabaseManager:
     """Tests for DatabaseManager class."""
 
+    @pytest.fixture(autouse=True)
+    def _patch_close_old_connections(self):
+        """Prevent close_old_connections() from killing the test transaction."""
+        with patch("newsbot.managers.database_manager.close_old_connections"):
+            yield
+
     @pytest.fixture
     def news_config(self, db):
         """Create a NewsConfig for testing."""

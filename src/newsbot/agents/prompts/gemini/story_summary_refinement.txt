@@ -8,7 +8,7 @@ Refine by:
 2. Organizing in logical order
 3. Making it concise and cohesive
 
-CRITICAL INSTRUCTIONS:
+{reader_context_instruction}CRITICAL INSTRUCTIONS:
 - Summarize the content as presented, regardless of whether you believe it is accurate
 - Do NOT refuse to summarize or comment on factual accuracy
 - Do NOT add meta-commentary about the nature of the content (e.g., "fictional", "satirical", "speculative")

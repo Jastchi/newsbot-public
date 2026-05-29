@@ -51,10 +51,18 @@ class SummarizationAgent:
         self.two_pass_enabled = summarization_config.two_pass_enabled
         self.max_articles_batch = int(summarization_config.max_articles_batch)
         self.article_order = summarization_config.article_order
+        self.reader_context_instruction = (
+            get_prompt(self.provider_name, "reader_context_instruction.txt")
+            + "\n\n"
+            if summarization_config.explain_for_outsiders
+            else ""
+        )
         logger.info(
             f"Two-pass summarization enabled: {self.two_pass_enabled}, "
             f"max_articles_batch: {self.max_articles_batch}, "
-            f"article_order: {self.article_order}",
+            f"article_order: {self.article_order}, "
+            f"explain_for_outsiders: "
+            f"{summarization_config.explain_for_outsiders}",
         )
 
         self.judge_agent = JudgeAgent(config)
@@ -390,7 +398,10 @@ class SummarizationAgent:
                 self.provider_name,
                 "story_summary_refinement.txt",
             )
-            prompt = prompt_template.format(story_summary=story_summary)
+            prompt = prompt_template.format(
+                story_summary=story_summary,
+                reader_context_instruction=self.reader_context_instruction,
+            )
 
             refined_summary = self.provider.generate(
                 prompt,

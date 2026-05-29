@@ -117,6 +117,7 @@ _NEWS_CONFIG_FORM_FIELDS = (
     "summarization_two_pass_enabled",
     "summarization_max_articles_batch",
     "summarization_article_order",
+    "summarization_explain_for_outsiders",
     "sentiment_method",
     "sentiment_comparison_threshold",
     "story_clustering_top_stories_count",
@@ -226,6 +227,7 @@ class NewsConfigAdmin(admin.ModelAdmin):
                 "summarization_two_pass_enabled",
                 "summarization_max_articles_batch",
                 "summarization_article_order",
+                "summarization_explain_for_outsiders",
             ),
         }),
         ("Sentiment Analysis", {

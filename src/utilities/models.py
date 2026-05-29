@@ -42,6 +42,7 @@ class SummarizationConfigModel(BaseModel):
     two_pass_enabled: bool = True
     max_articles_batch: int = 1
     article_order: str = "chronological"
+    explain_for_outsiders: bool = False
 
 
 class SentimentConfigModel(BaseModel):

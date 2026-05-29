@@ -293,6 +293,14 @@ class NewsConfig(BaseModel):
         default=ArticleOrder.CHRONOLOGICAL,
         help_text="Order for processing articles",
     )
+    summarization_explain_for_outsiders = models.BooleanField(
+        default=False,
+        help_text=(
+            "When enabled, the LLM briefly explains key institutions, "
+            "organisations, political figures, and local concepts that a "
+            "reader unfamiliar with the topic might not know."
+        ),
+    )
 
     # Sentiment Configuration fields
     class SentimentMethod(models.TextChoices):
@@ -542,6 +550,7 @@ class NewsConfig(BaseModel):
                 two_pass_enabled=self.summarization_two_pass_enabled,
                 max_articles_batch=self.summarization_max_articles_batch,
                 article_order=self.summarization_article_order,
+                explain_for_outsiders=self.summarization_explain_for_outsiders,
             ),
             sentiment=config_models.SentimentConfigModel(
                 method=self.sentiment_method,
