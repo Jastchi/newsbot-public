@@ -29,7 +29,7 @@ class TestGetAvailableNewsletters:
         ]
 
         with patch(
-            "after_analysis.email_sender.NewsConfig.objects",
+            "after_analysis.email._report.NewsConfig.objects",
             mock_queryset,
         ):
             newsletters = get_available_newsletters()
@@ -54,7 +54,7 @@ class TestGetAvailableNewsletters:
         mock_queryset.filter.return_value.order_by.return_value.values_list.return_value = []
 
         with patch(
-            "after_analysis.email_sender.NewsConfig.objects",
+            "after_analysis.email._report.NewsConfig.objects",
             mock_queryset,
         ):
             newsletters = get_available_newsletters()
@@ -66,7 +66,7 @@ class TestGetAvailableNewsletters:
         from after_analysis.email_sender import get_available_newsletters
 
         with patch(
-            "after_analysis.email_sender.NewsConfig.objects",
+            "after_analysis.email._report.NewsConfig.objects",
             side_effect=Exception("Database error"),
         ):
             newsletters = get_available_newsletters()
@@ -89,7 +89,7 @@ class TestReplacePlaceholdersInReport:
         """
 
         with patch(
-            "after_analysis.email_sender.get_available_newsletters",
+            "after_analysis.email._report.get_available_newsletters",
             return_value=["Tech News", "Sports"],
         ):
             result = replace_placeholders_in_report(
@@ -113,7 +113,7 @@ class TestReplacePlaceholdersInReport:
         """
 
         with patch(
-            "after_analysis.email_sender.get_available_newsletters",
+            "after_analysis.email._report.get_available_newsletters",
             return_value=["Tech News", "Sports", "World News"],
         ):
             result = replace_placeholders_in_report(
@@ -137,7 +137,7 @@ class TestReplacePlaceholdersInReport:
         """
 
         with patch(
-            "after_analysis.email_sender.get_available_newsletters",
+            "after_analysis.email._report.get_available_newsletters",
             return_value=[],
         ):
             result = replace_placeholders_in_report(
@@ -163,7 +163,7 @@ class TestReplacePlaceholdersInReport:
         """
 
         with patch(
-            "after_analysis.email_sender.get_available_newsletters",
+            "after_analysis.email._report.get_available_newsletters",
             return_value=["Newsletter A", "Newsletter B"],
         ):
             result = replace_placeholders_in_report(
@@ -177,7 +177,7 @@ class TestReplacePlaceholdersInReport:
             assert "Newsletter A, Newsletter B." in result
 
     def test_replace_manage_subscriptions_link_with_base_url(self):
-        """When NEWSSERVER_BASE_URL is set, PLACEHOLDER_MANAGE_SUBSCRIPTIONS_LINK becomes a link."""
+        """When NEWSSERVER_BASE_URL is set, PLACEHOLDER_MANAGE_SUBSCRIPTIONS_LINK links to /unsubscribe/."""
         from after_analysis.email_sender import replace_placeholders_in_report
 
         report_html = "<p>To cancel, PLACEHOLDER_MANAGE_SUBSCRIPTIONS_LINK.</p>"
@@ -188,8 +188,8 @@ class TestReplacePlaceholdersInReport:
         ):
             result = replace_placeholders_in_report(report_html, "bot@example.com")
         assert "PLACEHOLDER_MANAGE_SUBSCRIPTIONS_LINK" not in result
-        assert 'href="https://news.example.com"' in result
-        assert "click here" in result
+        assert 'href="https://news.example.com/unsubscribe/"' in result
+        assert "unsubscribe" in result
 
     def test_replace_manage_subscriptions_link_without_base_url(self):
         """When NEWSSERVER_BASE_URL is not set, placeholder becomes contact fallback."""
@@ -298,11 +298,11 @@ class TestEmailEnabledCheck:
                     return_value=["test@example.com"],
                 ),
                 patch(
-                    "after_analysis.email_sender.get_available_newsletters",
+                    "after_analysis.email._report.get_available_newsletters",
                     return_value=[],
                 ),
                 patch(
-                    "after_analysis.email_sender.CSSInliner",
+                    "after_analysis.email._report.CSSInliner",
                 ) as inliner_mock,
                 patch(
                     "after_analysis.email_sender._send_via_emailjs",

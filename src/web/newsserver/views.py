@@ -1,6 +1,8 @@
 """Views for displaying NewsBot reports."""
 
+import hmac
 import json
+import logging
 from collections import deque
 from collections.abc import Generator
 from datetime import datetime, time, timedelta
@@ -24,8 +26,10 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views import View
+from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView
 
+from after_analysis.email._tokens import _generate_unsubscribe_token
 from newsbot.agents.report_agent import ReportGeneratorAgent
 from newsbot.constants import (
     DAY_NAME_TO_PYTHON_WEEKDAY,
@@ -50,6 +54,8 @@ from .services.config_service import ConfigService
 from .services.log_service import LogService
 from .services.report_service import ReportService
 from .utils import get_date_range, parse_date_or_default
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigOverviewView(LoginRequiredMixin, TemplateView):
@@ -1050,6 +1056,64 @@ def config_suggestions_list(request: HttpRequest) -> HttpResponse:
         request,
         "newsserver/config_suggestions.html",
         {"suggestions": suggestions},
+    )
+
+
+def _valid_unsubscribe_token(email: str, token: str) -> bool:
+    expected = _generate_unsubscribe_token(email)
+    if not expected:
+        logger.warning(
+            "UNSUBSCRIBE_TOKEN_SECRET not configured — "
+            "unsubscribe endpoint accepts any request without verification",
+        )
+        return True
+    if not token:
+        return False
+    return hmac.compare_digest(token, expected)
+
+
+@csrf_exempt
+def unsubscribe(request: HttpRequest) -> HttpResponse:
+    """
+    One-click unsubscribe endpoint (RFC 8058).
+
+    GET:  render form pre-filled with ?email= and ?token= query params.
+    POST: validate HMAC token (if UNSUBSCRIBE_TOKEN_SECRET is set),
+          deactivate the subscriber. Token from the email link is kept
+          in a hidden form field so the submit path is also signed.
+    """
+    if request.method == "POST":
+        email = (
+            request.POST.get("email") or request.GET.get("email") or ""
+        ).strip().lower()
+        token = request.POST.get("token") or request.GET.get("token") or ""
+
+        if not email or not _valid_unsubscribe_token(email, token):
+            return render(
+                request,
+                "newsserver/unsubscribe.html",
+                {"invalid": True, "email": email},
+            )
+
+        subscriber = Subscriber.objects.filter(email=email).first()
+        if subscriber:
+            subscriber.configs.clear()
+        return render(
+            request,
+            "newsserver/unsubscribe.html",
+            {
+                "unsubscribed": True,
+                "email": email,
+                "found": subscriber is not None,
+            },
+        )
+
+    email = request.GET.get("email", "")
+    token = request.GET.get("token", "")
+    return render(
+        request,
+        "newsserver/unsubscribe.html",
+        {"email": email, "token": token},
     )
 
 

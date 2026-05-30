@@ -112,11 +112,11 @@ class TestEmailReceiversOverride:
                 mock_getenv.side_effect = getenv_side_effect
 
                 with patch(
-                    "after_analysis.email_sender.get_available_newsletters",
+                    "after_analysis.email._report.get_available_newsletters",
                     return_value=["Test Newsletter"],
                 ):
                     with patch(
-                        "after_analysis.email_sender.smtplib.SMTP"
+                        "after_analysis.email._providers.smtplib.SMTP"
                     ) as mock_smtp:
                         # Mock SMTP connection
                         mock_server = MagicMock()
@@ -133,8 +133,8 @@ class TestEmailReceiversOverride:
                         # Get the message that was sent
                         sent_message = mock_server.send_message.call_args[0][0]
 
-                        # Verify Bcc contains override email
-                        assert "override@example.com" in sent_message["Bcc"]
+                        # Verify To contains override email (per-subscriber sending)
+                        assert "override@example.com" in sent_message["To"]
 
     def test_email_sender_uses_override_with_empty_list(self, tmp_path):
         """Test email sender sends to sender only when override is empty list."""
@@ -185,11 +185,11 @@ class TestEmailReceiversOverride:
                 mock_getenv.side_effect = getenv_side_effect
 
                 with patch(
-                    "after_analysis.email_sender.get_available_newsletters",
+                    "after_analysis.email._report.get_available_newsletters",
                     return_value=["Test Newsletter"],
                 ):
                     with patch(
-                        "after_analysis.email_sender.smtplib.SMTP"
+                        "after_analysis.email._providers.smtplib.SMTP"
                     ) as mock_smtp:
                         # Mock SMTP connection
                         mock_server = MagicMock()
@@ -206,12 +206,8 @@ class TestEmailReceiversOverride:
                         # Get the message that was sent
                         sent_message = mock_server.send_message.call_args[0][0]
 
-                        # Verify To field contains sender (with formatted name)
+                        # With empty override, falls back to sender as sole recipient
                         assert "sender@test.com" in sent_message["To"]
-                        assert "TestConfig NewsBot" in sent_message["To"]
-
-                        # Verify Bcc is empty (no additional recipients)
-                        assert sent_message["Bcc"] == ""
 
     def test_email_sender_uses_database_without_override(self, tmp_path):
         """Test email sender uses database when no override provided."""
@@ -267,11 +263,11 @@ class TestEmailReceiversOverride:
                     mock_get_recipients.return_value = ["db@example.com"]
 
                     with patch(
-                        "after_analysis.email_sender.get_available_newsletters",
+                        "after_analysis.email._report.get_available_newsletters",
                         return_value=["Test Newsletter"],
                     ):
                         with patch(
-                            "after_analysis.email_sender.smtplib.SMTP"
+                            "after_analysis.email._providers.smtplib.SMTP"
                         ) as mock_smtp:
                             # Mock SMTP connection
                             mock_server = MagicMock()
@@ -298,8 +294,8 @@ class TestEmailReceiversOverride:
                                 0
                             ][0]
 
-                            # Verify Bcc contains database email
-                            assert "db@example.com" in sent_message["Bcc"]
+                            # Verify To contains database email (per-subscriber sending)
+                            assert "db@example.com" in sent_message["To"]
 
     def test_main_parses_email_receivers_argument(self):
         """Test main.py correctly parses --email-receivers argument."""

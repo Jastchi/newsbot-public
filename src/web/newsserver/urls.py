@@ -58,6 +58,7 @@ urlpatterns = [
         views.EmailPreviewView.as_view(),
         name="email_preview",
     ),
+    path("unsubscribe/", views.unsubscribe, name="unsubscribe"),
     path("theme/shuffle/", views.shuffle_theme, name="shuffle_theme"),
     path(
         "suggest-config/",

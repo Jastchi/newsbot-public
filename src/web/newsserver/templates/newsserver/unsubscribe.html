@@ -1,0 +1,47 @@
+{% extends "newsserver/base.html" %}
+
+{% block title %}Unsubscribe – NewsBot{% endblock %}
+
+{% block content %}
+<div style="max-width: 480px; margin: 48px auto; padding: 32px; background: var(--bg-card); border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.06);">
+    {% if unsubscribed %}
+        {% if found %}
+            <h2 style="margin: 0 0 12px 0; font-size: 1.35rem; color: var(--site-primary);">You're unsubscribed</h2>
+            <p style="margin: 0; color: var(--text-secondary); line-height: 1.5;">
+                <strong>{{ email }}</strong> has been removed from all NewsBot newsletters.
+            </p>
+        {% else %}
+            <h2 style="margin: 0 0 12px 0; font-size: 1.35rem; color: var(--site-primary);">Not found</h2>
+            <p style="margin: 0; color: var(--text-secondary); line-height: 1.5;">
+                No subscriber found for <strong>{{ email }}</strong>.
+            </p>
+        {% endif %}
+    {% elif invalid %}
+        <h2 style="margin: 0 0 12px 0; font-size: 1.35rem; color: var(--site-primary);">Invalid link</h2>
+        <p style="margin: 0; color: var(--text-secondary); line-height: 1.5;">
+            This unsubscribe link is invalid or has expired. Please use the link from your newsletter email.
+        </p>
+    {% else %}
+        <h2 style="margin: 0 0 12px 0; font-size: 1.35rem; color: var(--site-primary);">Unsubscribe</h2>
+        <p style="margin: 0 0 24px 0; color: var(--text-secondary); line-height: 1.5;">
+            Enter your email address to unsubscribe from all NewsBot newsletters.
+        </p>
+        <form method="post">
+            {% csrf_token %}
+            {% if token %}<input type="hidden" name="token" value="{{ token }}">{% endif %}
+            <input
+                type="email"
+                name="email"
+                value="{{ email }}"
+                placeholder="your@email.com"
+                required
+                style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--border-color, #ddd); border-radius: 8px; font-size: 1rem; margin-bottom: 16px;"
+            >
+            <button
+                type="submit"
+                style="width: 100%; padding: 10px; background: var(--site-primary); color: #fff; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer;"
+            >Unsubscribe</button>
+        </form>
+    {% endif %}
+</div>
+{% endblock %}
