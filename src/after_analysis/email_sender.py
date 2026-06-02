@@ -141,9 +141,10 @@ def execute(report_path: Path, analysis_data: AnalysisData) -> None:
         logger.warning("EMAIL_SENDER required for email report placeholders")
         return
 
-    recipient_emails = (
-        _get_recipient_emails(analysis_data, config_key) or [sender_email]
-    )
+    recipient_emails = {
+        sender_email,
+        *_get_recipient_emails(analysis_data, config_key),
+    }
     base_html = _prepare_base_html(report_path, sender_email, config_key)
     if not base_html:
         return
@@ -162,7 +163,7 @@ def _dispatch_send(
     provider: str,
     subject: str,
     base_html: str,
-    recipient_emails: list[str],
+    recipient_emails: set[str],
     sender_name: str,
     topic: str,
 ) -> None:

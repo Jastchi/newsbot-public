@@ -61,7 +61,7 @@ def _send_via_smtp(
     smtp_config: SMTPConfig,
     subject: str,
     base_html: str,
-    recipient_emails: list[str],
+    recipient_emails: set[str],
     sender_name: str,
 ) -> None:
     """Send one individual email per subscriber via SMTP."""
@@ -114,7 +114,7 @@ def _send_via_resend(
     resend_config: ResendConfig,
     subject: str,
     base_html: str,
-    recipient_emails: list[str],
+    recipient_emails: set[str],
     sender_name: str,
 ) -> None:
     """Send one individual email per subscriber via Resend."""
@@ -158,7 +158,7 @@ def _send_via_emailjs(
     emailjs_config: EmailJSConfig,
     subject: str,
     html_body: str,
-    recipient_emails: list[str],
+    recipient_emails: set[str],
     sender_name: str,
     topic: str,
 ) -> None:

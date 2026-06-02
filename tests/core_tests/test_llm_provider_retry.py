@@ -110,7 +110,7 @@ class TestGeminiProviderRetry:
         config = config_models.ConfigModel(
             llm=config_models.LLMConfigModel(
                 provider="gemini",
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash",
                 temperature=0.7,
                 max_tokens=1000,
             ),
@@ -147,7 +147,7 @@ class TestGeminiProviderRetry:
         config = config_models.ConfigModel(
             llm=config_models.LLMConfigModel(
                 provider="gemini",
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash",
                 temperature=0.7,
                 max_tokens=1000,
             ),
@@ -187,7 +187,7 @@ class TestGeminiProviderRetry:
         config = config_models.ConfigModel(
             llm=config_models.LLMConfigModel(
                 provider="gemini",
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash",
                 temperature=0.7,
                 max_tokens=1000,
             ),
@@ -227,7 +227,7 @@ class TestGeminiProviderRetry:
         config = config_models.ConfigModel(
             llm=config_models.LLMConfigModel(
                 provider="gemini",
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash",
                 temperature=0.7,
                 max_tokens=1000,
             ),
@@ -267,7 +267,7 @@ class TestGeminiProviderRetry:
         config = config_models.ConfigModel(
             llm=config_models.LLMConfigModel(
                 provider="gemini",
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash",
                 temperature=0.7,
                 max_tokens=1000,
             ),
@@ -302,7 +302,7 @@ class TestGeminiProviderRetry:
         config = config_models.ConfigModel(
             llm=config_models.LLMConfigModel(
                 provider="gemini",
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash",
                 temperature=0.7,
                 max_tokens=1000,
             ),
@@ -338,7 +338,7 @@ class TestGeminiProviderRetry:
         config = config_models.ConfigModel(
             llm=config_models.LLMConfigModel(
                 provider="gemini",
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash",
                 temperature=0.7,
                 max_tokens=1000,
             ),
@@ -366,6 +366,7 @@ class TestGeminiProviderRetry:
                 == GEMINI_MAX_RETRIES
             )
 
+
     @patch.dict("os.environ", {"GEMINI_API_KEY": "test-api-key"})
     @patch("time.sleep")  # Speed up tests
     def test_exhausts_retries_on_persistent_service_unavailable(
@@ -379,7 +380,7 @@ class TestGeminiProviderRetry:
         config = config_models.ConfigModel(
             llm=config_models.LLMConfigModel(
                 provider="gemini",
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash",
                 temperature=0.7,
                 max_tokens=1000,
             ),

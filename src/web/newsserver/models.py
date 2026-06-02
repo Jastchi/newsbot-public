@@ -254,7 +254,7 @@ class NewsConfig(BaseModel):
     )
     llm_judge_model = models.CharField(
         max_length=200,
-        default="gemini-2.0-flash",
+        default="gemini-2.5-flash-lite",
         help_text="Model identifier for the judge LLM",
     )
     llm_judge_max_retries = models.IntegerField(

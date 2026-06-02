@@ -127,14 +127,15 @@ class TestEmailReceiversOverride:
                         # Execute email hook
                         execute(regular_report_path, analysis_data)
 
-                        # Verify email was sent
-                        mock_server.send_message.assert_called_once()
-
-                        # Get the message that was sent
-                        sent_message = mock_server.send_message.call_args[0][0]
-
-                        # Verify To contains override email (per-subscriber sending)
-                        assert "override@example.com" in sent_message["To"]
+                        # Verify one SMTP send per recipient:
+                        # sender copy + overridden recipient
+                        assert mock_server.send_message.call_count == 2
+                        sent_to = {
+                            call.args[0]["To"]
+                            for call in mock_server.send_message.call_args_list
+                        }
+                        assert "sender@test.com" in sent_to
+                        assert "override@example.com" in sent_to
 
     def test_email_sender_uses_override_with_empty_list(self, tmp_path):
         """Test email sender sends to sender only when override is empty list."""
@@ -286,16 +287,15 @@ class TestEmailReceiversOverride:
                                 "testconfig"
                             )
 
-                            # Verify email was sent
-                            mock_server.send_message.assert_called_once()
-
-                            # Get the message that was sent
-                            sent_message = mock_server.send_message.call_args[
-                                0
-                            ][0]
-
-                            # Verify To contains database email (per-subscriber sending)
-                            assert "db@example.com" in sent_message["To"]
+                            # Verify one SMTP send per recipient:
+                            # sender copy + database recipient
+                            assert mock_server.send_message.call_count == 2
+                            sent_to = {
+                                call.args[0]["To"]
+                                for call in mock_server.send_message.call_args_list
+                            }
+                            assert "sender@test.com" in sent_to
+                            assert "db@example.com" in sent_to
 
     def test_main_parses_email_receivers_argument(self):
         """Test main.py correctly parses --email-receivers argument."""

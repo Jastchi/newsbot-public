@@ -24,7 +24,7 @@ def mock_config():
     return ConfigModel(
         llm=LLMConfigModel(
             provider="gemini",
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             temperature=0.7,
             max_tokens=2000,
             name_validation_enabled=True,
