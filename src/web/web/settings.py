@@ -276,7 +276,11 @@ DEFAULT_FROM_EMAIL = (
     formataddr((_email_sender_name, _email_sender)) if _email_sender else ""
 )
 # Recipient for daily subscriber-request digest
-EMAIL_ADMIN_NOTIFICATION_TO = os.getenv("EMAIL_SENDER", "")
+EMAIL_ADMIN_NOTIFICATION_TO = (
+    os.getenv("EMAIL_ADMIN_NOTIFICATION_TO")
+    or os.getenv("EMAIL_LOGIN")
+    or os.getenv("EMAIL_SENDER", "")
+)
 
 LOGGING = {
     "version": 1,
