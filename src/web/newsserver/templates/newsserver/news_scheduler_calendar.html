@@ -322,23 +322,46 @@
             border-radius: 6px;
             font-weight: 500;
             box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-            overflow: visible;
+            overflow: hidden;
             min-height: 2.25em;
+            user-select: none;
+            -webkit-user-select: none;
         }
         #calendar .fc-event:hover {
             box-shadow: 0 2px 8px rgba(0,0,0,0.12);
         }
-        #calendar .fc-event .fc-event-main {
-            overflow: visible;
+        #calendar .fc-event .fc-event-main,
+        #calendar .fc-event .fc-event-main-frame {
+            overflow: hidden;
+            min-width: 0;
         }
-        #calendar .fc-event .fc-event-main *,
-        #calendar .fc-event .fc-event-main-frame,
         #calendar .fc-event .fc-event-title {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 3;
+            overflow: hidden;
             white-space: normal !important;
-            word-wrap: break-word;
+            word-break: break-word;
             overflow-wrap: break-word;
-            overflow: visible;
             line-height: 1.25;
+            padding: 2px 4px;
+        }
+        .calendar-event-tooltip {
+            position: fixed;
+            z-index: 1100;
+            max-width: 280px;
+            padding: 8px 12px;
+            background: rgba(33, 33, 33, 0.92);
+            color: #fff;
+            font-size: 0.85rem;
+            line-height: 1.35;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+            pointer-events: none;
+            word-break: break-word;
+        }
+        .calendar-event-tooltip[hidden] {
+            display: none;
         }
     </style>
 
@@ -428,6 +451,25 @@
             var canEditSchedule = schedulePage.getAttribute('data-can-edit-schedule') === 'true';
             var calendarTimezone = schedulePage.getAttribute('data-calendar-timezone');
 
+            var eventTooltip = document.createElement('div');
+            eventTooltip.className = 'calendar-event-tooltip';
+            eventTooltip.setAttribute('role', 'tooltip');
+            eventTooltip.hidden = true;
+            document.body.appendChild(eventTooltip);
+
+            function showEventTooltip(text, anchorEl) {
+                eventTooltip.textContent = text;
+                eventTooltip.hidden = false;
+                var rect = anchorEl.getBoundingClientRect();
+                eventTooltip.style.left = (rect.left + rect.width / 2) + 'px';
+                eventTooltip.style.top = (rect.top - 8) + 'px';
+                eventTooltip.style.transform = 'translate(-50%, -100%)';
+            }
+
+            function hideEventTooltip() {
+                eventTooltip.hidden = true;
+            }
+
             var calendarOptions = {
                 initialView: 'timeGridWeek',
                 firstDay: 1,
@@ -482,14 +524,24 @@
                     } else {
                         info.el.style.opacity = '0.55';
                     }
+                    var tooltipParts = [info.event.title];
                     var sourceNames = props.sourceNames;
                     if (sourceNames && Array.isArray(sourceNames) && sourceNames.length > 0) {
-                        info.el.setAttribute('title', sourceNames.join(', '));
+                        tooltipParts.push(sourceNames.join(', '));
                     }
+                    var tooltipText = tooltipParts.join(' — ');
+                    info.el.addEventListener('mouseenter', function() {
+                        showEventTooltip(tooltipText, info.el);
+                    });
+                    info.el.addEventListener('mouseleave', hideEventTooltip);
+                },
+                eventWillUnmount: function() {
+                    hideEventTooltip();
                 }
             };
 
             if (canEditSchedule) {
+                calendarOptions.eventDragStart = hideEventTooltip;
                 calendarOptions.eventDrop = function(info) {
                     updateSchedule(info.event);
                 };
@@ -498,6 +550,7 @@
             const calendar = new FullCalendar.Calendar(calendarEl, calendarOptions);
 
             calendar.render();
+            calendarEl.addEventListener('scroll', hideEventTooltip, true);
 
             // Responsive height: set contentHeight by viewport (FullCalendar 6 accepts number or "auto", not a function)
             function applyContentHeight() {
