@@ -18,6 +18,8 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 
+from web.newsserver.site_urls import build_canonical_absolute_uri
+
 from .models import ConfigSuggestion, Subscriber, SubscriberRequest
 
 # Magic-link: rate limit 2 per window (per IP and per email), in-memory
@@ -118,10 +120,7 @@ def build_magic_link_verify_url(
 
     if next_url:
         verify_path += "?next=" + quote(next_url)
-    if request.get_host():
-        return request.build_absolute_uri(verify_path)
-
-    return verify_path
+    return build_canonical_absolute_uri(request, verify_path)
 
 
 def send_magic_link_email(email: str, verify_url: str) -> None:

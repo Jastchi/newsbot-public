@@ -1,5 +1,5 @@
 """
-Generate the OG social preview image for thenewsbot.com.
+Generate the OG social preview image for thenewsbot.net.
 
 Output (final): src/web/newsserver/static/newsserver/og-preview.png
 Output (previews): scripts/og-previews/<name>.png
@@ -48,7 +48,7 @@ TITLE = "The Newsbot"
 DESC_LINE1 = "Curated news digests with"
 DESC_LINE2 = "sentiment insights, on the topics"
 DESC_LINE3 = "you choose, delivered weekly."
-URL_TEXT = "thenewsbot.com"
+URL_TEXT = "thenewsbot.net"
 
 # Accent line and description colours (derived from glow by default)
 _acc = tuple(min(255, int(c * 1.4)) for c in GLOW_COLOR)

@@ -20,6 +20,10 @@ from dotenv import load_dotenv
 
 from newsbot.constants import TIMEZONE_STR
 from utilities import is_dev_environment, is_truthy_env
+from web.newsserver.site_urls import (
+    canonical_site_url_from_env,
+    normalize_site_domain,
+)
 
 load_dotenv()
 
@@ -67,6 +71,22 @@ CSRF_TRUSTED_ORIGINS = [
 # absolute URLs.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
+# Canonical public site URL (https://thenewsbot.net). Used for SEO meta
+# tags, magic-link emails, and 301 host canonicalization.
+# Set SITE_DOMAIN in production (bare hostname, no www).
+# Falls back to NEWSSERVER_BASE_URL.
+SITE_DOMAIN = normalize_site_domain(
+    os.getenv("SITE_DOMAIN", "") or os.getenv("NEWSSERVER_BASE_URL", ""),
+)
+CANONICAL_SITE_URL = canonical_site_url_from_env(
+    site_domain=os.getenv("SITE_DOMAIN", ""),
+    news_server_base_url=os.getenv("NEWSSERVER_BASE_URL", ""),
+)
+
+# Redirect any HTTP request that reaches Django (301). Cloudflare should
+# also force HTTPS; use a 301 redirect rule there for http:// URLs.
+SECURE_SSL_REDIRECT = bool(CANONICAL_SITE_URL) and not DEBUG
+
 # Application definition
 SITE_ID = 1
 
@@ -87,6 +107,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "web.newsserver.middleware.CanonicalHostMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -111,6 +132,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "web.newsserver.context_processors.has_logs",
                 "web.newsserver.context_processors.site_theme",
+                "web.newsserver.context_processors.canonical_urls",
             ],
         },
     },

@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from django.conf import settings
 from django.core.cache import cache
-from django.test import RequestFactory
+from django.test import RequestFactory, override_settings
 from django.urls import reverse
 
 from web.newsserver.auth_helpers import (
@@ -136,6 +136,7 @@ class TestMagicLinkToken:
 class TestBuildMagicLinkVerifyUrl:
     """Tests for build_magic_link_verify_url."""
 
+    @override_settings(SITE_DOMAIN="", CANONICAL_SITE_URL="")
     def test_builds_absolute_url_when_host_set(self, request_factory):
         request = request_factory.get("/")
         request.get_host = lambda: "example.com"
@@ -158,8 +159,20 @@ class TestBuildMagicLinkVerifyUrl:
         request.get_host = lambda: ""
         url = build_magic_link_verify_url(request, "xyz", next_url="")
         assert "xyz" in url
-        # Without host, build_absolute_uri is not used; reverse path is returned
         assert reverse("magic_link_verify", kwargs={"token": "xyz"}) in url or "xyz" in url
+
+    @override_settings(
+        SITE_DOMAIN="thenewsbot.net",
+        CANONICAL_SITE_URL="https://thenewsbot.net",
+        FORCE_SCRIPT_NAME="",
+    )
+    def test_uses_canonical_site_url_when_configured(self, request_factory):
+        request = request_factory.get("/")
+        request.get_host = lambda: "www.thenewsbot.net"
+        url = build_magic_link_verify_url(request, "abc123", next_url="")
+        assert url == (
+            "https://thenewsbot.net/accounts/login-by-email/verify/abc123/"
+        )
 
 
 # ----- send_magic_link_email -----

@@ -97,7 +97,7 @@ def test_get_email_error_handler_enabled(monkeypatch):
     monkeypatch.setenv("EMAIL_SMTP_SERVER", "smtp.test.com")
     monkeypatch.setenv("EMAIL_SMTP_PORT", "587")
     monkeypatch.setenv("EMAIL_SENDER", "from@test.com")
-    monkeypatch.setenv("EMAIL_RECIPIENT", "to@test.com")
+    monkeypatch.setenv("EMAIL_LOGIN", "login@test.com")
     monkeypatch.setenv("EMAIL_PASSWORD", "pwd")
     monkeypatch.setenv("EMAIL_SUBJECT_PREFIX", "[Test Error]")
 
@@ -109,7 +109,8 @@ def test_get_email_error_handler_enabled(monkeypatch):
     assert handler.smtp_host == "smtp.test.com"
     assert handler.smtp_port == 587
     assert handler.from_email == "from@test.com"
-    assert handler.to_email == "to@test.com"
+    assert handler.to_email == "login@test.com"
+    assert handler.login_email == "login@test.com"
     assert handler.password == "pwd"
     assert handler.subject_prefix == "[Test Error]"
     assert handler.send_emails is True
@@ -146,7 +147,7 @@ def test_get_email_error_handler_enabled_variations(monkeypatch):
     monkeypatch.setenv("EMAIL_SMTP_SERVER", "smtp.test.com")
     monkeypatch.setenv("EMAIL_SMTP_PORT", "587")
     monkeypatch.setenv("EMAIL_SENDER", "from@test.com")
-    monkeypatch.setenv("EMAIL_RECIPIENT", "to@test.com")
+    monkeypatch.setenv("EMAIL_LOGIN", "login@test.com")
     monkeypatch.setenv("EMAIL_PASSWORD", "pwd")
 
     for enabled_value in ["true", "True", "TRUE", "1", "yes", "Yes", "YES"]:
@@ -256,7 +257,7 @@ def test_send_error_email_once_sends_when_enabled(monkeypatch):
     monkeypatch.setenv("EMAIL_SMTP_SERVER", "smtp.test.com")
     monkeypatch.setenv("EMAIL_SMTP_PORT", "587")
     monkeypatch.setenv("EMAIL_SENDER", "from@test.com")
-    monkeypatch.setenv("EMAIL_RECIPIENT", "to@test.com")
+    monkeypatch.setenv("EMAIL_LOGIN", "login@test.com")
     monkeypatch.setenv("EMAIL_PASSWORD", "pwd")
 
     smtp_mock = Mock()
@@ -276,7 +277,7 @@ def test_send_error_email_once_sends_when_enabled(monkeypatch):
     )
 
     smtp_mock.starttls.assert_called_once()
-    smtp_mock.login.assert_called_once_with("from@test.com", "pwd")
+    smtp_mock.login.assert_called_once_with("login@test.com", "pwd")
     smtp_mock.send_message.assert_called_once()
     msg = smtp_mock.send_message.call_args[0][0]
     assert "[world]" in msg["Subject"]

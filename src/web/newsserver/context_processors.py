@@ -8,6 +8,15 @@ from newsbot.color_utils import derive_color_palette
 
 from .models import NewsConfig
 from .services.log_service import LogService
+from .site_urls import build_canonical_page_url, site_origin
+
+
+def canonical_urls(request: HttpRequest) -> dict[str, str]:
+    """Expose canonical page URL and site origin for meta tags."""
+    return {
+        "canonical_url": build_canonical_page_url(request),
+        "site_origin": site_origin(request),
+    }
 
 
 def has_logs(_request: HttpRequest) -> dict[str, bool]:

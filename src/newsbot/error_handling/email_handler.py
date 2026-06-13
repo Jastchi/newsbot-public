@@ -225,13 +225,14 @@ def get_email_error_handler() -> EmailErrorHandler:
         )
 
     sender = os.getenv("EMAIL_SENDER", "")
+    login_email = os.getenv("EMAIL_LOGIN", sender)
     return EmailErrorHandler(
         smtp_host=os.getenv("EMAIL_SMTP_SERVER", ""),
         smtp_port=int(os.getenv("EMAIL_SMTP_PORT", "0")),
         from_email=sender,
-        to_email=os.getenv("EMAIL_RECIPIENT", ""),
+        to_email=login_email,
         password=os.getenv("EMAIL_PASSWORD", ""),
-        login_email=os.getenv("EMAIL_LOGIN", sender),
+        login_email=login_email,
         subject_prefix=os.getenv("EMAIL_SUBJECT_PREFIX", "[NewsBot Error]"),
     )
 
@@ -273,7 +274,7 @@ def send_error_email_once(
     smtp_port = int(os.getenv("EMAIL_SMTP_PORT", "0"))
     from_email = os.getenv("EMAIL_SENDER", "")
     login_email = os.getenv("EMAIL_LOGIN", from_email)
-    to_email = os.getenv("EMAIL_RECIPIENT", "")
+    to_email = login_email
     password = os.getenv("EMAIL_PASSWORD", "")
     subject_prefix = os.getenv("EMAIL_SUBJECT_PREFIX", "[NewsBot Error]")
 
