@@ -4,8 +4,7 @@
 
 {% block card_content %}
 <h1>Log in or sign up with email</h1>
-<p>Enter your email and we’ll send you a one-time link to sign in or create an account (valid for {{
-    magic_link_valid_minutes }} minutes).</p>
+<p>Enter your email and we’ll send you a one-time link to sign in or create an account (valid for {{ magic_link_valid_minutes }} minutes).</p>
 {% if error %}
 <p class="error-msg">{{ error }}</p>
 {% endif %}

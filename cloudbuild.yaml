@@ -2,6 +2,7 @@ substitutions:
   _REGION: europe-west1
   _SERVICE: newsbot
   _IMAGE: newsbot-web
+  _SITE_DOMAIN: thenewsbot.net
 
 steps:
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
@@ -80,6 +81,8 @@ steps:
       - "${_REGION}"
       - "--platform"
       - "managed"
+      - "--update-env-vars"
+      - "SITE_DOMAIN=${_SITE_DOMAIN}"
 
 # Keeps the images tagged in the build history
 images:
