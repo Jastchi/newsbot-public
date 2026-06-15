@@ -68,7 +68,7 @@ class TestSentenceTransformerCache:
         mock_st_class.assert_called_once_with(
             "test-model",
             backend="onnx",
-            model_kwargs={"file_name": "onnx/model_quantized.onnx"},
+            model_kwargs={"file_name": "onnx/model_quantized.onnx", "provider": "CPUExecutionProvider"},
         )
 
     @patch("newsbot.model_cache.SentenceTransformer")

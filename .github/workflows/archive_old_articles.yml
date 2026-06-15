@@ -5,10 +5,10 @@ name: "Archive: Old Articles [scheduled, self-hosted]"
 # Runs Python directly via uv (no Docker). The runner must have uv installed.
 #
 # One-time setup on the self-hosted runner (Raspberry Pi):
-#   1. Pick a host path for the archive files, e.g. /srv/newsbot/archives
+#   1. Pick a host path for the archive files, e.g. /data/newsbot/archives
 #   2. Create the directory and make it writable by the runner user:
-#          sudo mkdir -p /srv/newsbot/archives
-#          sudo chown -R <runner-user>:<runner-user> /srv/newsbot/archives
+#          sudo mkdir -p /data/newsbot/archives
+#          sudo chown -R <runner-user>:<runner-user> /data/newsbot/archives
 #      (The workflow itself does NOT use sudo, so the directory must
 #      already exist with the right ownership before the first run.)
 #   3. Add a GitHub repo variable `ARCHIVE_HOST_DIR` with that path.

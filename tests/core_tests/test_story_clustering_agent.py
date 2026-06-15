@@ -1170,3 +1170,300 @@ class TestClusterSampling:
         # The large cluster should have been sampled
         for story in stories:
             assert story.article_count <= agent.max_articles_per_story
+
+    def test_init_with_hdbscan_algorithm(self, sample_config):
+        """Test agent initialization with HDBSCAN algorithm."""
+        config = sample_config.model_copy(
+            update={
+                "story_clustering": sample_config.story_clustering.model_copy(
+                    update={"algorithm": "hdbscan"}
+                )
+            }
+        )
+        with patch(
+            "newsbot.agents.story_clustering_agent.get_sentence_transformer"
+        ):
+            agent = StoryClusteringAgent(config)
+            assert agent.clustering_algorithm == "hdbscan"
+
+    @patch("newsbot.agents.story_clustering_agent.get_sentence_transformer")
+    def test_hdbscan_clustering_creates_clusters(
+        self, mock_st, sample_config, sample_articles
+    ):
+        """Test HDBSCAN clustering produces valid Story objects."""
+        config = sample_config.model_copy(
+            update={
+                "story_clustering": sample_config.story_clustering.model_copy(
+                    update={"algorithm": "hdbscan"}
+                )
+            }
+        )
+        articles = sample_articles.copy()
+        articles.extend(
+            [
+                Article(
+                    title="Additional Story 1",
+                    content="Content for additional story 1",
+                    source="Source1",
+                    url="https://test.com/additional1",
+                    published_date=datetime.now(),
+                    scraped_date=datetime.now(),
+                ),
+                Article(
+                    title="Additional Story 2",
+                    content="Content for additional story 2",
+                    source="Source2",
+                    url="https://test.com/additional2",
+                    published_date=datetime.now(),
+                    scraped_date=datetime.now(),
+                ),
+            ]
+        )
+
+        mock_model = Mock()
+        mock_embeddings = np.array(
+            [
+                [1.0, 0.0, 0.0],  # Cluster 1
+                [0.9, 0.1, 0.0],  # Cluster 1
+                [0.8, 0.2, 0.0],  # Cluster 1
+                [0.0, 0.0, 1.0],  # Cluster 2
+                [0.0, 0.1, 0.9],  # Cluster 2
+                [0.0, 0.2, 0.8],  # Cluster 2
+            ]
+        )
+        mock_model.encode.return_value = mock_embeddings
+        mock_st.return_value = mock_model
+
+        agent = StoryClusteringAgent(config)
+        stories = agent.identify_top_stories(articles, top_n=10)
+
+        assert isinstance(stories, list)
+        assert all(isinstance(story, Story) for story in stories)
+
+    @patch("newsbot.agents.story_clustering_agent.get_sentence_transformer")
+    def test_hdbscan_handles_noise_points(self, mock_st, sample_config):
+        """Test that HDBSCAN correctly excludes noise/outlier articles."""
+        config = sample_config.model_copy(
+            update={
+                "story_clustering": sample_config.story_clustering.model_copy(
+                    update={"algorithm": "hdbscan", "dbscan_min_samples": 3}
+                )
+            }
+        )
+
+        articles = [
+            Article(
+                title=f"Story {i}",
+                content=f"Content {i}",
+                source=f"Source{i % 2}",
+                url=f"https://test.com/{i}",
+                published_date=datetime.now(),
+                scraped_date=datetime.now(),
+            )
+            for i in range(5)
+        ]
+
+        mock_model = Mock()
+        # Four tightly grouped + one outlier
+        mock_embeddings = np.array(
+            [
+                [1.0, 0.0, 0.0],
+                [0.95, 0.05, 0.0],
+                [0.9, 0.1, 0.0],
+                [0.85, 0.15, 0.0],
+                [0.0, 0.0, 1.0],  # outlier
+            ]
+        )
+        mock_model.encode.return_value = mock_embeddings
+        mock_st.return_value = mock_model
+
+        agent = StoryClusteringAgent(config)
+        agent._cluster_articles_hdbscan(articles, cosine_similarity(mock_embeddings))
+
+    @patch("newsbot.agents.story_clustering_agent.get_sentence_transformer")
+    def test_all_three_algorithms_produce_stories(
+        self, mock_st, sample_config, sample_articles
+    ):
+        """Test that greedy, DBSCAN, and HDBSCAN all produce valid Story objects."""
+        mock_model = Mock()
+        mock_embeddings = np.array(
+            [
+                [1.0, 0.0, 0.0],
+                [0.9, 0.1, 0.0],
+                [0.0, 0.0, 1.0],
+                [0.0, 0.1, 0.9],
+            ]
+        )
+        mock_model.encode.return_value = mock_embeddings
+        mock_st.return_value = mock_model
+
+        for algorithm in ("greedy", "dbscan", "hdbscan"):
+            config = sample_config.model_copy(
+                update={
+                    "story_clustering": sample_config.story_clustering.model_copy(
+                        update={"algorithm": algorithm}
+                    )
+                }
+            )
+            agent = StoryClusteringAgent(config)
+            stories = agent.identify_top_stories(sample_articles[:4], top_n=10)
+            assert all(isinstance(s, Story) for s in stories), (
+                f"Algorithm {algorithm!r} returned non-Story objects"
+            )
+
+    @patch("newsbot.agents.story_clustering_agent.get_sentence_transformer")
+    def test_hdbscan_cluster_selection_epsilon_merges_clusters(
+        self, mock_st, sample_config
+    ):
+        """Test that hdbscan_cluster_selection_epsilon is stored and forwarded to HDBSCAN.
+
+        Live behavioral verification (epsilon=0): two tight groups form two
+        separate clusters as expected.  For epsilon>0 we mock sklearn.HDBSCAN
+        to avoid a numpy-2.x / sklearn-1.8 compatibility bug in
+        `traverse_upwards` that crashes when epsilon actually triggers a merge
+        on a precomputed distance matrix.  The mock confirms our code passes
+        the right value through to the constructor.
+        """
+        mock_st.return_value = Mock()
+
+        articles = [
+            Article(
+                title=f"Article {i}",
+                content=f"Content {i}",
+                source=f"Source{i}",
+                url=f"https://test.com/{i}",
+                published_date=datetime.now(),
+                scraped_date=datetime.now(),
+            )
+            for i in range(4)
+        ]
+
+        # Symmetric similarity matrix: two tight groups, moderate cross-sim.
+        # intra-group distance ~0.05, inter-group distance ~0.30.
+        sim = np.array([
+            [1.00, 0.95, 0.70, 0.70],
+            [0.95, 1.00, 0.70, 0.70],
+            [0.70, 0.70, 1.00, 0.95],
+            [0.70, 0.70, 0.95, 1.00],
+        ])
+
+        # --- Live check: epsilon=0.0 produces two separate clusters ---
+        config_no_eps = sample_config.model_copy(
+            update={
+                "story_clustering": sample_config.story_clustering.model_copy(
+                    update={
+                        "algorithm": "hdbscan",
+                        "dbscan_min_samples": 2,
+                        "hdbscan_cluster_selection_epsilon": 0.0,
+                    }
+                )
+            }
+        )
+        agent_no_eps = StoryClusteringAgent(config_no_eps)
+        clusters_no_eps = agent_no_eps._cluster_articles_hdbscan(articles, sim)
+        assert len(clusters_no_eps) == 2
+
+        # --- Mock check: epsilon=0.31 is forwarded to HDBSCAN constructor ---
+        # Mock returns a single cluster label (all articles merged into label 0).
+        epsilon = 0.31
+        config_eps = sample_config.model_copy(
+            update={
+                "story_clustering": sample_config.story_clustering.model_copy(
+                    update={
+                        "algorithm": "hdbscan",
+                        "dbscan_min_samples": 2,
+                        "hdbscan_cluster_selection_epsilon": epsilon,
+                    }
+                )
+            }
+        )
+        agent_eps = StoryClusteringAgent(config_eps)
+        assert agent_eps.hdbscan_cluster_selection_epsilon == epsilon
+
+        mock_hdbscan_instance = Mock()
+        mock_hdbscan_instance.fit_predict.return_value = np.array([0, 0, 0, 0])
+        with patch(
+            "newsbot.agents.story_clustering_agent.HDBSCAN",
+            return_value=mock_hdbscan_instance,
+        ) as mock_hdbscan_cls:
+            clusters_eps = agent_eps._cluster_articles_hdbscan(articles, sim)
+
+        mock_hdbscan_cls.assert_called_once_with(
+            min_cluster_size=2,
+            metric="precomputed",
+            cluster_selection_epsilon=epsilon,
+            copy=True,
+        )
+        # All four articles land in the single merged cluster.
+        assert len(clusters_eps) == 1
+        assert len(clusters_eps[0]) == 4
+
+    def test_story_diversity_filters_similar_stories(self, sample_config):
+        """_select_diverse_top_stories skips stories too similar to already-selected ones."""
+        with patch("newsbot.agents.story_clustering_agent.get_sentence_transformer"):
+            config = sample_config.model_copy(
+                update={
+                    "story_clustering": sample_config.story_clustering.model_copy(
+                        update={"story_diversity_threshold": 0.7}
+                    )
+                }
+            )
+            agent = StoryClusteringAgent(config)
+
+        # 9 articles: cluster A (0-2), cluster B (3-5) similar to A,
+        # cluster C (6-8) distinct.
+        articles = [
+            Article(
+                title=f"Article {i}",
+                content=f"Content {i}",
+                source=f"Source{i}",
+                url=f"https://test.com/{i}",
+                published_date=datetime.now(),
+                scraped_date=datetime.now(),
+            )
+            for i in range(9)
+        ]
+        article_to_idx = {a: i for i, a in enumerate(articles)}
+
+        # Build a similarity matrix: A<->B cross-sim ~0.9, A/B<->C ~0.1
+        sim = np.eye(9) * 1.0
+        # Within-cluster similarity
+        for i in range(3):
+            for j in range(3):
+                sim[i, j] = 0.95
+                sim[3 + i, 3 + j] = 0.95
+                sim[6 + i, 6 + j] = 0.95
+        # A <-> B cross-cluster: high (same topic)
+        for i in range(3):
+            for j in range(3):
+                sim[i, 3 + j] = 0.85
+                sim[3 + j, i] = 0.85
+        # C cross-cluster: low
+        for i in range(6):
+            sim[i, 6:] = 0.05
+            sim[6:, i] = 0.05
+
+        story_a = Story(
+            story_id="a", title="Story A", articles=articles[0:3],
+            earliest_date=datetime.now(), latest_date=datetime.now(),
+        )
+        story_b = Story(
+            story_id="b", title="Story B", articles=articles[3:6],
+            earliest_date=datetime.now(), latest_date=datetime.now(),
+        )
+        story_c = Story(
+            story_id="c", title="Story C", articles=articles[6:9],
+            earliest_date=datetime.now(), latest_date=datetime.now(),
+        )
+        # Stories pre-sorted by importance: A > B > C
+        stories = [story_a, story_b, story_c]
+
+        selected = agent._select_diverse_top_stories(
+            stories, top_n=2, similarity_matrix=sim, article_to_idx=article_to_idx,
+        )
+
+        assert len(selected) == 2
+        # Story A is always first; story B should be skipped (too similar to A),
+        # so story C should be the second pick.
+        assert selected[0] is story_a
+        assert selected[1] is story_c

@@ -61,10 +61,12 @@ class StoryClusteringConfigModel(BaseModel):
     embedding_model: str = "Xenova/all-mpnet-base-v2"
     algorithm: str = "dbscan"
     dbscan_min_samples: int = 2
+    hdbscan_cluster_selection_epsilon: float = 0.0
     sampling_central_count: int = 4
     sampling_recent_count: int = 6
     sampling_diverse_count: int = 4
     sampling_similarity_floor: float = 0.4
+    story_diversity_threshold: float = 0.6
 
 
 class ReportConfigModel(BaseModel):

@@ -73,7 +73,10 @@ def get_sentence_transformer(
     model = SentenceTransformer(
         model_name,
         backend="onnx",
-        model_kwargs={"file_name": file_name},
+        model_kwargs={
+            "file_name": file_name,
+            "provider": "CPUExecutionProvider",
+        },
     )
     logger.info(f"SentenceTransformer model '{model_name}' loaded and cached")
     return model

@@ -9,7 +9,7 @@ clustering articles about similar events in different locations.
 import logging
 
 import numpy as np
-from sklearn.cluster import DBSCAN
+from sklearn.cluster import DBSCAN, HDBSCAN
 from sklearn.metrics.pairwise import cosine_similarity
 
 from newsbot.agents.judge_agent import JudgeAgent
@@ -55,12 +55,17 @@ class StoryClusteringAgent:
         self.dbscan_min_samples = (
             self.story_clustering_config.dbscan_min_samples
         )
+        self.hdbscan_cluster_selection_epsilon = (
+            self.story_clustering_config.hdbscan_cluster_selection_epsilon
+        )
         logger.info(
             f"Using clustering algorithm: {self.clustering_algorithm}",
         )
-        if self.clustering_algorithm == "dbscan":
+        if self.clustering_algorithm in ("dbscan", "hdbscan"):
+            algo = self.clustering_algorithm.upper()
             logger.info(
-                f"DBSCAN min_samples: {self.dbscan_min_samples}",
+                f"{algo} min_samples/min_cluster_size: "
+                f"{self.dbscan_min_samples}",
             )
 
         # Sampling configuration for limiting articles per cluster
@@ -75,6 +80,9 @@ class StoryClusteringAgent:
         )
         self.sampling_similarity_floor = (
             self.story_clustering_config.sampling_similarity_floor
+        )
+        self.story_diversity_threshold = (
+            self.story_clustering_config.story_diversity_threshold
         )
         # Derive max_articles from the sum of sampling counts
         self.max_articles_per_story = (
@@ -528,8 +536,11 @@ class StoryClusteringAgent:
             reverse=True,
         )
 
-        # Return top N stories
-        top_stories = stories[:top_n]
+        # Select top N with story-level diversity to avoid semantically
+        # redundant stories in the final output
+        top_stories = self._select_diverse_top_stories(
+            stories, top_n, similarity_matrix, article_to_idx,
+        )
 
         # Generate LLM titles only for the selected top stories
         self._generate_titles_for_stories(top_stories)
@@ -564,6 +575,9 @@ class StoryClusteringAgent:
         """
         if self.clustering_algorithm == "dbscan":
             return self._cluster_articles_dbscan(articles, similarity_matrix)
+
+        if self.clustering_algorithm == "hdbscan":
+            return self._cluster_articles_hdbscan(articles, similarity_matrix)
 
         return self._cluster_articles_greedy(articles, similarity_matrix)
 
@@ -681,6 +695,53 @@ class StoryClusteringAgent:
 
         return cluster_list
 
+    def _cluster_articles_hdbscan(
+        self,
+        articles: list[Article],
+        similarity_matrix: np.ndarray,
+    ) -> list[list[Article]]:
+        """
+        Cluster articles using HDBSCAN algorithm.
+
+        Unlike DBSCAN, HDBSCAN does not require an epsilon parameter and
+        handles clusters of varying density — useful when some stories
+        generate many articles (dense) and others only a few (sparse).
+
+        Args:
+            articles: list of articles to cluster
+            similarity_matrix: Pre-computed similarity matrix
+
+        Returns:
+            list of article clusters
+
+        """
+        similarity_array = np.clip(np.array(similarity_matrix), 0.0, 1.0)
+        distance_matrix = np.clip(1 - similarity_array, 0.0, None)
+
+        hdbscan = HDBSCAN(
+            min_cluster_size=self.dbscan_min_samples,
+            metric="precomputed",
+            cluster_selection_epsilon=self.hdbscan_cluster_selection_epsilon,
+            copy=True,
+        )
+        labels = hdbscan.fit_predict(distance_matrix)
+
+        noise_count = int((labels == -1).sum())
+        unique_labels = np.unique(labels)
+        unique_labels = unique_labels[unique_labels != -1]
+
+        cluster_list: list[list[Article]] = []
+        for label in unique_labels:
+            indices = np.where(labels == label)[0]
+            cluster_list.append([articles[i] for i in indices])
+
+        logger.info(
+            f"Identified {len(cluster_list)} potential story clusters using "
+            f"HDBSCAN clustering ({noise_count} noise points excluded)",
+        )
+
+        return cluster_list
+
     def _log_clustering_metrics(
         self,
         clusters: list[list[Article]],
@@ -777,6 +838,83 @@ class StoryClusteringAgent:
                 stories.append(story)
 
         return stories
+
+    def _select_diverse_top_stories(
+        self,
+        stories: list[Story],
+        top_n: int,
+        similarity_matrix: np.ndarray,
+        article_to_idx: dict[Article, int],
+    ) -> list[Story]:
+        """
+        Select top N stories with diversity enforcement.
+
+        Stories are pre-sorted by importance (source count,
+        article count). Greedily picks the next highest-ranked story
+        whose article set is not too similar to any already-selected
+        story. A story is skipped if its mean cross-cluster
+        similarity to any selected story exceeds
+        story_diversity_threshold.
+
+        Falls back to rank order if fewer than top_n diverse stories
+        exist.
+
+        Args:
+            stories: Stories sorted by importance, descending.
+            top_n: Number of stories to select.
+            similarity_matrix: Pairwise article similarity matrix.
+            article_to_idx: Mapping from Article to matrix index.
+
+        Returns:
+            Selected diverse stories, up to top_n.
+
+        """
+        if self.story_diversity_threshold >= 1.0:
+            return stories[:top_n]
+
+        selected: list[Story] = []
+        selected_indices: list[list[int]] = []
+
+        for story in stories:
+            if len(selected) >= top_n:
+                break
+
+            story_idx = [
+                article_to_idx[a]
+                for a in story.articles
+                if a in article_to_idx
+            ]
+            if not story_idx:
+                continue
+
+            too_similar = False
+            for prev_idx in selected_indices:
+                cross_sim = similarity_matrix[
+                    np.ix_(story_idx, prev_idx)
+                ].mean()
+                if cross_sim >= self.story_diversity_threshold:
+                    too_similar = True
+                    logger.debug(
+                        f"Skipping story '{story.title[:60]}' "
+                        f"(cross-sim {cross_sim:.2f} >= "
+                        f"{self.story_diversity_threshold})",
+                    )
+                    break
+
+            if not too_similar:
+                selected.append(story)
+                selected_indices.append(story_idx)
+
+        # If diversity filter was too aggressive, pad with next best
+        if len(selected) < top_n:
+            remaining = [s for s in stories if s not in selected]
+            selected.extend(remaining[: top_n - len(selected)])
+            logger.info(
+                f"Story diversity filter padded output: "
+                f"{len(selected)} stories selected",
+            )
+
+        return selected
 
     def _sample_cluster_articles_stratified(
         self,

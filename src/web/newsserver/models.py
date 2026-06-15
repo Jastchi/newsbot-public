@@ -154,6 +154,7 @@ class NewsConfig(BaseModel):
         """Story clustering algorithm choices."""
 
         DBSCAN = "dbscan", "DBSCAN"
+        HDBSCAN = "hdbscan", "HDBSCAN"
         GREEDY = "greedy", "Greedy"
 
     class DayOfWeek(models.TextChoices):
