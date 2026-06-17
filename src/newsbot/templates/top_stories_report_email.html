@@ -23,6 +23,21 @@
             color: white;
             padding: 0;
             text-align: left;
+            /* Opt only the hero out of dark mode so its near-white gradient
+               stays light, while the rest of the email is free to darken.
+               Honored at element level by Gmail/GMX (verified) and Apple
+               Mail; css_inline inlines it onto the .header element. */
+            color-scheme: only light;
+        }
+        @media (prefers-color-scheme: dark) {
+            .header {
+                background: linear-gradient(135deg, {{ hero_color_primary }} 0%{% if hero_color_middle %}, {{ hero_color_middle }} 50%{% endif %}, {{ hero_color_secondary }} 100%) !important;
+                color: white !important;
+            }
+            .header h1 { color: #ffffff !important; }
+            .header-eyebrow { color: rgba(255,255,255,0.55) !important; }
+            .header-subline, .header-date-badge { color: rgba(255,255,255,0.6) !important; }
+            .global-summary { background: {{ hero_color_tint }} !important; color: #333 !important; }
         }
         .header-accent-bar {
             display: none;

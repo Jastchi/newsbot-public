@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
     <style>
         /* ── Adaptive palette (brand vars injected by Jinja, neutrals override in dark) ─ */
         :root {
+            color-scheme: light dark;
             --headline-color:   {{ hero_color_headline }};
             --muted-color:      {{ hero_color_muted }};
             --tint-bg:          {{ hero_color_tint }};
@@ -256,6 +258,7 @@
             color: white;
             padding: 0;
             text-align: left;
+            forced-color-adjust: none;
         }
         .header-accent-bar { display: none; }
         .header-content { padding: 28px 0 24px; }

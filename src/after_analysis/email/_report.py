@@ -132,7 +132,11 @@ def _prepare_base_html(
     except Exception:
         logger.exception("Failed to read report file.")
         return None
-    report_html = CSSInliner().inline(report_html)
+    # keep_at_rules=True preserves @media blocks (e.g.
+    # prefers-color-scheme: dark) in a <style> tag. Without it,
+    # css_inline strips them, so the hero's dark-mode override never
+    # reaches the sent email. Regular rules are still inlined as before.
+    report_html = CSSInliner(keep_at_rules=True).inline(report_html)
     return _replace_global_placeholders(
         report_html, sender_email, config_key, report_path.name,
     )
