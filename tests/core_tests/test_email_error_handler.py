@@ -108,7 +108,7 @@ def test_get_email_error_handler_enabled(monkeypatch):
     assert isinstance(handler, EmailErrorHandler)
     assert handler.smtp_host == "smtp.test.com"
     assert handler.smtp_port == 587
-    assert handler.from_email == "from@test.com"
+    assert handler.from_email == "login@test.com"
     assert handler.to_email == "login@test.com"
     assert handler.login_email == "login@test.com"
     assert handler.password == "pwd"
