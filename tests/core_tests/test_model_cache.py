@@ -6,7 +6,6 @@ import pytest
 
 from newsbot.model_cache import (
     clear_model_cache,
-    get_cache_info,
     get_sentence_transformer,
     get_spacy_model,
 )
@@ -112,8 +111,7 @@ class TestClearModelCache:
         clear_model_cache()
 
         # Check cache info shows empty
-        info = get_cache_info()
-        assert info["spacy"].currsize == 0
+        assert get_spacy_model.cache_info().currsize == 0
 
     @patch("newsbot.model_cache.SentenceTransformer")
     def test_clears_sentence_transformer_cache(self, mock_st_class):
@@ -127,8 +125,7 @@ class TestClearModelCache:
         clear_model_cache()
 
         # Check cache info shows empty
-        info = get_cache_info()
-        assert info["sentence_transformer"].currsize == 0
+        assert get_sentence_transformer.cache_info().currsize == 0
 
     @patch("newsbot.model_cache.SentenceTransformer")
     def test_subsequent_load_creates_new_instance(self, mock_st_class):
@@ -148,59 +145,3 @@ class TestClearModelCache:
         # Should be different instances
         assert result1 is not result2
         assert mock_st_class.call_count == 2
-
-
-class TestGetCacheInfo:
-    """Tests for get_cache_info function."""
-
-    def test_returns_both_cache_infos(self):
-        """Test that get_cache_info returns info for both caches."""
-        clear_model_cache()
-
-        info = get_cache_info()
-
-        assert "spacy" in info
-        assert "sentence_transformer" in info
-
-    def test_cache_info_has_required_attributes(self):
-        """Test that cache info has the expected attributes."""
-        clear_model_cache()
-
-        info = get_cache_info()
-
-        # Check spaCy cache info
-        spacy_info = info["spacy"]
-        assert hasattr(spacy_info, "hits")
-        assert hasattr(spacy_info, "misses")
-        assert hasattr(spacy_info, "maxsize")
-        assert hasattr(spacy_info, "currsize")
-
-        # Check SentenceTransformer cache info
-        st_info = info["sentence_transformer"]
-        assert hasattr(st_info, "hits")
-        assert hasattr(st_info, "misses")
-        assert hasattr(st_info, "maxsize")
-        assert hasattr(st_info, "currsize")
-
-    def test_cache_info_tracks_hits_and_misses(self):
-        """Test that cache info correctly tracks hits and misses."""
-        clear_model_cache()
-
-        # First call = miss
-        get_spacy_model("en_core_web_sm")
-        info1 = get_cache_info()
-        assert info1["spacy"].misses == 1
-        assert info1["spacy"].hits == 0
-
-        # Second call = hit
-        get_spacy_model("en_core_web_sm")
-        info2 = get_cache_info()
-        assert info2["spacy"].misses == 1
-        assert info2["spacy"].hits == 1
-
-    def test_maxsize_is_configured(self):
-        """Test that cache maxsize is set as expected."""
-        info = get_cache_info()
-
-        assert info["spacy"].maxsize == 4
-        assert info["sentence_transformer"].maxsize == 4

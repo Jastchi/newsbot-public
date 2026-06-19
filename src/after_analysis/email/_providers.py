@@ -8,7 +8,8 @@ from email.mime.text import MIMEText
 from email.utils import formataddr
 
 import requests
-import resend as resend_lib
+
+from utilities.email import send_via_resend
 
 from ._config import EmailJSConfig, ResendConfig, SMTPConfig
 from ._report import _replace_unsubscribe_placeholder
@@ -118,7 +119,6 @@ def _send_via_resend(
     sender_name: str,
 ) -> None:
     """Send one individual email per subscriber via Resend."""
-    resend_lib.api_key = resend_config.api_key
     from_header = formataddr(
         (str(Header(sender_name, "utf-8")), resend_config.sender_email),
     )
@@ -134,15 +134,15 @@ def _send_via_resend(
         headers = _build_list_unsubscribe_headers(
             resend_config.cancellation_email, unsubscribe_url,
         )
-        params: resend_lib.Emails.SendParams = {
-            "from": from_header,
-            "to": [subscriber_email],
-            "subject": subject,
-            "html": html,
-            "headers": headers,
-        }
         try:
-            resend_lib.Emails.send(params)
+            send_via_resend(
+                resend_config.api_key,
+                from_header,
+                [subscriber_email],
+                subject,
+                html=html,
+                headers=headers,
+            )
             sent += 1
         except Exception:
             logger.exception("Resend send failed for %s", subscriber_email)

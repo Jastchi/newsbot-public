@@ -2,6 +2,7 @@
 
 import os
 import sys
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
@@ -323,3 +324,41 @@ class TestEmailEnabledCheck:
                 )
                 smtp_mock.reset_mock()
                 emailjs_mock.reset_mock()
+
+
+class TestSendViaResendProvider:
+    """Tests for after_analysis.email._providers._send_via_resend."""
+
+    def _make_config(self):
+        from after_analysis.email._config import ResendConfig
+        return ResendConfig(
+            api_key="test-key",
+            sender_email="sender@ex.com",
+            sender_name="NewsBot",
+            cancellation_email="cancel@ex.com",
+        )
+
+    def test_sends_to_each_recipient(self):
+        from after_analysis.email._providers import _send_via_resend
+
+        config = self._make_config()
+        with (
+            patch("after_analysis.email._providers.send_via_resend") as mock_send,
+            patch("after_analysis.email._providers._get_unsubscribe_url_for_subscriber", return_value="https://ex.com/unsub/"),
+            patch("after_analysis.email._providers._replace_unsubscribe_placeholder", side_effect=lambda html, *_: html),
+        ):
+            _send_via_resend(config, "Subj", "<p>body</p>", {"a@ex.com", "b@ex.com"}, "NewsBot")
+        assert mock_send.call_count == 2
+
+    def test_logs_and_continues_on_send_failure(self):
+        from after_analysis.email._providers import _send_via_resend
+
+        config = self._make_config()
+        with (
+            patch("after_analysis.email._providers.send_via_resend", side_effect=Exception("boom")),
+            patch("after_analysis.email._providers._get_unsubscribe_url_for_subscriber", return_value=""),
+            patch("after_analysis.email._providers._replace_unsubscribe_placeholder", side_effect=lambda html, *_: html),
+            patch("after_analysis.email._providers.logger") as mock_log,
+        ):
+            _send_via_resend(config, "S", "<p>b</p>", {"fail@ex.com"}, "Bot")
+        mock_log.exception.assert_called_once()

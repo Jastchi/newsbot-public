@@ -55,10 +55,25 @@ SECRET_KEY = os.getenv(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = is_truthy_env("DEBUG", default="true")
 
+# Subdomain split (opt-in). When MARKETING_HOSTS is set, those hosts
+# serve the public landing page at "/" (via MarketingHostMiddleware),
+# while the Django app is served from APP_HOST. APP_BASE_URL is used
+# to build the landing page's sign-in link. Leave both empty to keep
+# single-host behaviour (the whole app on one domain) — the default.
+MARKETING_HOSTS = [
+    h.strip().lower()
+    for h in os.getenv("MARKETING_HOSTS", "").split(",")
+    if h.strip()
+]
+APP_HOST = os.getenv("APP_HOST", "").strip().lower()
+APP_BASE_URL = f"https://{APP_HOST}" if APP_HOST else ""
+
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
     *os.getenv("DJANGO_ALLOWED_HOSTS", "").split(","),
+    *MARKETING_HOSTS,
+    *([APP_HOST] if APP_HOST else []),
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://" + host
@@ -108,6 +123,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "web.newsserver.middleware.CanonicalHostMiddleware",
+    "web.newsserver.middleware.MarketingHostMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -291,6 +307,7 @@ EMAIL_USE_SSL = is_truthy_env("EMAIL_USE_SSL")
 EMAIL_USE_TLS = not EMAIL_USE_SSL
 EMAIL_HOST_USER = os.getenv("EMAIL_LOGIN") or os.getenv("EMAIL_SENDER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_PASSWORD", "")
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 # Sender format like report emails: "Display Name <email>"
 _email_sender = os.getenv("EMAIL_SENDER", "")
 _email_sender_name = os.getenv("EMAIL_SENDER_NAME", "The NewsBot")

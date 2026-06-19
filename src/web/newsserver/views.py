@@ -3,6 +3,7 @@
 import hmac
 import json
 import logging
+import secrets
 from collections import deque
 from collections.abc import Generator
 from datetime import datetime, time, timedelta
@@ -31,6 +32,7 @@ from django.views.generic import TemplateView
 
 from after_analysis.email._tokens import _generate_unsubscribe_token
 from newsbot.agents.report_agent import ReportGeneratorAgent
+from newsbot.color_utils import derive_color_palette
 from newsbot.constants import (
     DAY_NAME_TO_PYTHON_WEEKDAY,
     PYTHON_WEEKDAY_TO_DAY_NAME,
@@ -50,12 +52,73 @@ from .models import (
     Subscriber,
     SubscriberRequest,
 )
+from .palettes import published_palettes
 from .services.config_service import ConfigService
 from .services.log_service import LogService
 from .services.report_service import ReportService
 from .utils import get_date_range, parse_date_or_default
 
 logger = logging.getLogger(__name__)
+
+
+class LandingView(TemplateView):
+    """
+    Public marketing landing page.
+
+    Served at ``/`` on marketing hosts (see MarketingHostMiddleware)
+    and at ``/welcome/`` on the app host for preview. Samples a
+    published NewsConfig palette like the ``site_theme`` context
+    processor, derives the full palette server-side for a flash-free
+    first paint, and passes every published palette to the page so
+    the in-page shuffle re-samples client-side.
+    """
+
+    template_name = "newsserver/landing.html"
+
+    def get_context_data(self, **kwargs: object) -> dict[str, object]:
+        """Build palette data and the app sign-in URL."""
+        ctx = super().get_context_data(**kwargs)
+
+        palettes = published_palettes()
+        chosen = secrets.choice(palettes)
+        # The server-rendered ``:root`` uses --m in CSS gradients, so
+        # it needs a real colour; fall back to the primary when a
+        # config has no middle. (The client's derivePalette matches.)
+        middle = chosen["m"] or chosen["p"]
+        derived = derive_color_palette(chosen["p"], chosen["s"], middle)
+        ctx["palettes"] = palettes
+        ctx["init"] = {
+            "p": chosen["p"],
+            "s": chosen["s"],
+            "m": middle,
+            "headline": derived["hero_color_headline"],
+            "muted": derived["hero_color_muted"],
+            "tint": derived["hero_color_tint"],
+            "ruleAcc": derived["hero_color_border"],
+            "accent": derived["hero_color_accent"],
+            "link": derived["hero_color_link_dark"],
+            "shadow": derived["hero_shadow"],
+            "storyShadow": derived["hero_story_shadow"],
+            "btnLabel": derived["hero_color_btn_label"],
+        }
+
+        if settings.APP_BASE_URL:
+            ctx["app_login_url"] = f"{settings.APP_BASE_URL}/accounts/login/"
+            ctx["app_home_url"] = f"{settings.APP_BASE_URL}/"
+        else:
+            # On a marketing host the active urlconf is marketing_urls
+            # (set by MarketingHostMiddleware), which only knows the
+            # landing route — so reverse() must target the app's root
+            # urlconf explicitly or it raises NoReverseMatch.
+            ctx["app_login_url"] = reverse(
+                "account_login",
+                urlconf=settings.ROOT_URLCONF,
+            )
+            ctx["app_home_url"] = reverse(
+                "newsserver:news_schedule",
+                urlconf=settings.ROOT_URLCONF,
+            )
+        return ctx
 
 
 class ConfigOverviewView(LoginRequiredMixin, TemplateView):

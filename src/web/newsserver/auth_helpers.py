@@ -5,6 +5,7 @@ Rate limiting, tokens, email, and the magic-link
 request/sent/verify/signup views live here.
 """
 
+import logging
 import secrets
 from urllib.parse import quote
 
@@ -18,9 +19,12 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 
+from utilities.email import send_via_resend
 from web.newsserver.site_urls import build_canonical_absolute_uri
 
 from .models import ConfigSuggestion, Subscriber, SubscriberRequest
+
+logger = logging.getLogger(__name__)
 
 # Magic-link: rate limit 2 per window (per IP and per email), in-memory
 MAGIC_LINK_RATE_LIMIT_WINDOW_SECONDS = 15 * 60
@@ -123,6 +127,39 @@ def build_magic_link_verify_url(
     return build_canonical_absolute_uri(request, verify_path)
 
 
+def _send_email(
+    to: str,
+    subject: str,
+    text: str,
+    html: str | None = None,
+    *,
+    fail_silently: bool = False,
+) -> None:
+    if settings.RESEND_API_KEY:
+        try:
+            send_via_resend(
+                settings.RESEND_API_KEY,
+                settings.DEFAULT_FROM_EMAIL,
+                [to],
+                subject,
+                text=text,
+                html=html or "",
+            )
+        except Exception:
+            if not fail_silently:
+                raise
+            logger.exception("Resend send failed for %s", to)
+    else:
+        send_mail(
+            subject=subject,
+            message=text,
+            from_email=settings.DEFAULT_FROM_EMAIL or None,
+            recipient_list=[to],
+            fail_silently=fail_silently,
+            html_message=html,
+        )
+
+
 def send_magic_link_email(email: str, verify_url: str) -> None:
     """Send the magic-link email (login or signup)."""
     subject = "Your login link"
@@ -139,14 +176,7 @@ def send_magic_link_email(email: str, verify_url: str) -> None:
             "magic_link_valid_minutes": MAGIC_LINK_TOKEN_TIMEOUT_MINUTES,
         },
     )
-    send_mail(
-        subject=subject,
-        message=message,
-        from_email=settings.DEFAULT_FROM_EMAIL or None,
-        recipient_list=[email],
-        fail_silently=False,
-        html_message=html_message,
-    )
+    _send_email(email, subject, message, html_message)
 
 
 def notify_admin_subscriber_request(req: SubscriberRequest) -> None:
@@ -172,13 +202,7 @@ def notify_admin_subscriber_request(req: SubscriberRequest) -> None:
         "Process in Django Admin: Subscriber requests → add as Subscriber and "
         "assign configs, or use the Pending requests page."
     )
-    send_mail(
-        subject=subject,
-        message=message,
-        from_email=settings.DEFAULT_FROM_EMAIL or None,
-        recipient_list=[to],
-        fail_silently=True,
-    )
+    _send_email(to, subject, message, fail_silently=True)
     req.admin_notified_at = timezone.now()
     req.save(update_fields=["admin_notified_at"])
 
@@ -206,13 +230,7 @@ def notify_admin_config_suggestion(suggestion: ConfigSuggestion) -> None:
     if suggestion.note:
         message += f"\nNote: {suggestion.note}\n"
     message += "\nReview it in the Config suggestions tab or Django Admin."
-    send_mail(
-        subject=subject,
-        message=message,
-        from_email=settings.DEFAULT_FROM_EMAIL or None,
-        recipient_list=[to],
-        fail_silently=True,
-    )
+    _send_email(to, subject, message, fail_silently=True)
 
 
 def request_magic_link(request: HttpRequest) -> HttpResponse:

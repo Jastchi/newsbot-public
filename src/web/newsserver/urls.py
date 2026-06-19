@@ -9,6 +9,10 @@ app_name = "newsserver"
 
 urlpatterns = [
     path("", views.NewsSchedulerDashboardView.as_view(), name="news_schedule"),
+    # Public landing page — always reachable here for preview; on
+    # marketing hosts it is also served at "/" (see
+    # MarketingHostMiddleware).
+    path("welcome/", views.LandingView.as_view(), name="landing"),
     path(
         "report-archive/",
         views.ConfigOverviewView.as_view(),

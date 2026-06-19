@@ -7,7 +7,7 @@ Models are cached per process and reused across requests.
 """
 
 import logging
-from functools import _CacheInfo, lru_cache
+from functools import lru_cache
 
 import spacy
 from sentence_transformers import SentenceTransformer
@@ -92,18 +92,3 @@ def clear_model_cache() -> None:
     get_spacy_model.cache_clear()
     get_sentence_transformer.cache_clear()
     logger.info("Model cache cleared")
-
-
-def get_cache_info() -> dict[str, _CacheInfo]:
-    """
-    Get cache statistics for debugging.
-
-    Returns:
-        Dictionary with _CacheInfo for each model type.
-        Each _CacheInfo has attributes: hits, misses, maxsize, currsize.
-
-    """
-    return {
-        "spacy": get_spacy_model.cache_info(),
-        "sentence_transformer": get_sentence_transformer.cache_info(),
-    }

@@ -1,0 +1,648 @@
+{% load static %}<!DOCTYPE html>
+{% comment %}
+  NewsBot public landing page (served at "/" on marketing hosts, and at
+  /welcome/ on the app host for preview). Rendered by LandingView.
+
+  Dynamic palette: LandingView samples a published NewsConfig's hero colours
+  (secrets.choice) and server-derives the full palette via derive_color_palette
+  (newsbot/color_utils.py) into `init`; the same HLS math is ported to JS so the
+  shuffle button re-samples client-side. `palettes` (real published topics) and
+  `init` are passed to the page via json_script below.
+{% endcomment %}
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NewsBot — automated news clustering and weekly digests</title>
+<meta name="description" content="NewsBot reads articles across many sources every day, clusters the ones covering the same event, summarizes each from each source, scores the tone, and emails a weekly digest.">
+<link rel="icon" type="image/svg+xml" href="{% static 'newsserver/favicon.svg' %}">
+{% include "partials/og_meta.html" %}
+
+<style>
+  @font-face {
+    font-family: 'Fraunces';
+    font-style: normal;
+    font-weight: 400 900;
+    font-display: swap;
+    src: url({% static 'newsserver/fonts/fraunces.woff2' %}) format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 400 600;
+    font-display: swap;
+    src: url({% static 'newsserver/fonts/inter.woff2' %}) format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: 'JetBrains Mono';
+    font-style: normal;
+    font-weight: 400 600;
+    font-display: swap;
+    src: url({% static 'newsserver/fonts/jetbrains-mono.woff2' %}) format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  /* ════════════════════════════════════════════════════════════════
+     NEUTRAL BASE — stable in any sampled hue.
+     The ACCENT layer (--p / --s / --m and everything derived) is injected
+     by JS from the sampled topic palette, so the whole page re-tints on shuffle.
+     ════════════════════════════════════════════════════════════════ */
+  :root {
+    /* sampled-palette slots — server-sampled initial palette (LandingView).
+       The JS re-derives identical values on shuffle. */
+    --p:        {{ init.p }};
+    --s:        {{ init.s }};
+    --m:        {{ init.m }};
+    --headline: {{ init.headline }};
+    --muted:    {{ init.muted }};
+    --tint:     {{ init.tint }};
+    --rule-acc: {{ init.ruleAcc }};
+    --accent:   {{ init.accent }};
+    --link:     {{ init.link }};
+    --shadow:   {{ init.shadow }};
+    --story-shadow: {{ init.storyShadow }};
+    --btn-label: {{ init.btnLabel }};
+
+    /* neutral scaffold (light) */
+    --paper:   var(--tint);
+    --surface: #ffffff;
+    --ink:     #16181f;
+    --ink-2:   #515a6e;
+    --ink-3:   #828ca2;
+    --rule:    #e7e9ef;
+    --edge:    rgba(20,24,31,0.5);   /* graph edges — dark in light mode */
+
+    --maxw: 1120px;
+    --gut: 28px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:   #0b0d13;
+      --surface: #141821;
+      --ink:     #eceff6;
+      --ink-2:   #a7b0c2;
+      --ink-3:   #727c91;
+      --rule:    rgba(255,255,255,0.08);
+      --edge:    rgba(255,255,255,0.24);
+    }
+  }
+  [data-theme="dark"] {
+    --edge:    rgba(255,255,255,0.24);
+    --paper:   #0b0d13;
+    --surface: #141821;
+    --ink:     #eceff6;
+    --ink-2:   #a7b0c2;
+    --ink-3:   #727c91;
+    --rule:    rgba(255,255,255,0.08);
+  }
+
+  *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+    background:var(--paper); color:var(--ink); line-height:1.62;
+    -webkit-font-smoothing:antialiased;
+    transition:background .5s ease, color .3s ease;
+  }
+  .display { font-family:'Fraunces',Georgia,serif; font-weight:900; letter-spacing:-0.02em; line-height:1.02; }
+  .mono { font-family:'JetBrains Mono',ui-monospace,Menlo,monospace; }
+  .shell { max-width:var(--maxw); margin:0 auto; padding:0 var(--gut); }
+  a { color:var(--accent); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+
+  .eyebrow {
+    font-family:'JetBrains Mono',monospace; font-size:0.7rem; font-weight:500;
+    letter-spacing:0.26em; text-transform:uppercase; color:var(--accent);
+  }
+
+  /* ── buttons ───────────────────────────────────────────────────── */
+  .btn {
+    display:inline-flex; align-items:center; gap:9px; cursor:pointer; font-family:inherit;
+    font-size:0.96rem; font-weight:600; border-radius:10px; padding:13px 22px;
+    border:1px solid transparent; transition:transform .14s ease, box-shadow .18s ease, background .3s ease;
+  }
+  .btn-primary { background:var(--p); color:var(--btn-label); box-shadow:0 8px 22px var(--shadow); }
+  .btn-primary:hover { text-decoration:none; transform:translateY(-2px); box-shadow:0 12px 30px var(--shadow); }
+  .btn-line { background:transparent; color:var(--ink); border-color:var(--rule); }
+  .btn-line:hover { text-decoration:none; border-color:var(--accent); color:var(--accent); }
+
+  /* ════ NAV ═══════════════════════════════════════════════════════ */
+  .nav {
+    position:sticky; top:0; z-index:60;
+    background:color-mix(in srgb, var(--paper) 82%, transparent);
+    backdrop-filter:blur(14px) saturate(150%); -webkit-backdrop-filter:blur(14px) saturate(150%);
+    border-bottom:1px solid var(--rule);
+  }
+  .nav-row { display:flex; align-items:center; justify-content:space-between; height:66px; gap:16px; }
+  .wordmark { display:flex; align-items:baseline; gap:2px; font-family:'Fraunces',serif; font-weight:900; font-size:1.3rem; color:var(--ink); letter-spacing:-0.03em; }
+  .wordmark .dot { color:var(--p); }
+  .nav-right { display:flex; align-items:center; gap:10px; }
+
+  /* the palette chip — the app's "wearing a sampled topic colour" idea, surfaced */
+  .chip {
+    display:inline-flex; align-items:center; gap:9px; padding:6px 8px 6px 12px;
+    border:1px solid var(--rule); border-radius:999px; background:var(--surface);
+    font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--ink-2); cursor:default;
+  }
+  .chip .swatches { display:inline-flex; margin-right:2px; }
+  .chip .sw { width:13px; height:13px; border-radius:50%; border:2px solid var(--surface); margin-left:-5px; }
+  .chip .sw:first-child { margin-left:0; }
+  .chip .ico-btn {
+    border:none; background:transparent; cursor:pointer; color:var(--ink-3);
+    width:24px; height:24px; border-radius:50%; font-size:0.95rem; line-height:1;
+    display:inline-flex; align-items:center; justify-content:center; transition:color .15s, transform .4s ease;
+  }
+  .chip .ico-btn:hover { color:var(--accent); }
+  .chip .ico-btn.spin { transform:rotate(360deg); }
+
+  .nav-link { font-size:0.92rem; font-weight:500; color:var(--ink-2); padding:8px 6px; }
+  .nav-link:hover { color:var(--ink); text-decoration:none; }
+  .ico-toggle {
+    width:38px; height:38px; border:1px solid var(--rule); background:var(--surface); color:var(--ink-2);
+    border-radius:999px; cursor:pointer; font-size:0.95rem; display:inline-flex; align-items:center; justify-content:center;
+  }
+  .ico-toggle:hover { color:var(--accent); border-color:var(--accent); }
+  @media (max-width:880px){ .nav-link { display:none; } }
+
+  /* ════ HERO ══════════════════════════════════════════════════════ */
+  .hero { position:relative; overflow:hidden; border-bottom:1px solid var(--rule); }
+  /* thin masthead gradient bar = the sampled gradient, used with restraint */
+  .masthead { height:5px; background:linear-gradient(90deg, var(--p), var(--m), var(--s)); }
+  .hero-grid {
+    display:grid; grid-template-columns:1.05fr 0.95fr; gap:48px; align-items:center;
+    padding:74px 0 84px;
+  }
+  .hero-kicker { margin-bottom:26px; }
+  .hero h1 { font-size:clamp(2.5rem, 5.6vw, 4.3rem); color:var(--ink); }
+  .hero h1 .ink-acc { color:var(--p); font-style:italic; font-weight:600; }
+  .hero .lead { margin-top:26px; font-size:clamp(1.06rem,1.7vw,1.24rem); color:var(--ink-2); max-width:50ch; }
+  .hero-cta { margin-top:34px; display:flex; flex-wrap:wrap; gap:14px; align-items:center; }
+  .hero-stats { margin-top:40px; display:flex; gap:30px; flex-wrap:wrap; }
+  .stat .n { font-family:'Fraunces',serif; font-weight:900; font-size:1.7rem; color:var(--ink); line-height:1; }
+  .stat .k { font-family:'JetBrains Mono',monospace; font-size:0.68rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-3); margin-top:7px; }
+
+  /* clustering visualization lives in the _clustering_viz.html partial */
+
+  @media (max-width:860px){
+    .hero-grid { grid-template-columns:1fr; gap:40px; padding:54px 0 64px; }
+    .viz-wrap { order:-1; }
+  }
+
+  /* ════ TRANSFORM STRIP — "forty headlines → one story" ════════════ */
+  .band { border-bottom:1px solid var(--rule); }
+  .band-pad { padding:88px 0; }
+  .sec-head { max-width:60ch; }
+  .sec-head h2 { font-size:clamp(1.8rem,3.6vw,2.7rem); color:var(--ink); margin-top:14px; }
+  .sec-head p { margin-top:16px; color:var(--ink-2); font-size:1.08rem; }
+
+  .transform { margin-top:54px; display:grid; grid-template-columns:1fr auto 1fr; gap:36px; align-items:center; }
+  .sources { display:flex; flex-direction:column; gap:9px; }
+  .src {
+    font-family:'JetBrains Mono',monospace; font-size:0.78rem; color:var(--ink-2);
+    padding:5px 0 5px 13px; border-left:3px solid var(--rule-acc);  /* colour set per-tone in JS */
+  }
+  .arrow { font-family:'JetBrains Mono',monospace; color:var(--accent); font-size:1.5rem; text-align:center; }
+  .arrow small { display:block; font-size:0.6rem; letter-spacing:0.14em; color:var(--ink-3); margin-top:6px; }
+  .story-out {
+    background:var(--surface); border:1px solid var(--rule); border-top:4px solid var(--p);
+    border-radius:4px; padding:24px; box-shadow:0 18px 40px -26px var(--shadow);
+  }
+  .story-out .tag { font-family:'JetBrains Mono',monospace; font-size:0.66rem; letter-spacing:0.16em; text-transform:uppercase; color:var(--accent); }
+  .story-out h3 { font-family:'Fraunces',serif; font-weight:600; font-size:1.4rem; color:var(--ink); margin:10px 0 8px; line-height:1.18; }
+  .story-out p { font-size:0.95rem; color:var(--ink-2); }
+  .story-meta { margin-top:16px; display:flex; gap:16px; font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--ink-3); }
+  .story-meta b { color:var(--ink); }
+  @media (max-width:780px){ .transform { grid-template-columns:1fr; gap:18px; } .arrow { transform:rotate(90deg); } }
+
+  /* ════ PIPELINE 01–04 (a real sequence → numbering is earned) ════ */
+  .pipe { display:grid; grid-template-columns:repeat(4,1fr); gap:0; margin-top:54px; border-top:1px solid var(--rule); }
+  .stage { padding:30px 26px 30px 0; border-right:1px solid var(--rule); }
+  .stage:last-child { border-right:none; padding-right:0; }
+  .stage .num { font-family:'Fraunces',serif; font-weight:900; font-size:2.6rem; color:var(--p); line-height:1; }
+  .stage .cadence { font-family:'JetBrains Mono',monospace; font-size:0.64rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-3); margin:14px 0 6px; }
+  .stage h3 { font-family:'Fraunces',serif; font-weight:600; font-size:1.25rem; color:var(--ink); margin-bottom:8px; }
+  .stage p { font-size:0.92rem; color:var(--ink-2); }
+  @media (max-width:820px){ .pipe { grid-template-columns:1fr 1fr; } .stage { border-right:none; padding-right:26px; border-bottom:1px solid var(--rule); } }
+  @media (max-width:520px){ .pipe { grid-template-columns:1fr; } }
+
+  /* ════ ALGORITHM DEEP DIVE ══════════════════════════════════════ */
+  .algo-sec { background:var(--paper); }
+  details.algo { border-bottom:1px solid var(--rule); }
+  details.algo:first-of-type { border-top:1px solid var(--rule); }
+  details.algo > summary {
+    list-style:none; cursor:pointer; padding:24px 4px; display:grid;
+    grid-template-columns:auto 1fr auto; gap:20px; align-items:center;
+  }
+  details.algo > summary::-webkit-details-marker { display:none; }
+  details.algo .sidx { font-family:'JetBrains Mono',monospace; font-weight:600; font-size:0.85rem; color:var(--accent); }
+  details.algo .stitle { font-family:'Fraunces',serif; font-weight:600; font-size:1.28rem; color:var(--ink); }
+  details.algo .stitle small { display:block; font-family:'JetBrains Mono',monospace; font-weight:400; font-size:0.74rem; letter-spacing:0.04em; color:var(--ink-3); margin-top:5px; }
+  details.algo .chev { color:var(--ink-3); transition:transform .25s; }
+  details.algo[open] .chev { transform:rotate(90deg); color:var(--accent); }
+  .algo-body { padding:0 4px 28px 50px; color:var(--ink-2); font-size:0.98rem; max-width:80ch; }
+  .algo-body p { margin-bottom:13px; }
+  .algo-body ul { margin:0 0 6px 18px; }
+  .algo-body li { margin-bottom:9px; }
+  .algo-body b { color:var(--ink); }
+  .algo-body code {
+    font-family:'JetBrains Mono',monospace; font-size:0.84em; background:var(--tint);
+    border:1px solid var(--rule-acc); border-radius:4px; padding:1px 6px; color:var(--link);
+  }
+  @media (max-width:560px){ .algo-body { padding-left:4px; } details.algo > summary { gap:14px; } }
+
+  .stack { display:flex; flex-wrap:wrap; gap:9px; margin-top:36px; }
+  .stack .t {
+    font-family:'JetBrains Mono',monospace; font-size:0.74rem; font-weight:500; color:var(--ink-2);
+    background:var(--surface); border:1px solid var(--rule); border-radius:999px; padding:7px 14px;
+  }
+  .repo-note { margin-top:26px; font-size:0.96rem; color:var(--ink-2); }
+  .repo-note a { font-family:'JetBrains Mono',monospace; font-size:0.86em; }
+
+  /* ════ CTA + FOOTER ═════════════════════════════════════════════ */
+  .cta { position:relative; overflow:hidden; border-top:1px solid var(--rule); }
+  .cta-bg { position:absolute; inset:0; background:linear-gradient(135deg, var(--p), var(--m) 55%, var(--s)); opacity:0.10; }
+  .cta-inner { position:relative; text-align:center; padding:96px 0; }
+  .cta h2 { font-size:clamp(2rem,4.4vw,3.1rem); color:var(--ink); max-width:18ch; margin:18px auto 0; }
+  .cta p { margin:18px auto 0; max-width:48ch; color:var(--ink-2); font-size:1.08rem; }
+  .cta .btn { margin-top:32px; padding:15px 30px; font-size:1.04rem; }
+  .cta-sub { margin-top:18px; font-size:0.95rem; color:var(--ink-2); }
+
+  footer { border-top:1px solid var(--rule); background:var(--surface); }
+  .foot { display:flex; flex-wrap:wrap; gap:18px 32px; align-items:center; justify-content:space-between; padding:38px 0; }
+  .foot .links { display:flex; gap:24px; flex-wrap:wrap; }
+  .foot .links a { color:var(--ink-2); font-size:0.9rem; }
+  .foot .copy { width:100%; font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--ink-3); padding-top:8px; }
+
+  :focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:2px; }
+  @media (prefers-reduced-motion:reduce){ * { animation:none !important; scroll-behavior:auto; } }
+</style>
+</head>
+<body>
+
+<!-- ════ NAV ═══════════════════════════════════════════════════════ -->
+<nav class="nav">
+  <div class="shell nav-row">
+    <a class="wordmark" href="#top">News<span class="dot">B</span>ot</a>
+    <div class="nav-right">
+      <a class="nav-link" href="#how">Pipeline</a>
+      <a class="nav-link" href="#algorithm">Algorithm</a>
+      <div class="chip" title="Shuffle colour theme">
+        <span class="swatches"><i class="sw" id="chip-sw-1"></i><i class="sw" id="chip-sw-2"></i><i class="sw" id="chip-sw-3"></i></span>
+        <button class="ico-btn" id="shuffle-btn" aria-label="Shuffle colour theme">&#x21BA;</button>
+      </div>
+      <a class="ico-toggle" href="https://github.com/Jastchi/newsbot-public" target="_blank" rel="noopener" aria-label="View source on GitHub" title="View source on GitHub">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.5 5.74.5 12.02c0 5.1 3.29 9.42 7.86 10.95.58.11.79-.25.79-.56 0-.27-.01-1.16-.02-2.1-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.43-2.69 5.41-5.25 5.69.41.36.78 1.06.78 2.14 0 1.55-.01 2.8-.01 3.18 0 .31.21.68.8.56A11.52 11.52 0 0 0 23.5 12.02C23.5 5.74 18.27.5 12 .5Z"/></svg>
+      </a>
+      <button class="ico-toggle" id="theme-toggle" aria-label="Toggle dark mode" title="Toggle dark mode">☾</button>
+      <a class="btn btn-primary" href="{{ app_login_url }}" data-signin>Sign in</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ════ HERO ══════════════════════════════════════════════════════ -->
+<header id="top">
+  <div class="masthead"></div>
+  <div class="hero">
+    <div class="shell hero-grid">
+      <div>
+        <p class="eyebrow hero-kicker">What NewsBot does</p>
+        <h1 class="display">The week's news,<br>grouped into <span class="ink-acc">stories.</span></h1>
+        <p class="lead">
+          NewsBot reads articles across many sources every day, clusters the ones covering the
+          same event, summarizes each one source by source, scores the tone, and emails a
+          single digest once a week.
+        </p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="{{ app_login_url }}" data-signin>Sign in to the app →</a>
+          <a class="btn btn-line" href="{{ app_home_url }}" data-app-link data-app-base="{{ app_home_url }}">Explore the app →</a>
+          <a class="btn btn-line" href="#how">How it works</a>
+        </div>
+        <div class="hero-stats">
+          <div class="stat"><div class="n">100s</div><div class="k">articles / day</div></div>
+          <div class="stat"><div class="n">1</div><div class="k">digest / week</div></div>
+          <div class="stat"><div class="n">≥2</div><div class="k">sources / story</div></div>
+        </div>
+      </div>
+
+      {% include "newsserver/_clustering_viz.html" %}
+    </div>
+  </div>
+</header>
+
+<!-- ════ WHAT IT DOES — the transformation ═════════════════════════ -->
+<section class="band">
+  <div class="shell band-pad">
+    <div class="sec-head">
+      <p class="eyebrow">Grouping coverage</p>
+      <h2 class="display">One event, covered many times, shown once.</h2>
+      <p>Most events are reported by several outlets at once. NewsBot groups those articles into a single entry per story: what happened, how each source covered it, and the overall tone.</p>
+    </div>
+
+    <div class="transform">
+      <div class="sources">
+        <div class="src" data-tone="-0.1">reuters.com · "Central bank holds rates steady"</div>
+        <div class="src" data-tone="0.5">bloomberg.com · "Rate decision lands as expected"</div>
+        <div class="src" data-tone="-0.55">ft.com · "Policymakers keep borrowing costs on hold"</div>
+        <div class="src" data-tone="0.15">apnews.com · "No change to interest rates this month"</div>
+      </div>
+      <div class="arrow">→<small>CLUSTER</small></div>
+      <div class="story-out">
+        <span class="tag">Top story · 4 sources</span>
+        <h3>Central bank leaves rates unchanged amid cooling inflation</h3>
+        <p>One entry with a summary per source, the aggregated tone, and how many outlets covered it.</p>
+        <div class="story-meta"><span>tone <b>neutral</b></span><span>sources <b>4</b></span><span>articles <b>4</b></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════ PIPELINE 01–04 ════════════════════════════════════════════ -->
+<section class="band" id="how">
+  <div class="shell band-pad">
+    <div class="sec-head">
+      <p class="eyebrow">The pipeline</p>
+      <h2 class="display">Four stages, daily to weekly.</h2>
+      <p>Collection runs every day. Once a week the rest of the chain turns seven days of articles into a finished digest.</p>
+    </div>
+    <div class="pipe">
+      <div class="stage">
+        <div class="num">01</div>
+        <div class="cadence">Daily</div>
+        <h3>Collect</h3>
+        <p>Pull fresh articles from each topic's sources and extract the full text, de-duplicated.</p>
+      </div>
+      <div class="stage">
+        <div class="num">02</div>
+        <div class="cadence">Weekly</div>
+        <h3>Cluster</h3>
+        <p>Group the week's articles into distinct stories by meaning, not by keyword.</p>
+      </div>
+      <div class="stage">
+        <div class="num">03</div>
+        <div class="cadence">Weekly</div>
+        <h3>Summarize &amp; score</h3>
+        <p>Summarize each story per source and read its tone, with guardrails against AI errors.</p>
+      </div>
+      <div class="stage">
+        <div class="num">04</div>
+        <div class="cadence">Weekly</div>
+        <h3>Deliver</h3>
+        <p>Render the digest, email every subscriber, and archive it in the web app.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════ ALGORITHM DEEP DIVE ═══════════════════════════════════════ -->
+<section class="band algo-sec" id="algorithm">
+  <div class="shell band-pad">
+    <div class="sec-head">
+      <p class="eyebrow">Under the hood</p>
+      <h2 class="display">The algorithm, in detail.</h2>
+      <p>For the curious and the technical. Expand any stage to see the models, the math, and the guardrails.</p>
+    </div>
+
+    <div style="margin-top:46px;">
+      <details class="algo" open>
+        <summary>
+          <span class="sidx">01</span>
+          <span class="stitle">Daily collection &amp; filtering<small>RSS / Atom feeds · HTML pages · trafilatura extraction</small></span>
+          <span class="chev">▸</span>
+        </summary>
+        <div class="algo-body">
+          <p>A scraper agent fetches articles from every source configured for a topic — both <b>RSS / Atom feeds</b> and ordinary <b>HTML pages</b>. For an HTML source it discovers the article links on a listing page, then pulls each full article body with <code>trafilatura</code> (falling back to <code>BeautifulSoup</code>) rather than trusting feed snippets.</p>
+          <ul>
+            <li>Each article is filtered by keyword <b>and</b> by semantic relevance to the topic, using a configurable cosine-similarity threshold.</li>
+            <li>Duplicates are dropped by URL and title similarity before storage.</li>
+            <li>Survivors land in PostgreSQL with their extracted text, ready for the weekly pass.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="algo">
+        <summary>
+          <span class="sidx">02</span>
+          <span class="stitle">Story clustering<small>sentence-transformer embeddings · DBSCAN / HDBSCAN · geographical penalty</small></span>
+          <span class="chev">▸</span>
+        </summary>
+        <div class="algo-body">
+          <p>The core step. Each week the last seven days of articles are embedded and grouped into stories.</p>
+          <ul>
+            <li><b>Embeddings:</b> a sentence-transformer model running on an ONNX backend. Each article is embedded as a <b>hybrid</b> of its title plus the start of its body — a richer signal than the title alone.</li>
+            <li><b>Similarity:</b> cosine similarity between article embeddings.</li>
+            <li><b>Clustering:</b> configurable per topic — <code>DBSCAN</code>, <code>HDBSCAN</code>, or greedy — with a tunable similarity threshold.</li>
+            <li><b>Geographical penalty:</b> spaCy named-entity recognition extracts the locations each article mentions; when two articles name different, non-overlapping places their similarity is reduced — so a factory fire in Hamburg and one in Osaka never fuse into a single story.</li>
+            <li><b>Quality gate:</b> a cluster only becomes a top story if it draws on at least <b>two independent sources</b>; single-outlet clusters are dropped as noise.</li>
+          </ul>
+          <p>The top N clusters move on, each sampled for central, recent, and deliberately diverse articles so the summary sees the full spread.</p>
+        </div>
+      </details>
+
+      <details class="algo">
+        <summary>
+          <span class="sidx">03</span>
+          <span class="stitle">Summarization<small>two-pass LLM · per-source · LLM-as-judge · entity validation</small></span>
+          <span class="chev">▸</span>
+        </summary>
+        <div class="algo-body">
+          <p>Each story is summarized from the perspective of every source that covered it, using a large language model — a <b>cloud model</b>, or a local <code>Ollama</code> model, configurable.</p>
+          <ul>
+            <li><b>Two-pass:</b> an intermediate summary is built from the cluster, then condensed into the final — steadier on large clusters.</li>
+            <li><b>LLM-as-judge:</b> a separate judge agent reviews each summary for hallucinations and rejects ones that don't hold up.</li>
+            <li><b>Name validation:</b> named entities in a summary are checked against the source articles; anything that was never in the source is flagged as a likely hallucination.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="algo">
+        <summary>
+          <span class="sidx">04</span>
+          <span class="stitle">Sentiment analysis<small>pysentimiento · VADER / TextBlob fallback · per-source aggregation</small></span>
+          <span class="chev">▸</span>
+        </summary>
+        <div class="algo-body">
+          <p>Every article's tone is scored, then averaged per source within each story.</p>
+          <ul>
+            <li>Primary model: <code>pysentimiento</code> (transformer-based, multilingual), with <code>VADER</code> and <code>TextBlob</code> as fallbacks.</li>
+            <li>Each article gets a compound score from <code>-1.0</code> (very negative) to <code>+1.0</code> (very positive), labelled negative / neutral / positive.</li>
+            <li>Aggregating by source shows, at a glance, which outlets framed a story warmly and which didn't.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="algo">
+        <summary>
+          <span class="sidx">05</span>
+          <span class="stitle">Report generation &amp; delivery<small>Jinja2 · inlined CSS · HMAC unsubscribe tokens</small></span>
+          <span class="chev">▸</span>
+        </summary>
+        <div class="algo-body">
+          <p>The finished analysis is rendered to HTML, Markdown and plain text with Jinja2, themed from the topic's palette (the same colours dressing this page).</p>
+          <ul>
+            <li>Email CSS is inlined with <code>css_inline</code> for client compatibility, with dedicated dark-mode handling.</li>
+            <li>Each subscriber gets a personalized email carrying an HMAC-signed unsubscribe / manage-subscriptions token.</li>
+            <li>Delivery runs through a pluggable provider layer — SMTP, Resend, or EmailJS. Every report is archived in the web app.</li>
+          </ul>
+        </div>
+      </details>
+    </div>
+
+    <div class="stack">
+      <span class="t">Django</span><span class="t">FastAPI</span><span class="t">PostgreSQL</span>
+      <span class="t">Sentence-Transformers</span><span class="t">ONNX</span><span class="t">spaCy&nbsp;NER</span><span class="t">DBSCAN&nbsp;/&nbsp;HDBSCAN</span>
+      <span class="t">Ollama</span><span class="t">pysentimiento</span><span class="t">APScheduler</span><span class="t">Docker</span><span class="t">Raspberry&nbsp;Pi</span>
+    </div>
+
+    <p class="repo-note">Curious about the internals? The full source is public on GitHub — <a href="https://github.com/Jastchi/newsbot-public" target="_blank" rel="noopener">github.com/Jastchi/newsbot-public&nbsp;↗</a></p>
+  </div>
+</section>
+
+<!-- ════ CTA ═══════════════════════════════════════════════════════ -->
+<section class="cta">
+  <div class="cta-bg"></div>
+  <div class="shell cta-inner">
+    <p class="eyebrow">Getting started</p>
+    <h2 class="display">Sign in to choose your topics.</h2>
+    <p>Signing in lets you choose which topics NewsBot tracks for you, browse the report archive, and manage your weekly email.</p>
+    <a class="btn btn-primary" href="{{ app_login_url }}" data-signin>Sign in →</a>
+    <a class="btn btn-line" href="{{ app_home_url }}" data-app-link data-app-base="{{ app_home_url }}">Explore the app →</a>
+  </div>
+</section>
+
+<!-- ════ FOOTER ════════════════════════════════════════════════════ -->
+<footer>
+  <div class="shell foot">
+    <a class="wordmark" href="#top" style="font-size:1.1rem;">News<span class="dot">B</span>ot</a>
+    <div class="links">
+      <a href="#how">Pipeline</a>
+      <a href="#algorithm">Algorithm</a>
+      <a href="{{ app_login_url }}" data-signin>Sign in</a>
+    </div>
+    <p class="copy">© 2026 NEWSBOT · THENEWSBOT.NET — THE APP LIVES AT APP.THENEWSBOT.NET</p>
+  </div>
+</footer>
+
+{{ palettes|json_script:"palettes-data" }}
+{{ init|json_script:"init-data" }}
+<script>
+/* ════════════════════════════════════════════════════════════════════
+   PALETTES — the real published NewsConfig rows, passed from LandingView. 
+   ════════════════════════════════════════════════════════════════════ */
+var PALETTES = (function(){
+  try { var d = JSON.parse(document.getElementById('palettes-data').textContent); if (d && d.length) return d; } catch(e){}
+  return [ { p:"#5b6ee8", s:"#8b52d4", m:"#7060da" } ];
+})();
+
+/* ── color_utils.py ported to JS (Python colorsys HLS, faithfully) ──── */
+function hexToRgb(h){ h=h.replace('#',''); return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
+function rgbToHex(r,g,b){ function c(x){ x=Math.round(Math.max(0,Math.min(255,x))); return x.toString(16).padStart(2,'0'); } return '#'+c(r)+c(g)+c(b); }
+function rgbToHls(r,g,b){
+  r/=255; g/=255; b/=255;
+  var mx=Math.max(r,g,b), mn=Math.min(r,g,b), l=(mx+mn)/2;
+  if(mx===mn) return [0,l,0];
+  var d=mx-mn, s = l<=0.5 ? d/(mx+mn) : d/(2-mx-mn);
+  var rc=(mx-r)/d, gc=(mx-g)/d, bc=(mx-b)/d, h;
+  if(r===mx) h=bc-gc; else if(g===mx) h=2+rc-bc; else h=4+gc-rc;
+  h=((h/6)%1+1)%1;
+  return [h,l,s];
+}
+function _v(m1,m2,hue){ hue=((hue%1)+1)%1; if(hue<1/6) return m1+(m2-m1)*hue*6; if(hue<0.5) return m2; if(hue<2/3) return m1+(m2-m1)*(2/3-hue)*6; return m1; }
+function hlsToRgb(h,l,s){ if(s===0) return [l*255,l*255,l*255]; var m2 = l<=0.5 ? l*(1+s) : l+s-l*s, m1=2*l-m2; return [_v(m1,m2,h+1/3)*255,_v(m1,m2,h)*255,_v(m1,m2,h-1/3)*255]; }
+function hlsToHex(h,l,s){ l=Math.max(0,Math.min(1,l)); s=Math.max(0,Math.min(1,s)); var c=hlsToRgb(h,l,s); return rgbToHex(c[0],c[1],c[2]); }
+
+function derivePalette(primary, secondary, middle){
+  var ph=rgbToHls.apply(null,hexToRgb(primary)), sh=rgbToHls.apply(null,hexToRgb(secondary));
+  var prgb=hexToRgb(primary);
+  var compH=(ph[0]+0.5)%1, compL=ph[1]<=0.5?0.92:0.12;
+  return {
+    p: primary, s: secondary, m: middle || primary,
+    headline: hlsToHex(ph[0], ph[1]*0.55, ph[2]*0.60),
+    muted:    hlsToHex(sh[0], sh[1]+(1-sh[1])*0.35, sh[2]*0.64),
+    tint:     hlsToHex(ph[0], 0.97, 0.50),
+    ruleAcc:  hlsToHex(sh[0], 0.94, 0.50),
+    accent:   hlsToHex(sh[0], sh[1]*1.10, sh[2]*0.90),
+    link:     hlsToHex(ph[0], 0.29, 0.25),
+    shadow:      'rgba('+prgb[0]+','+prgb[1]+','+prgb[2]+',0.15)',
+    storyShadow: 'rgba('+prgb[0]+','+prgb[1]+','+prgb[2]+',0.07)',
+    btnLabel: hlsToHex(compH, compL, Math.min(ph[2]*0.90, 0.80))
+  };
+}
+
+/* ── apply a sampled palette across the whole page ──────────────────── */
+function applyPalette(pal){
+  var d = derivePalette(pal.p, pal.s, pal.m), r = document.documentElement.style;
+  r.setProperty('--p', d.p); r.setProperty('--s', d.s); r.setProperty('--m', d.m);
+  r.setProperty('--headline', d.headline); r.setProperty('--muted', d.muted);
+  r.setProperty('--tint', d.tint); r.setProperty('--rule-acc', d.ruleAcc);
+  r.setProperty('--accent', d.accent); r.setProperty('--link', d.link);
+  r.setProperty('--shadow', d.shadow); r.setProperty('--story-shadow', d.storyShadow);
+  r.setProperty('--btn-label', d.btnLabel);
+
+  // nav chip swatches
+  document.getElementById('chip-sw-1').style.background = d.p;
+  document.getElementById('chip-sw-2').style.background = d.m;
+  document.getElementById('chip-sw-3').style.background = d.s;
+
+  if (CLUSTER) CLUSTER.recolor(d);
+  syncAppLinks(pal);
+  return d;  // derived palette, so callers can reuse it without re-deriving
+}
+
+// Carry the current palette to the app: "Explore the app" links get the
+// sampled colours as query params; site_theme reads them and stores them in
+// the session so the app keeps the same colour scheme.
+function syncAppLinks(pal){
+  var q = 'tp='+pal.p.replace('#','')+'&ts='+pal.s.replace('#','')+'&tm='+(pal.m||pal.p).replace('#','');
+  document.querySelectorAll('[data-app-link]').forEach(function(a){
+    var base = a.getAttribute('data-app-base') || a.getAttribute('href');
+    a.setAttribute('href', base + (base.indexOf('?') > -1 ? '&' : '?') + q);
+  });
+}
+
+/* ════ wiring ════════════════════════════════════════════════════════ */
+var current = -1;
+function pickDifferent(){ var i; do { i=Math.floor(Math.random()*PALETTES.length); } while(i===current && PALETTES.length>1); current=i; return PALETTES[i]; }
+
+function doShuffle(btn){
+  if(btn){ btn.classList.add('spin'); setTimeout(function(){ btn.classList.remove('spin'); },450); }
+  var pal = pickDifferent();
+  CLUSTER.reshuffle(applyPalette(pal));
+}
+document.getElementById('shuffle-btn').addEventListener('click', function(){ doShuffle(this); });
+
+// dark-mode toggle (mirrors the app; respects system preference by default)
+(function(){
+  var btn=document.getElementById('theme-toggle');
+  var stored=localStorage.getItem('newsbot-theme');
+  if(stored) document.documentElement.setAttribute('data-theme',stored);
+  function eff(){ var t=document.documentElement.getAttribute('data-theme'); if(t==='dark'||t==='light') return t; return window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'; }
+  function lbl(){ btn.textContent = eff()==='dark'?'☀':'☾'; }
+  lbl();
+  btn.addEventListener('click', function(){ var n=eff()==='dark'?'light':'dark'; document.documentElement.setAttribute('data-theme',n); localStorage.setItem('newsbot-theme',n); lbl(); });
+})();
+
+// algorithm deep-dive — only one section open at a time
+(function(){
+  var items = document.querySelectorAll('details.algo');
+  items.forEach(function(d){
+    d.addEventListener('toggle', function(){
+      if(d.open){ items.forEach(function(o){ if(o!==d) o.open=false; }); }
+    });
+  });
+})();
+
+// boot — start from the server-sampled palette (matches the inline :root,
+// so there's no first-paint flash). Falls back to a random PALETTE.
+var INIT = (function(){ try { return JSON.parse(document.getElementById('init-data').textContent); } catch(e){ return PALETTES[Math.floor(Math.random()*PALETTES.length)]; } })();
+for (var _i=0; _i<PALETTES.length; _i++){ if(PALETTES[_i].p===INIT.p && PALETTES[_i].s===INIT.s){ current=_i; break; } }
+CLUSTER.init(applyPalette({ p:INIT.p, s:INIT.s, m:INIT.m }));
+
+// colour the example source articles by tone, using the viz's shared scale
+document.querySelectorAll('.src[data-tone]').forEach(function(el){
+  el.style.borderLeftColor = CLUSTER.toneColor(parseFloat(el.getAttribute('data-tone')));
+});
+</script>
+</body>
+</html>

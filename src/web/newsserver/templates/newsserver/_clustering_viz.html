@@ -1,0 +1,300 @@
+{% comment %}
+  Clustering-constellation visualization — self-contained partial included by
+  landing.html. Owns its markup, styling, and behaviour.
+
+  Contract with the host page:
+   - It themes from CSS variables defined on the page (--surface, --ink, --tint,
+     --edge, --rule, --shadow, --accent, --p ...), so it re-tints with the page.
+   - It exposes a global `CLUSTER` with .init(d) / .recolor(d) / .reshuffle(d),
+     where `d` is a derived-palette object (see derivePalette in landing.html).
+     The host calls these on first paint and on palette shuffle.
+
+  Node colours encode SENTIMENT (tone), not the palette: each article dot is
+  coloured by its own tone, and each cluster's core node by the average tone of
+  its articles. The palette still themes the edges, rings, and the rest of page.
+{% endcomment %}
+
+<style>
+  /* ── clustering visualization ─────────────────────────────────── */
+  .viz-wrap { position:relative; }
+  .viz-card {
+    background:var(--surface); border:1px solid var(--rule); border-radius:4px;
+    box-shadow:0 30px 60px -28px var(--shadow); overflow:hidden;
+  }
+  #cluster-svg { display:block; width:100%; height:auto; background:transparent; }
+  #cluster-svg line { stroke: var(--edge); }
+  #cluster-svg circle[data-hit] { cursor:pointer; }
+  .viz-foot {
+    padding:10px 14px; border-top:1px solid var(--rule);
+    font-family:'JetBrains Mono',monospace; font-size:0.67rem; color:var(--ink-3); display:flex; justify-content:space-between; gap:10px;
+  }
+  .viz-foot b { color:var(--ink-2); font-weight:600; }
+  .viz-legend {
+    padding:9px 14px 12px; display:flex; align-items:center; flex-wrap:wrap; gap:0;
+    border-top:1px solid var(--rule);
+    font-family:'JetBrains Mono',monospace; font-size:0.62rem; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-3);
+  }
+  .viz-legend b { color:var(--ink-2); font-weight:600; margin-right:4px; }
+  .viz-legend i { width:9px; height:9px; border-radius:50%; display:inline-block; margin:0 5px 0 11px; }
+  .viz-legend i:first-of-type { margin-left:6px; }
+
+  .viz-stage { position:relative; }
+  .story-label {
+    position:absolute; z-index:3; max-width:42%;
+    font-family:'Fraunces',serif; font-weight:600; font-size:0.78rem; line-height:1.16;
+    color:var(--ink); cursor:default; padding:2px 0;
+  }
+  .story-label .eyrow {
+    display:flex; align-items:center; gap:5px; margin-bottom:3px;
+    font-family:'JetBrains Mono',monospace; font-weight:500; font-size:0.55rem;
+    letter-spacing:0.1em; text-transform:uppercase; color:var(--accent);
+  }
+  .story-label .eyrow i { width:6px; height:6px; border-radius:50%; background:var(--p); display:inline-block; }
+  .story-label[data-side="right"] { text-align:right; }
+  .story-label[data-side="right"] .eyrow { justify-content:flex-end; }
+  .story-label:hover, .story-label:focus-within { z-index:10; }
+
+  /* Both article and story hovers use this one tooltip (pointer-events:none,
+     so it never sits under the cursor and can't flicker). Styled as a light
+     card to match the rest of the page. */
+  .viz-tip {
+    position:absolute; z-index:12; pointer-events:none; max-width:230px;
+    background:var(--surface); border:1px solid var(--rule); border-radius:7px;
+    box-shadow:0 16px 38px -12px var(--shadow); padding:12px 13px;
+    font-family:'Inter',sans-serif; font-size:0.74rem; line-height:1.5; color:var(--ink-2);
+    transition:opacity .12s; opacity:0;
+  }
+  .viz-tip.on { opacity:1; }
+  .viz-tip .th { display:block; font-family:'Fraunces',serif; font-weight:600; font-size:0.84rem; color:var(--ink); margin-bottom:5px; line-height:1.2; }
+  .viz-tip .src { display:block; margin-top:7px; font-family:'JetBrains Mono',monospace; font-size:0.6rem; letter-spacing:0.04em; text-transform:uppercase; color:var(--ink-3); }
+</style>
+
+<div class="viz-wrap">
+  <div class="viz-card">
+    <div class="viz-stage" id="viz-stage">
+      <svg id="cluster-svg" viewBox="0 0 460 420" role="img" aria-label="Scattered articles clustering into stories, coloured by tone"></svg>
+      <div class="viz-tip" id="viz-tip"></div>
+    </div>
+    <div class="viz-foot">
+      <span><b id="vf-articles">0</b> articles</span>
+      <span><b id="vf-stories">0</b> stories</span>
+      <span><b id="vf-noise">0</b> dropped as noise</span>
+    </div>
+    <div class="viz-legend"><b>tone</b>
+      <i style="background:#d64545"></i>negative
+      <i style="background:#9aa3b2"></i>neutral
+      <i style="background:#2e9e6b"></i>positive
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════════
+   Sample stories behind the constellation. Each cluster = one story
+   (headline + summary); each dot = one source article (headline + source +
+   tone t ∈ [-1,1]). Stand-in content; the real viz would read the week's
+   clusters and each article's sentiment score.
+   ════════════════════════════════════════════════════════════════════ */
+var STORIES = [
+  { h:"Central bank holds interest rates steady",
+    sum:"Policymakers left the benchmark rate unchanged, citing cooling inflation and steady employment. Markets had largely priced in the hold.",
+    arts:[ {h:"Central bank holds rates steady for a third meeting", s:"reuters.com",  t:-0.25},
+           {h:"Rate decision lands as markets expected",            s:"bloomberg.com", t:-0.10},
+           {h:"Policymakers keep borrowing costs on hold",          s:"ft.com",        t:-0.35} ] },
+  { h:"Coastal cities approve new flood defenses",
+    sum:"Several coastal municipalities funded upgraded sea walls and drainage after a season of record tides.",
+    arts:[ {h:"City council funds new flood barriers",        s:"theguardian.com", t:0.45},
+           {h:"Coastal towns brace with upgraded defenses",   s:"bbc.com",         t:0.30},
+           {h:"Drainage overhaul approved by board",          s:"localwire.org",   t:0.0},
+           {h:"Residents welcome the new sea-wall plan",       s:"reuters.com",     t:0.40} ] },
+  { h:"Chipmaker unveils next-generation processor",
+    sum:"The company announced a more power-efficient processor, with shipments slated for next quarter.",
+    arts:[ {h:"New chip promises efficiency gains",      s:"theverge.com",  t:0.35},
+           {h:"Chipmaker reveals next-gen processor",    s:"reuters.com",   t:0.15},
+           {h:"Processor targets data-center demand",    s:"wsj.com",       t:0.50},
+           {h:"Analysts cheer the efficiency claims",    s:"bloomberg.com", t:0.30},
+           {h:"Rivals question the benchmark numbers",   s:"ft.com",        t:-0.20} ] },
+  { h:"Turnout climbs in regional elections",
+    sum:"Regional elections drew higher turnout than the last cycle, with full results expected within days.",
+    arts:[ {h:"Turnout up across regional elections",            s:"apnews.com",    t:0.15},
+           {h:"Voters head to polls in larger numbers",          s:"nytimes.com",   t:0.05},
+           {h:"Disputed result clouds one regional contest",     s:"localwire.org", t:-0.45} ] }
+];
+
+/* Unclustered ("noise") articles — real single-source items that never
+   joined a cluster. Fixed positions; coloured by their own tone. */
+var NOISE = [
+  { h:"Opinion: the new transit plan won't deliver", s:"cityvoice.org", t:-0.35, x:225, y:185 },
+  { h:"Local bakery wins a national baking award",   s:"townpost.com",  t:0.55,  x:250, y:250 }
+];
+
+/* ════════════════════════════════════════════════════════════════════
+   SIGNATURE: clustering constellation. Scattered article-dots snap into
+   story-clusters; a few stay loose as DBSCAN-style "noise". Each dot is
+   coloured by its article's tone; each core by the cluster's average tone.
+   Hover a dot for its headline+source+tone, a headline for the summary.
+   ════════════════════════════════════════════════════════════════════ */
+var CLUSTER = (function(){
+  var svg = document.getElementById('cluster-svg');
+  var stage = document.getElementById('viz-stage');
+  var tip = document.getElementById('viz-tip');
+  var W=460, H=420, NS='http://www.w3.org/2000/svg';
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var centroids = [ {x:118,y:138}, {x:344,y:128}, {x:104,y:300}, {x:354,y:298} ];
+  var pts=[], cores=[], noise=[], labels=[], raf=null, t=0;
+
+  // ── tone → colour (diverging scale: red ← grey → green) ───────────
+  var TONE_NEG=[214,69,69], TONE_NEU=[154,163,178], TONE_POS=[46,158,107];
+  function _mix(a,b,k){ return Math.round(a+(b-a)*k); }
+  function toneColor(v){
+    v = Math.max(-1, Math.min(1, v));
+    var to = v<0 ? TONE_NEG : TONE_POS, k = Math.min(1, Math.abs(v));
+    return 'rgb('+_mix(TONE_NEU[0],to[0],k)+','+_mix(TONE_NEU[1],to[1],k)+','+_mix(TONE_NEU[2],to[2],k)+')';
+  }
+  function toneLabel(v){ return v<=-0.15 ? 'negative' : (v>=0.15 ? 'positive' : 'neutral'); }
+  function toneTag(v){ return '<b style="color:'+toneColor(v)+'">'+toneLabel(v)+'</b>'; }
+  function avgTone(arts){ var s=0; arts.forEach(function(a){ s+=a.t; }); return arts.length ? s/arts.length : 0; }
+
+  function seededRand(seed){ var x=Math.sin(seed)*10000; return x-Math.floor(x); }
+  function pct(v, total){ return (v/total*100)+'%'; }
+  function esc(str){ return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function showTip(html, cx, cy){
+    tip.innerHTML = html; tip.classList.add('on');
+    var scale = stage.clientWidth / W;
+    var px = cx*scale, py = cy*scale;
+    var tw = tip.offsetWidth, th = tip.offsetHeight;
+    var left = Math.max(6, Math.min(px - tw/2, stage.clientWidth - tw - 6));
+    var top = py - th - 12; if(top < 4) top = py + 16;
+    tip.style.left = left+'px'; tip.style.top = top+'px';
+  }
+  function hideTip(){ tip.classList.remove('on'); }
+
+  function layout(){
+    svg.innerHTML='';
+    // clear previously injected HTML labels (keep the svg + tip)
+    labels.forEach(function(l){ if(l.parentNode) l.parentNode.removeChild(l); });
+    pts=[]; cores=[]; noise=[]; labels=[];
+    var gLines=document.createElementNS(NS,'g'), gDots=document.createElementNS(NS,'g');
+    svg.appendChild(gLines); svg.appendChild(gDots);
+    var seed=1;
+
+    centroids.forEach(function(c,ci){
+      var story = STORIES[ci % STORIES.length];
+      var n = story.arts.length;
+      var avg = avgTone(story.arts);
+
+      // core "story" node — coloured by the cluster's average tone.
+      // Hovering it shows the story (headline + summary + average tone).
+      var core=document.createElementNS(NS,'circle');
+      core.setAttribute('r',7.5); core.dataset.role='core'; core.dataset.hit='1';
+      gDots.appendChild(core); cores.push({el:core,x:c.x,y:c.y,tone:avg});
+      (function(coreEl, st, av, cx, cy){
+        coreEl.addEventListener('mouseenter', function(){
+          showTip('<span class="th">'+esc(st.h)+'</span>'+esc(st.sum)+'<span class="src">'+st.arts.length+' sources · tone '+toneTag(av)+'</span>', cx, cy);
+          coreEl.setAttribute('r',9.5);
+        });
+        coreEl.addEventListener('mouseleave', function(){ hideTip(); coreEl.setAttribute('r',7.5); });
+      })(core, story, avg, c.x, c.y);
+
+      // source-article dots — coloured by each article's tone
+      for(var i=0;i<n;i++){
+        var ang = (i/n)*Math.PI*2 + seededRand(seed++)*1.0 + ci;
+        var rad = 30 + seededRand(seed++)*16;
+        var tx=c.x+Math.cos(ang)*rad, ty=c.y+Math.sin(ang)*rad;
+        var sx = 36+seededRand(seed++)*(W-72), sy=36+seededRand(seed++)*(H-72);
+        var ln=document.createElementNS(NS,'line'); ln.dataset.role='link';
+        gLines.appendChild(ln);
+        var dot=document.createElementNS(NS,'circle'); dot.setAttribute('r',4); dot.dataset.role='dot'; dot.dataset.hit='1';
+        dot.setAttribute('cx',sx); dot.setAttribute('cy',sy);  // valid coords before the first animation frame (no 0,0 flash / 0,0 tooltip)
+        gDots.appendChild(dot);
+        var P={el:dot,sx:sx,sy:sy,tx:tx,ty:ty,line:ln,c:c,art:story.arts[i]};
+        pts.push(P);
+        (function(P){
+          function over(){ showTip('<span class="th">'+esc(P.art.h)+'</span><span class="src">'+esc(P.art.s)+' · tone '+toneTag(P.art.t)+'</span>', +P.el.getAttribute('cx'), +P.el.getAttribute('cy')); P.el.setAttribute('r',5.4); }
+          P.el.addEventListener('mouseenter', over);
+          P.el.addEventListener('mouseleave', function(){ hideTip(); P.el.setAttribute('r',4); });
+        })(P);
+      }
+
+      // always-on story headline label (summary popover opens on centroid hover)
+      var side = c.x < W/2 ? 'left' : 'right';
+      var vside = c.y < H/2 ? 'top' : 'bottom';
+      var lbl=document.createElement('div'); lbl.className='story-label';
+      lbl.dataset.side=side; lbl.dataset.vside=vside; lbl.tabIndex=0;
+      var toneCol = toneColor(avg);
+      lbl.innerHTML =
+        '<div class="eyrow"><i style="background:'+toneCol+'"></i>'+story.arts.length+' sources</div>'+
+        '<div class="htext">'+esc(story.h)+'</div>';
+      stage.appendChild(lbl); labels.push(lbl);
+      // position the label box around its cluster
+      // anchor so the label grows AWAY from the cluster and clears the nodes.
+      // Right labels use `right` (not left+translate) so they get full width
+      // instead of being squeezed against the canvas edge.
+      if(vside==='top'){ lbl.style.bottom = pct(H - (c.y - 62), H); }
+      else { lbl.style.top = pct(c.y + 62, H); }
+      if(side==='left'){ lbl.style.left = pct(c.x - 86, W); }
+      else { lbl.style.right = pct(W - (c.x + 86), W); }
+    });
+
+    // unclustered ("noise") articles — fixed positions, coloured by tone
+    NOISE.forEach(function(item){
+      var nd=document.createElementNS(NS,'circle'); nd.setAttribute('r',3.6); nd.dataset.role='noise'; nd.dataset.hit='1';
+      gDots.appendChild(nd); var ND={el:nd,x:item.x,y:item.y,art:item}; noise.push(ND);
+      (function(ND){
+        var a=ND.art;
+        ND.el.addEventListener('mouseenter', function(){ showTip('<span class="th">'+esc(a.h)+'</span><span class="src">'+esc(a.s)+' · tone '+toneTag(a.t)+'</span>', ND.x, ND.y); ND.el.setAttribute('r',5); });
+        ND.el.addEventListener('mouseleave', function(){ hideTip(); ND.el.setAttribute('r',3.6); });
+      })(ND);
+    });
+
+    document.getElementById('vf-articles').textContent = pts.length;
+    document.getElementById('vf-stories').textContent = centroids.length;
+    document.getElementById('vf-noise').textContent = noise.length;
+  }
+
+  function paint(d){
+    // nodes are tone-coloured; the palette still themes the core ring + noise
+    cores.forEach(function(c){ c.el.setAttribute('fill', toneColor(c.tone)); c.el.setAttribute('cx',c.x); c.el.setAttribute('cy',c.y); c.el.setAttribute('stroke', d.tint); c.el.setAttribute('stroke-width',3.5); });
+    pts.forEach(function(p){ p.el.setAttribute('fill', toneColor(p.art.t)); p.line.setAttribute('stroke-width',1.4); });
+    noise.forEach(function(nd){ nd.el.setAttribute('fill', toneColor(nd.art.t)); nd.el.setAttribute('cx',nd.x); nd.el.setAttribute('cy',nd.y); nd.el.setAttribute('opacity',0.85); });
+  }
+
+  function setPos(prog){
+    var e = prog<1 ? 1-Math.pow(1-prog,3) : 1; // easeOutCubic
+    pts.forEach(function(p){
+      var x=p.sx+(p.tx-p.sx)*e, y=p.sy+(p.ty-p.sy)*e;
+      p.el.setAttribute('cx',x); p.el.setAttribute('cy',y);
+      p.line.setAttribute('x1',x); p.line.setAttribute('y1',y);
+      p.line.setAttribute('x2',p.c.x); p.line.setAttribute('y2',p.c.y);
+      p.line.setAttribute('opacity', Math.max(0,(e-0.55)/0.45)*0.85);
+    });
+  }
+
+  function animateIn(){
+    if(raf) cancelAnimationFrame(raf);
+    if(reduce){ setPos(1); return; }
+    var start=null, dur=1400;
+    function frame(ts){ if(!start) start=ts; var prog=Math.min((ts-start)/dur,1); setPos(prog);
+      if(prog<1){ raf=requestAnimationFrame(frame); } else { drift(); } }
+    raf=requestAnimationFrame(frame);
+  }
+  function drift(){ // gentle ambient float once clustered
+    if(reduce) return;
+    function frame(){ t+=0.012;
+      pts.forEach(function(p,i){ var ox=Math.sin(t+i)*1.2, oy=Math.cos(t*0.9+i)*1.2;
+        var x=p.tx+ox, y=p.ty+oy; p.el.setAttribute('cx',x); p.el.setAttribute('cy',y);
+        p.line.setAttribute('x1',x); p.line.setAttribute('y1',y); });
+      raf=requestAnimationFrame(frame);
+    }
+    raf=requestAnimationFrame(frame);
+  }
+
+  return {
+    init:function(d){ layout(); paint(d); animateIn(); },
+    recolor:function(d){ paint(d); },
+    reshuffle:function(d){ hideTip(); layout(); paint(d); animateIn(); },
+    toneColor:toneColor  // shared so other parts of the page can match the scale
+  };
+})();
+</script>

@@ -2,6 +2,8 @@
 
 import colorsys
 
+_L_MID = 0.5
+
 
 def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
     h = hex_color.lstrip("#")
@@ -114,6 +116,13 @@ def derive_color_palette(
     # Dark desaturated primary for subdued link text (e.g. #3d3560)
     link_dark = _hls_to_hex(p_h, 0.29, 0.25)
 
+    # Complementary hue for primary button labels — hue rotated 180°,
+    # lightness inverted so it always contrasts with the button
+    # background.
+    comp_h = (p_h + 0.5) % 1.0
+    comp_l = 0.92 if p_l <= _L_MID else 0.12
+    btn_label = _hls_to_hex(comp_h, comp_l, min(p_s * 0.90, 0.80))
+
     return {
         "hero_color_primary": primary,
         "hero_color_middle": middle or "",
@@ -127,4 +136,5 @@ def derive_color_palette(
         "hero_story_shadow": f"rgba({r_p},{g_p},{b_p},0.07)",
         "hero_color_accent": accent,
         "hero_color_link_dark": link_dark,
+        "hero_color_btn_label": btn_label,
     }

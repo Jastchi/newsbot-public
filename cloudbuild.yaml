@@ -3,6 +3,8 @@ substitutions:
   _SERVICE: newsbot
   _IMAGE: newsbot-web
   _SITE_DOMAIN: thenewsbot.net
+  _MARKETING_HOSTS: thenewsbot.net,www.thenewsbot.net
+  _APP_HOST: app.thenewsbot.net
 
 steps:
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
@@ -82,7 +84,7 @@ steps:
       - "--platform"
       - "managed"
       - "--update-env-vars"
-      - "SITE_DOMAIN=${_SITE_DOMAIN}"
+      - "^|^SITE_DOMAIN=${_SITE_DOMAIN}|MARKETING_HOSTS=${_MARKETING_HOSTS}|APP_HOST=${_APP_HOST}|DJANGO_CSRF_TRUSTED_ORIGINS=${_MARKETING_HOSTS},${_APP_HOST}"
 
 # Keeps the images tagged in the build history
 images:

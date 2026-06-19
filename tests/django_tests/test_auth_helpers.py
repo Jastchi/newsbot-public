@@ -181,16 +181,16 @@ class TestBuildMagicLinkVerifyUrl:
 class TestSendMagicLinkEmail:
     """Tests for send_magic_link_email."""
 
-    @patch("web.newsserver.auth_helpers.send_mail")
-    def test_sends_email_with_subject_and_recipient(self, mock_send_mail):
+    @patch("web.newsserver.auth_helpers._send_email")
+    def test_sends_email_with_subject_and_recipient(self, mock_send):
         send_magic_link_email("recipient@example.com", "https://example.com/verify/abc/")
-        mock_send_mail.assert_called_once()
-        call_kw = mock_send_mail.call_args[1]
-        assert "login" in call_kw["subject"].lower() or "link" in call_kw["subject"].lower()
-        assert call_kw["recipient_list"] == ["recipient@example.com"]
-        assert "https://example.com/verify/abc/" in call_kw["message"]
-        assert str(MAGIC_LINK_TOKEN_TIMEOUT_MINUTES) in call_kw["message"]
-        assert call_kw["html_message"]  # template rendered
+        mock_send.assert_called_once()
+        to, subject, text, html = mock_send.call_args.args
+        assert "login" in subject.lower() or "link" in subject.lower()
+        assert to == "recipient@example.com"
+        assert "https://example.com/verify/abc/" in text
+        assert str(MAGIC_LINK_TOKEN_TIMEOUT_MINUTES) in text
+        assert html  # template rendered
 
 
 # ----- notify_admin_subscriber_request -----
@@ -200,31 +200,28 @@ class TestSendMagicLinkEmail:
 class TestNotifyAdminSubscriberRequest:
     """Tests for notify_admin_subscriber_request."""
 
-    @patch("web.newsserver.auth_helpers.send_mail")
-    def test_sends_email_when_admin_configured(self, mock_send_mail):
+    @patch("web.newsserver.auth_helpers._send_email")
+    def test_sends_email_when_admin_configured(self, mock_send):
         with patch.object(
             settings, "EMAIL_ADMIN_NOTIFICATION_TO", "admin@newsbot.com"
         ):
-            with patch.object(
-                settings, "DEFAULT_FROM_EMAIL", "bot@newsbot.com"
-            ):
-                req = SubscriberRequest.objects.create(
-                    email="newuser@example.com",
-                    first_name="New",
-                    last_name="User",
-                )
-                notify_admin_subscriber_request(req)
-        mock_send_mail.assert_called_once()
-        call_kw = mock_send_mail.call_args[1]
-        assert call_kw["recipient_list"] == ["admin@newsbot.com"]
-        assert "New subscription request" in call_kw["subject"]
-        assert "newuser@example.com" in call_kw["message"]
-        assert "New User" in call_kw["message"]
+            req = SubscriberRequest.objects.create(
+                email="newuser@example.com",
+                first_name="New",
+                last_name="User",
+            )
+            notify_admin_subscriber_request(req)
+        mock_send.assert_called_once()
+        to, subject, text = mock_send.call_args.args[:3]
+        assert to == "admin@newsbot.com"
+        assert "New subscription request" in subject
+        assert "newuser@example.com" in text
+        assert "New User" in text
         req.refresh_from_db()
         assert req.admin_notified_at is not None
 
-    @patch("web.newsserver.auth_helpers.send_mail")
-    def test_skips_when_admin_notified_at_already_set(self, mock_send_mail):
+    @patch("web.newsserver.auth_helpers._send_email")
+    def test_skips_when_admin_notified_at_already_set(self, mock_send):
         from django.utils import timezone
 
         with patch.object(
@@ -237,10 +234,10 @@ class TestNotifyAdminSubscriberRequest:
                 admin_notified_at=timezone.now(),
             )
             notify_admin_subscriber_request(req)
-        mock_send_mail.assert_not_called()
+        mock_send.assert_not_called()
 
-    @patch("web.newsserver.auth_helpers.send_mail")
-    def test_skips_when_email_admin_unset(self, mock_send_mail):
+    @patch("web.newsserver.auth_helpers._send_email")
+    def test_skips_when_email_admin_unset(self, mock_send):
         with patch.object(settings, "EMAIL_ADMIN_NOTIFICATION_TO", ""):
             req = SubscriberRequest.objects.create(
                 email="noadmin@example.com",
@@ -248,10 +245,10 @@ class TestNotifyAdminSubscriberRequest:
                 last_name="Admin",
             )
             notify_admin_subscriber_request(req)
-        mock_send_mail.assert_not_called()
+        mock_send.assert_not_called()
 
-    @patch("web.newsserver.auth_helpers.send_mail")
-    def test_name_fallback_when_empty(self, mock_send_mail):
+    @patch("web.newsserver.auth_helpers._send_email")
+    def test_name_fallback_when_empty(self, mock_send):
         with patch.object(
             settings, "EMAIL_ADMIN_NOTIFICATION_TO", "admin@newsbot.com"
         ):
@@ -261,8 +258,8 @@ class TestNotifyAdminSubscriberRequest:
                 last_name="",
             )
             notify_admin_subscriber_request(req)
-        call_kw = mock_send_mail.call_args[1]
-        assert "(no name)" in call_kw["message"]
+        _, _, text = mock_send.call_args.args[:3]
+        assert "(no name)" in text
 
 
 # ----- request_magic_link (view) -----
@@ -299,19 +296,19 @@ class TestRequestMagicLinkView:
         )
         assert response.status_code == 400
 
-    @patch("web.newsserver.auth_helpers.send_mail")
-    def test_post_valid_email_redirects_and_sends_email(self, mock_send_mail, client):
+    @patch("web.newsserver.auth_helpers._send_email")
+    def test_post_valid_email_redirects_and_sends_email(self, mock_send, client):
         response = client.post(
             reverse("magic_link_request"),
             data={"email": "valid@example.com"},
         )
         assert response.status_code == 302
         assert "magic_link_sent" in response.url or "login-by-email/sent" in response.url
-        mock_send_mail.assert_called_once()
-        assert mock_send_mail.call_args[1]["recipient_list"] == ["valid@example.com"]
+        mock_send.assert_called_once()
+        assert mock_send.call_args.args[0] == "valid@example.com"
 
-    @patch("web.newsserver.auth_helpers.send_mail")
-    def test_post_valid_email_with_next_redirects_with_next_param(self, mock_send_mail, client):
+    @patch("web.newsserver.auth_helpers._send_email")
+    def test_post_valid_email_with_next_redirects_with_next_param(self, mock_send, client):
         response = client.post(
             reverse("magic_link_request"),
             data={"email": "nextuser@example.com", "next": "/report-archive/"},
@@ -319,8 +316,8 @@ class TestRequestMagicLinkView:
         assert response.status_code == 302
         assert "next=" in response.url
 
-    @patch("web.newsserver.auth_helpers.send_mail")
-    def test_post_rate_limited_returns_429(self, mock_send_mail, client):
+    @patch("web.newsserver.auth_helpers._send_email")
+    def test_post_rate_limited_returns_429(self, mock_send, client):
         cache.clear()
         url = reverse("magic_link_request")
         # Exhaust rate limit for this IP/email (MAGIC_LINK_RATE_LIMIT_MAX is 2)
@@ -392,9 +389,9 @@ class TestVerifyMagicLinkView:
         req = SubscriberRequest.objects.filter(email__iexact="existing@example.com")
         assert not req.exists()  # no SubscriberRequest created for existing sub
 
-    @patch("web.newsserver.auth_helpers.send_mail")
+    @patch("web.newsserver.auth_helpers._send_email")
     def test_valid_token_no_subscriber_creates_request_and_redirects_to_signup_requested(
-        self, mock_send_mail, client
+        self, mock_send, client
     ):
         with patch.object(
             settings, "EMAIL_ADMIN_NOTIFICATION_TO", "admin@newsbot.com"
@@ -408,13 +405,13 @@ class TestVerifyMagicLinkView:
         assert "signup-requested" in response.url or "signup_requested" in response.url
         req = SubscriberRequest.objects.filter(email__iexact="newuser@example.com").first()
         assert req is not None
-        mock_send_mail.assert_called_once()
+        mock_send.assert_called_once()
         req.refresh_from_db()
         assert req.admin_notified_at is not None
 
-    @patch("web.newsserver.auth_helpers.send_mail")
+    @patch("web.newsserver.auth_helpers._send_email")
     def test_valid_token_existing_subscriber_request_updates_and_notifies_once(
-        self, mock_send_mail, client
+        self, mock_send, client
     ):
         SubscriberRequest.objects.create(
             email="existingreq@example.com",
@@ -431,7 +428,7 @@ class TestVerifyMagicLinkView:
             )
         assert response.status_code == 302
         assert SubscriberRequest.objects.filter(email__iexact="existingreq@example.com").count() == 1
-        mock_send_mail.assert_called_once()
+        mock_send.assert_called_once()
 
 
 # ----- magic_link_signup_requested -----
@@ -446,3 +443,94 @@ class TestMagicLinkSignupRequestedView:
         assert response.status_code == 200
         template_names = [t.name for t in response.templates]
         assert "newsserver/subscription_requested.html" in template_names
+
+
+# ----- _send_email (Resend path) -----
+
+
+class TestSendEmailResendPath:
+    """Tests for _send_email when RESEND_API_KEY is configured."""
+
+    @patch("web.newsserver.auth_helpers.send_via_resend")
+    @patch.object(settings, "RESEND_API_KEY", "test-resend-key")
+    def test_uses_resend_when_api_key_set(self, mock_send):
+        from web.newsserver.auth_helpers import _send_email
+
+        _send_email("to@ex.com", "Subject", "plain text", "<b>html</b>")
+        mock_send.assert_called_once()
+        _, from_email, to_list, subject = mock_send.call_args[0]
+        assert to_list == ["to@ex.com"]
+        assert subject == "Subject"
+
+    @patch("web.newsserver.auth_helpers.send_via_resend", side_effect=Exception("fail"))
+    @patch.object(settings, "RESEND_API_KEY", "test-resend-key")
+    def test_fail_silently_suppresses_resend_error(self, mock_send):
+        from web.newsserver.auth_helpers import _send_email
+
+        # should not raise
+        _send_email("to@ex.com", "S", "text", fail_silently=True)
+
+    @patch("web.newsserver.auth_helpers.send_via_resend", side_effect=Exception("fail"))
+    @patch.object(settings, "RESEND_API_KEY", "test-resend-key")
+    def test_reraises_resend_error_when_not_silent(self, mock_send):
+        from web.newsserver.auth_helpers import _send_email
+
+        with pytest.raises(Exception, match="fail"):
+            _send_email("to@ex.com", "S", "text", fail_silently=False)
+
+
+# ----- notify_admin_config_suggestion -----
+
+
+@pytest.mark.django_db
+class TestNotifyAdminConfigSuggestion:
+    """Tests for notify_admin_config_suggestion."""
+
+    @patch("web.newsserver.auth_helpers._send_email")
+    def test_sends_email_with_note(self, mock_send):
+        from web.newsserver.auth_helpers import notify_admin_config_suggestion
+        from web.newsserver.models import ConfigSuggestion
+
+        with patch.object(settings, "EMAIL_ADMIN_NOTIFICATION_TO", "admin@ex.com"):
+            suggestion = ConfigSuggestion.objects.create(
+                name="Tech Digest",
+                sources="https://techcrunch.com\nhttps://wired.com",
+                note="Please include AI coverage",
+                email="user@ex.com",
+            )
+            notify_admin_config_suggestion(suggestion)
+
+        mock_send.assert_called_once()
+        _to, _subject, message = mock_send.call_args[0][:3]
+        assert "Please include AI coverage" in message
+
+    @patch("web.newsserver.auth_helpers._send_email")
+    def test_sends_email_without_note(self, mock_send):
+        from web.newsserver.auth_helpers import notify_admin_config_suggestion
+        from web.newsserver.models import ConfigSuggestion
+
+        with patch.object(settings, "EMAIL_ADMIN_NOTIFICATION_TO", "admin@ex.com"):
+            suggestion = ConfigSuggestion.objects.create(
+                name="Tech Digest",
+                sources="https://techcrunch.com",
+                note="",
+                email="user@ex.com",
+            )
+            notify_admin_config_suggestion(suggestion)
+
+        mock_send.assert_called_once()
+        _to, _subject, message = mock_send.call_args[0][:3]
+        assert "Note:" not in message
+
+    @patch("web.newsserver.auth_helpers._send_email")
+    def test_no_op_when_admin_email_not_configured(self, mock_send):
+        from web.newsserver.auth_helpers import notify_admin_config_suggestion
+        from web.newsserver.models import ConfigSuggestion
+
+        with patch.object(settings, "EMAIL_ADMIN_NOTIFICATION_TO", ""):
+            suggestion = ConfigSuggestion.objects.create(
+                name="X", sources="https://ex.com", email="u@ex.com",
+            )
+            notify_admin_config_suggestion(suggestion)
+
+        mock_send.assert_not_called()
