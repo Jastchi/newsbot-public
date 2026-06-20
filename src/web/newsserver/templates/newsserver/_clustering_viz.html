@@ -24,6 +24,12 @@
   #cluster-svg { display:block; width:100%; height:auto; background:transparent; }
   #cluster-svg line { stroke: var(--edge); }
   #cluster-svg circle[data-hit] { cursor:pointer; }
+  /* touch screens: tiny SVG dots are hard to tap, so enlarge the hit targets.
+     CSS `r` overrides the presentation attribute the JS sets. */
+  @media (pointer:coarse){
+    #cluster-svg circle[data-role="dot"]   { r:8px; }
+    #cluster-svg circle[data-role="noise"] { r:7px; }
+  }
   .viz-foot {
     padding:10px 14px; border-top:1px solid var(--rule);
     font-family:'JetBrains Mono',monospace; font-size:0.67rem; color:var(--ink-3); display:flex; justify-content:space-between; gap:10px;
