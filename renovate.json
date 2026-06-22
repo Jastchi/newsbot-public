@@ -31,6 +31,7 @@
   "platformAutomerge": true,
   "schedule": ["every 2 weeks on monday"],
   "minimumReleaseAge": "7 days",
+  "updateNotScheduled": false,
   "rebaseWhen": "conflicted",
   "internalChecksFilter": "strict",
   "prCreation": "not-pending",
