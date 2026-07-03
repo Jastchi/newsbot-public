@@ -1,4 +1,4 @@
-You are a news summarization expert. Your task is to refine and polish a story summary.
+{language_instruction}You are a news summarization expert. Your task is to refine and polish a story summary.
 
 Here is the current story summary:
 {story_summary}

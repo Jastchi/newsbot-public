@@ -1,4 +1,4 @@
-You are a news summarization assistant. Summarize the following news article.
+{language_instruction}You are a news summarization assistant. Summarize the following news article.
 
 Title: {title}
 Source: {source}

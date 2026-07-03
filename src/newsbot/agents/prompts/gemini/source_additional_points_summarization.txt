@@ -1,4 +1,4 @@
-You are a news summarization assistant. Consolidate additional points from articles of the same news source into a direct summary.
+{language_instruction}You are a news summarization assistant. Consolidate additional points from articles of the same news source into a direct summary.
 
 Current story summary:
 {story_summary}

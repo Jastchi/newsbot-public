@@ -22,6 +22,19 @@ from utilities.models import ConfigModel
 
 logger = logging.getLogger(__name__)
 
+# Maps a NewsConfig.language code to a human-readable name for use in
+# prompts. Falls back to the raw code for anything not listed, so an
+# unmapped code still yields a sensible
+# ("Write your response in <code>") instruction rather than failing.
+LANGUAGE_NAMES = {
+    "en": "English",
+    "es": "Spanish",
+    "pt": "Portuguese",
+    "de": "German",
+    "fr": "French",
+    "it": "Italian",
+}
+
 
 class SummarizationAgent:
     """
@@ -56,6 +69,16 @@ class SummarizationAgent:
             + "\n\n"
             if summarization_config.explain_for_outsiders
             else ""
+        )
+        # Instruct the LLM which language to write summaries in, so a
+        # config aggregating foreign-language sources still produces a
+        # report in the configured language. For English (the default)
+        # this is a no-op in practice, but keeping it explicit makes the
+        # output language deterministic rather than left to the model.
+        language_name = LANGUAGE_NAMES.get(config.language, config.language)
+        self.language_instruction = (
+            f"Write your response in {language_name}, translating from "
+            f"the source language where needed.\n\n"
         )
         logger.info(
             f"Two-pass summarization enabled: {self.two_pass_enabled}, "
@@ -401,6 +424,7 @@ class SummarizationAgent:
             prompt = prompt_template.format(
                 story_summary=story_summary,
                 reader_context_instruction=self.reader_context_instruction,
+                language_instruction=self.language_instruction,
             )
 
             refined_summary = self.provider.generate(
@@ -471,6 +495,7 @@ class SummarizationAgent:
                 story_summary=story_summary,
                 title=article.title,
                 content=content,
+                language_instruction=self.language_instruction,
             )
 
             additional_points = self.provider.generate(
@@ -567,6 +592,7 @@ class SummarizationAgent:
                 story_summary=story_summary,
                 source_name=source,
                 additional_points_list=points_text,
+                language_instruction=self.language_instruction,
             )
 
             source_summary = self.provider.generate(
@@ -706,6 +732,7 @@ class SummarizationAgent:
             existing_summary=existing_text,
             title=article.title,
             content=content,
+            language_instruction=self.language_instruction,
         )
 
     def _create_summarization_prompt(self, article: Article) -> str:
@@ -733,6 +760,7 @@ class SummarizationAgent:
             title=article.title,
             source=article.source,
             content=content,
+            language_instruction=self.language_instruction,
         )
 
     def _get_article_contents(self, articles: list[Article]) -> list[str]:

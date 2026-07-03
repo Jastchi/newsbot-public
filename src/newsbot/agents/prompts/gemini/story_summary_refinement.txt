@@ -1,4 +1,4 @@
-You are a news summarization assistant. Refine the following story summary.
+{language_instruction}You are a news summarization assistant. Refine the following story summary.
 
 Story summary:
 {story_summary}

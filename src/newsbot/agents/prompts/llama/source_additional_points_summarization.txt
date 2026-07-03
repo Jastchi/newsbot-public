@@ -1,4 +1,4 @@
-You are a news analysis assistant. Your task is to consolidate additional points from multiple articles from the same news source into a single coherent summary.
+{language_instruction}You are a news analysis assistant. Your task is to consolidate additional points from multiple articles from the same news source into a single coherent summary.
 
 Here is the current story summary (covering multiple articles):
 {story_summary}

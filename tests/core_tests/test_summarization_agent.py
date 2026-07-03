@@ -100,6 +100,57 @@ class TestSummarizationAgent:
     @patch("newsbot.agents.name_validation_agent.get_llm_provider")
     @patch("newsbot.agents.judge_agent.get_llm_provider")
     @patch("newsbot.agents.summarization_agent.get_llm_provider")
+    def test_language_instruction_english_by_default(
+        self,
+        mock_get_provider,
+        mock_judge_provider,
+        mock_name_validation_provider,
+        sample_config,
+        sample_article,
+    ):
+        """Default (en) config instructs the LLM to write in English."""
+        mock_provider = create_mock_provider()
+        mock_get_provider.return_value = mock_provider
+        mock_judge_provider.return_value = mock_provider
+        mock_name_validation_provider.return_value = mock_provider
+
+        agent = SummarizationAgent(sample_config)
+        prompt = agent._create_summarization_prompt(sample_article)
+
+        assert "Write your response in English" in prompt
+
+    @patch("newsbot.agents.name_validation_agent.get_llm_provider")
+    @patch("newsbot.agents.judge_agent.get_llm_provider")
+    @patch("newsbot.agents.summarization_agent.get_llm_provider")
+    def test_language_instruction_non_english(
+        self,
+        mock_get_provider,
+        mock_judge_provider,
+        mock_name_validation_provider,
+        sample_config,
+        sample_article,
+    ):
+        """A non-English config instructs the LLM to write in that language.
+
+        This is what lets a config aggregating foreign-language sources
+        still produce a report in the configured (here Portuguese) output
+        language.
+        """
+        mock_provider = create_mock_provider()
+        mock_get_provider.return_value = mock_provider
+        mock_judge_provider.return_value = mock_provider
+        mock_name_validation_provider.return_value = mock_provider
+
+        pt_config = sample_config.model_copy(update={"language": "pt"})
+        agent = SummarizationAgent(pt_config)
+        prompt = agent._create_summarization_prompt(sample_article)
+
+        assert "Write your response in Portuguese" in prompt
+        assert "English" not in agent.language_instruction
+
+    @patch("newsbot.agents.name_validation_agent.get_llm_provider")
+    @patch("newsbot.agents.judge_agent.get_llm_provider")
+    @patch("newsbot.agents.summarization_agent.get_llm_provider")
     def test_summarize_with_custom_temperature(
         self,
         mock_get_provider,

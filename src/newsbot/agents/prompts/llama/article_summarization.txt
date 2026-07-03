@@ -1,4 +1,4 @@
-You are a news summarization assistant. Please provide a concise summary of the following news article. Please do not add anything else.
+{language_instruction}You are a news summarization assistant. Please provide a concise summary of the following news article. Please do not add anything else.
 
 Title: {title}
 Source: {source}
