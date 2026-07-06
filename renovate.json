@@ -1,96 +1,11 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ],
+  "extends": ["github>Jastchi/renovate-configs//base.json"],
   "enabledManagers": ["pep621", "dockerfile", "docker-compose", "github-actions"],
-  "osvVulnerabilityAlerts": true,
-  "vulnerabilityAlerts": {
-    "enabled": true,
-    "automerge": true,
-    "minimumReleaseAge": "0 days",
-    "prCreation": "immediate",
-    "internalChecksFilter": "none"
-  },
-  "pep621": {
-    "rangeStrategy": "pin"
-  },
-  "github-actions": {
-    "pinDigests": true
-  },
-  "dockerfile": {
-    "pinDigests": true
-  },
   "lockFileMaintenance": {
-    "enabled": true,
-    "automerge": true,
-    "schedule": ["every 2 weeks on monday"]
+    "enabled": true
   },
-  "automergeType": "pr",
-  "automergeStrategy": "squash",
-  "platformAutomerge": true,
-  "schedule": ["every 2 weeks on monday"],
-  "minimumReleaseAge": "7 days",
-  "updateNotScheduled": false,
-  "rebaseWhen": "conflicted",
-  "internalChecksFilter": "strict",
-  "prCreation": "not-pending",
   "packageRules": [
-    {
-      "description": "Never update requires-python; Python version is managed manually.",
-      "matchDepTypes": ["requires-python"],
-      "enabled": false
-    },
-    {
-      "description": "Don't gate one-time pin/pinDigest operations on minimumReleaseAge. The value being pinned is what's currently in use, so the 7-day window adds no safety here. Without this, grouped pin PRs can get stuck pending forever because at least one dependency in the group typically has a release within the last 7 days.",
-      "matchUpdateTypes": ["pin", "pinDigest"],
-      "minimumReleaseAge": "0 days"
-    },
-    {
-      "description": "Group all non-major Python (PEP 621) updates into one PR and automerge. rangeStrategy=pin ensures uv installs the exact version Renovate chose, preventing resolver drift that would bypass minimumReleaseAge.",
-      "matchManagers": ["pep621"],
-      "matchUpdateTypes": ["minor", "patch", "digest"],
-      "groupName": "Python dependencies",
-      "automerge": true
-    },
-    {
-      "description": "Group all Python (PEP 621) major updates into one PR — no automerge.",
-      "matchManagers": ["pep621"],
-      "matchUpdateTypes": ["major"],
-      "groupName": "Python major updates"
-    },
-    {
-      "description": "Group all non-major Docker image updates into one PR and automerge. Excludes the uv base image which is pinned via python-runtime.",
-      "matchManagers": ["dockerfile", "docker-compose"],
-      "matchUpdateTypes": ["minor", "patch", "digest"],
-      "groupName": "Docker dependencies",
-      "excludePackageNames": ["ghcr.io/astral-sh/uv"],
-      "automerge": true
-    },
-    {
-      "description": "Group all Docker major updates into one PR — no automerge.",
-      "matchManagers": ["dockerfile", "docker-compose"],
-      "matchUpdateTypes": ["major"],
-      "groupName": "Docker major updates"
-    },
-    {
-      "description": "Group all non-major GitHub Actions updates into one PR and automerge.",
-      "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["minor", "patch", "digest"],
-      "groupName": "GitHub Actions dependencies",
-      "automerge": true
-    },
-    {
-      "description": "Group all GitHub Actions major updates into one PR — no automerge.",
-      "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["major"],
-      "groupName": "GitHub Actions major updates"
-    },
-    {
-      "description": "Group Python runtime version together: .python-version and the uv Docker base image must stay in sync.",
-      "matchPackageNames": ["ghcr.io/astral-sh/uv", "python"],
-      "groupName": "python-runtime"
-    },
     {
       "description": "Align uv Docker base tags with project.requires-python in pyproject.toml (currently <3.14). Update this regex when changing the upper bound.",
       "matchDatasources": ["docker"],
