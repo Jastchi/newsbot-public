@@ -56,9 +56,20 @@ from .palettes import published_palettes
 from .services.config_service import ConfigService
 from .services.log_service import LogService
 from .services.report_service import ReportService
+from .site_urls import site_origin
 from .utils import get_date_range, parse_date_or_default
 
 logger = logging.getLogger(__name__)
+
+
+def robots_txt(request: HttpRequest) -> HttpResponse:
+    """Serve robots.txt, pointing crawlers at the sitemap."""
+    lines = [
+        "User-agent: *",
+        "Allow: /",
+        f"Sitemap: {site_origin(request)}/sitemap.xml",
+    ]
+    return HttpResponse("\n".join(lines), content_type="text/plain")
 
 
 class LandingView(TemplateView):

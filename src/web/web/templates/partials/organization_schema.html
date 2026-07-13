@@ -1,0 +1,13 @@
+{% load static %}<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "NewsBot",
+  "url": "{{ site_origin }}",
+  "logo": "{{ site_origin }}{% static 'newsserver/og-preview.png' %}",
+  "description": "NewsBot reads articles across many sources every day, clusters the ones covering the same event, summarizes each from each source, scores the tone, and emails a weekly digest.",
+  "sameAs": [
+    "https://github.com/Jastchi/newsbot-public"
+  ]
+}
+</script>
