@@ -61,15 +61,185 @@ from .utils import get_date_range, parse_date_or_default
 
 logger = logging.getLogger(__name__)
 
+_TEXT_PLAIN_UTF8 = "text/plain; charset=utf-8"
+
 
 def robots_txt(request: HttpRequest) -> HttpResponse:
     """Serve robots.txt, pointing crawlers at the sitemap."""
     lines = [
         "User-agent: *",
         "Allow: /",
+        "Content-Signal: search=yes, ai-input=yes, ai-train=no",
         f"Sitemap: {site_origin(request)}/sitemap.xml",
     ]
     return HttpResponse("\n".join(lines), content_type="text/plain")
+
+
+def _contact_url_and_label() -> tuple[str, str]:
+    """Return (contact_url, label) for privacy/security requests."""
+    email = settings.EMAIL_ADMIN_NOTIFICATION_TO
+    if email:
+        return f"mailto:{email}", email
+    return (
+        "https://github.com/Jastchi/newsbot-public/issues",
+        "a GitHub issue",
+    )
+
+
+def security_txt(request: HttpRequest) -> HttpResponse:
+    """Serve /.well-known/security.txt per RFC 9116."""
+    contact, _ = _contact_url_and_label()
+    expires = (timezone.now() + timedelta(days=365)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ",
+    )
+    lines = [
+        f"Contact: {contact}",
+        f"Expires: {expires}",
+        "Preferred-Languages: en",
+        f"Canonical: {site_origin(request)}/.well-known/security.txt",
+    ]
+    return HttpResponse("\n".join(lines), content_type=_TEXT_PLAIN_UTF8)
+
+
+def _app_urls() -> tuple[str, str]:
+    """Return the app's (login_url, home_url) for any host."""
+    if settings.APP_BASE_URL:
+        return (
+            f"{settings.APP_BASE_URL}/accounts/login/",
+            f"{settings.APP_BASE_URL}/",
+        )
+    # On a marketing host the active urlconf is marketing_urls (set by
+    # MarketingHostMiddleware), which only knows the landing route — so
+    # reverse() must target the app's root urlconf explicitly or it
+    # raises NoReverseMatch.
+    return (
+        reverse("account_login", urlconf=settings.ROOT_URLCONF),
+        reverse("newsserver:news_schedule", urlconf=settings.ROOT_URLCONF),
+    )
+
+
+def llms_txt(request: HttpRequest) -> HttpResponse:
+    """Serve /llms.txt — a structured summary for AI/LLM crawlers."""
+    origin = site_origin(request)
+    login_url, _ = _app_urls()
+    lines = [
+        "# NewsBot",
+        "",
+        "> NewsBot reads articles across many sources every day, clusters "
+        "the ones covering the same event, summarizes each one source by "
+        "source, scores the tone, and emails a single digest once a week.",
+        "",
+        "NewsBot is an automated news intelligence tool. It collects "
+        "articles from each topic's configured sources daily; once a week "
+        "it clusters same-event coverage with sentence-transformer "
+        "embeddings, summarizes each story per source with an LLM (checked "
+        "by a judge pass for hallucinations), scores sentiment per source, "
+        "and emails subscribers a themed weekly digest.",
+        "",
+        "## Product",
+        f"- [Sign in]({login_url}): Create an account and choose topics to "
+        "track.",
+        f"- [How it works]({origin}/#how): The four-stage pipeline — "
+        "collect, cluster, summarize & score, deliver.",
+        f"- [Algorithm details]({origin}/#algorithm): Embeddings, "
+        "clustering, summarization and sentiment methodology.",
+        "",
+        "## Source",
+        "- [GitHub repository](https://github.com/Jastchi/newsbot-public): "
+        "Public source for the pipeline and web app.",
+        "",
+        "## Optional",
+        f"- [llms-full.txt]({origin}/llms-full.txt): Full page content for "
+        "deeper analysis.",
+    ]
+    return HttpResponse("\n".join(lines), content_type=_TEXT_PLAIN_UTF8)
+
+
+def llms_full_txt(_request: HttpRequest) -> HttpResponse:
+    """Serve /llms-full.txt with the landing page content in full."""
+    login_url, _ = _app_urls()
+    lines = [
+        "# NewsBot",
+        "",
+        "> NewsBot reads articles across many sources every day, clusters "
+        "the ones covering the same event, summarizes each one source by "
+        "source, scores the tone, and emails a single digest once a week.",
+        "",
+        f"Sign in: {login_url}",
+        "Source code: https://github.com/Jastchi/newsbot-public",
+        "",
+        "## One event, covered many times, shown once",
+        "",
+        "Most events are reported by several outlets at once. NewsBot "
+        "groups those articles into a single entry per story: what "
+        "happened, how each source covered it, and the overall tone.",
+        "",
+        "## The pipeline",
+        "",
+        "Collection runs every day. Once a week the rest of the chain "
+        "turns seven days of articles into a finished digest.",
+        "",
+        "1. **Collect** (daily) — Pull fresh articles from each topic's "
+        "sources and extract the full text, de-duplicated.",
+        "2. **Cluster** (weekly) — Group the week's articles into distinct "
+        "stories by meaning, not by keyword.",
+        "3. **Summarize & score** (weekly) — Summarize each story per "
+        "source and read its tone, with guardrails against AI errors.",
+        "4. **Deliver** (weekly) — Render the digest, email every "
+        "subscriber, and archive it in the web app.",
+        "",
+        "## The algorithm, in detail",
+        "",
+        "### 1. Daily collection & filtering",
+        "RSS / Atom feeds and HTML pages. A scraper agent fetches "
+        "articles from every source configured for a topic. For an HTML "
+        "source it discovers article links on a listing page, then pulls "
+        "each full article body with trafilatura (falling back to "
+        "BeautifulSoup) rather than trusting feed snippets. Each article "
+        "is filtered by keyword and by semantic relevance to the topic, "
+        "using a configurable cosine-similarity threshold. Duplicates are "
+        "dropped by URL and title similarity before storage.",
+        "",
+        "### 2. Story clustering",
+        "Sentence-transformer embeddings, DBSCAN / HDBSCAN, geographical "
+        "penalty. Each week the last seven days of articles are embedded "
+        "and grouped into stories. Embeddings run on an ONNX backend; "
+        "each article is embedded as a hybrid of its title plus the start "
+        "of its body. Clustering is configurable per topic (DBSCAN, "
+        "HDBSCAN, or greedy) with a tunable similarity threshold. spaCy "
+        "named-entity recognition extracts the locations each article "
+        "mentions; when two articles name different, non-overlapping "
+        "places their similarity is reduced. A cluster only becomes a "
+        "top story if it draws on at least two independent sources.",
+        "",
+        "### 3. Summarization",
+        "Two-pass LLM, per-source, LLM-as-judge, entity validation. Each "
+        "story is summarized from the perspective of every source that "
+        "covered it, using a cloud model or a local Ollama model. An "
+        "intermediate summary is built from the cluster, then condensed "
+        "into the final. A separate judge agent reviews each summary for "
+        "hallucinations. Named entities in a summary are checked against "
+        "the source articles.",
+        "",
+        "### 4. Sentiment analysis",
+        "pysentimiento primary model (transformer-based, multilingual), "
+        "VADER and TextBlob as fallbacks. Every article's tone is scored "
+        "from -1.0 to +1.0 and labelled negative / neutral / positive, "
+        "then averaged per source within each story.",
+        "",
+        "### 5. Report generation & delivery",
+        "Jinja2, inlined CSS, HMAC unsubscribe tokens. The finished "
+        "analysis is rendered to HTML, Markdown and plain text, themed "
+        "from the topic's palette. Delivery runs through a pluggable "
+        "provider layer — SMTP, Resend, or EmailJS. Every report is "
+        "archived in the web app.",
+        "",
+        "## Stack",
+        "Django, FastAPI, PostgreSQL, Sentence-Transformers, ONNX, spaCy "
+        "NER, DBSCAN / HDBSCAN, Ollama, pysentimiento, APScheduler, "
+        "Docker, Raspberry Pi.",
+    ]
+    return HttpResponse("\n".join(lines), content_type=_TEXT_PLAIN_UTF8)
 
 
 class LandingView(TemplateView):
@@ -113,22 +283,23 @@ class LandingView(TemplateView):
             "btnLabel": derived["hero_color_btn_label"],
         }
 
-        if settings.APP_BASE_URL:
-            ctx["app_login_url"] = f"{settings.APP_BASE_URL}/accounts/login/"
-            ctx["app_home_url"] = f"{settings.APP_BASE_URL}/"
-        else:
-            # On a marketing host the active urlconf is marketing_urls
-            # (set by MarketingHostMiddleware), which only knows the
-            # landing route — so reverse() must target the app's root
-            # urlconf explicitly or it raises NoReverseMatch.
-            ctx["app_login_url"] = reverse(
-                "account_login",
-                urlconf=settings.ROOT_URLCONF,
-            )
-            ctx["app_home_url"] = reverse(
-                "newsserver:news_schedule",
-                urlconf=settings.ROOT_URLCONF,
-            )
+        ctx["app_login_url"], ctx["app_home_url"] = _app_urls()
+        # "privacy/" is registered under this same relative path on
+        # both the marketing and app urlconfs, so a plain
+        # script-name-prefixed path works either way.
+        ctx["privacy_url"] = f"{settings.FORCE_SCRIPT_NAME}/privacy/"
+        return ctx
+
+
+class PrivacyPolicyView(TemplateView):
+    """Public privacy policy page (marketing and app hosts)."""
+
+    template_name = "newsserver/privacy.html"
+
+    def get_context_data(self, **kwargs: object) -> dict[str, object]:
+        """Add the contact address used for data requests."""
+        ctx = super().get_context_data(**kwargs)
+        ctx["contact_url"], ctx["contact_label"] = _contact_url_and_label()
         return ctx
 
 

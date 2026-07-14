@@ -102,6 +102,13 @@ CANONICAL_SITE_URL = canonical_site_url_from_env(
 # also force HTTPS; use a 301 redirect rule there for http:// URLs.
 SECURE_SSL_REDIRECT = bool(CANONICAL_SITE_URL) and not DEBUG
 
+# HSTS: only advertised once we know we're serving a real, HTTPS-only
+# production host (mirrors SECURE_SSL_REDIRECT's condition) so local/dev
+# runs over plain HTTP are never told to force HTTPS.
+SECURE_HSTS_SECONDS = 31536000 if SECURE_SSL_REDIRECT else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = SECURE_SSL_REDIRECT
+SECURE_HSTS_PRELOAD = SECURE_SSL_REDIRECT
+
 # Application definition
 SITE_ID = 1
 
@@ -123,6 +130,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "web.newsserver.middleware.PermissionsPolicyMiddleware",
     "web.newsserver.middleware.CanonicalHostMiddleware",
     "web.newsserver.middleware.MarketingHostMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",

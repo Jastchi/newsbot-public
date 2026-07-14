@@ -46,7 +46,7 @@ jobs:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
     
     - name: Upload coverage artifacts
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
       with:
         name: coverage
         path: |
@@ -55,7 +55,7 @@ jobs:
     
     - name: Upload screenshots
       if: always()
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
       with:
         name: screenshots-${{ github.run_id }}
         path: tests/screenshots/**
@@ -64,7 +64,7 @@ jobs:
     
     - name: Coverage comment
       if: always()
-      uses: py-cov-action/python-coverage-comment-action@v3
+      uses: py-cov-action/python-coverage-comment-action@50d15ff8768f6d897b04e5a0805bd1a98f7096c4 # v3
       with:
         GITHUB_TOKEN: ${{ github.token }}
         MINIMUM_GREEN: 80
@@ -127,7 +127,7 @@ jobs:
   push-screenshots:
     needs: test
     if: always() && needs.test.outputs.screenshots_found == 'true' && github.event_name == 'pull_request'
-    uses: JastchiLabs/newsbot/.github/workflows/push-screenshots.yml@main
+    uses: JastchiLabs/newsbot/.github/workflows/push-screenshots.yml@74304a28f487bfed2daba0992d24f753ae3e617b # main
     permissions:
       contents: write
       pull-requests: write

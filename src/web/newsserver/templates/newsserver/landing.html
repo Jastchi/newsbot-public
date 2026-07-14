@@ -295,9 +295,19 @@
 
   :focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:2px; }
   @media (prefers-reduced-motion:reduce){ * { animation:none !important; scroll-behavior:auto; } }
+
+  .skip-link {
+    position:absolute; left:-9999px; top:auto; z-index:100;
+    background:var(--surface); color:var(--ink); padding:12px 18px;
+    border-radius:0 0 8px 0; border:1px solid var(--rule);
+    font-family:'JetBrains Mono',monospace; font-size:0.82rem;
+  }
+  .skip-link:focus { left:0; top:0; }
 </style>
 </head>
 <body>
+
+<a class="skip-link" href="#main-content">Skip to content</a>
 
 <!-- ════ NAV ═══════════════════════════════════════════════════════ -->
 <nav class="nav">
@@ -319,6 +329,7 @@
   </div>
 </nav>
 
+<main id="main-content">
 <!-- ════ HERO ══════════════════════════════════════════════════════ -->
 <header id="top">
   <div class="masthead"></div>
@@ -388,13 +399,13 @@
       <div class="stage">
         <div class="num">01</div>
         <div class="cadence">Daily</div>
-        <h3>Collect</h3>
+        <h3>Collect articles</h3>
         <p>Pull fresh articles from each topic's sources and extract the full text, de-duplicated.</p>
       </div>
       <div class="stage">
         <div class="num">02</div>
         <div class="cadence">Weekly</div>
-        <h3>Cluster</h3>
+        <h3>Cluster into stories</h3>
         <p>Group the week's articles into distinct stories by meaning, not by keyword.</p>
       </div>
       <div class="stage">
@@ -406,7 +417,7 @@
       <div class="stage">
         <div class="num">04</div>
         <div class="cadence">Weekly</div>
-        <h3>Deliver</h3>
+        <h3>Deliver the digest</h3>
         <p>Render the digest, email every subscriber, and archive it in the web app.</p>
       </div>
     </div>
@@ -528,6 +539,7 @@
     <a class="btn btn-line" href="{{ app_home_url }}" data-app-link data-app-base="{{ app_home_url }}">Explore the app →</a>
   </div>
 </section>
+</main>
 
 <!-- ════ FOOTER ════════════════════════════════════════════════════ -->
 <footer>
@@ -536,6 +548,7 @@
     <div class="links">
       <a href="#how">Pipeline</a>
       <a href="#algorithm">Algorithm</a>
+      <a href="{{ privacy_url }}">Privacy</a>
       <a href="{{ app_login_url }}" data-signin>Sign in</a>
     </div>
     <p class="copy">© 2026 NEWSBOT · THENEWSBOT.NET — THE APP LIVES AT APP.THENEWSBOT.NET</p>

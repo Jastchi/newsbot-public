@@ -14,6 +14,11 @@ urlpatterns = [
     # MarketingHostMiddleware).
     path("welcome/", views.LandingView.as_view(), name="landing"),
     path(
+        "privacy/",
+        views.PrivacyPolicyView.as_view(),
+        name="privacy_policy",
+    ),
+    path(
         "report-archive/",
         views.ConfigOverviewView.as_view(),
         name="overview",

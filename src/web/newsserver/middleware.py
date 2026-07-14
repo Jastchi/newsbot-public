@@ -20,6 +20,25 @@ if TYPE_CHECKING:
         urlconf: str
 
 
+class PermissionsPolicyMiddleware:
+    """Attach a conservative Permissions-Policy header to responses."""
+
+    _POLICY = "camera=(), microphone=(), geolocation=()"
+
+    def __init__(
+        self,
+        get_response: Callable[[HttpRequest], HttpResponse],
+    ) -> None:
+        """Store the next middleware or view callable."""
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        """Add the Permissions-Policy header if not already set."""
+        response = self.get_response(request)
+        response.headers.setdefault("Permissions-Policy", self._POLICY)
+        return response
+
+
 class CanonicalHostMiddleware:
     """
     Redirect non-canonical hostnames to the configured site domain.

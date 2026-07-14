@@ -1,0 +1,201 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — NewsBot</title>
+<meta name="description" content="What data NewsBot collects, why, and how to exercise your rights over it.">
+<link rel="icon" type="image/svg+xml" href="{% static 'newsserver/favicon.svg' %}">
+{% include "partials/og_meta.html" %}
+
+<style>
+  :root {
+    --paper: #ffffff; --surface: #f8f9fb; --ink: #16181f;
+    --ink-2: #515a6e; --ink-3: #828ca2; --rule: #e7e9ef; --accent: #3b4ede;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0b0d13; --surface: #141821; --ink: #eceff6;
+      --ink-2: #a7b0c2; --ink-3: #727c91; --rule: rgba(255,255,255,0.08);
+      --accent: #8891f5;
+    }
+  }
+  [data-theme="dark"] {
+    --paper: #0b0d13; --surface: #141821; --ink: #eceff6;
+    --ink-2: #a7b0c2; --ink-3: #727c91; --rule: rgba(255,255,255,0.08);
+    --accent: #8891f5;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    background:var(--paper); color:var(--ink); line-height:1.62;
+    -webkit-font-smoothing:antialiased;
+  }
+  a { color:var(--accent); }
+  .shell { max-width:760px; margin:0 auto; padding:0 24px; }
+
+  .skip-link {
+    position:absolute; left:-9999px; top:auto; z-index:100;
+    background:var(--surface); color:var(--ink); padding:12px 18px;
+    border-radius:0 0 8px 0; border:1px solid var(--rule); font-size:0.85rem;
+  }
+  .skip-link:focus { left:0; top:0; }
+
+  .nav {
+    border-bottom:1px solid var(--rule);
+    padding:20px 0;
+  }
+  .nav .shell { display:flex; align-items:center; justify-content:space-between; }
+  .wordmark { font-weight:800; font-size:1.15rem; color:var(--ink); text-decoration:none; letter-spacing:-0.02em; }
+  .wordmark span { color:var(--accent); }
+  .nav a.back { font-size:0.9rem; color:var(--ink-2); text-decoration:none; }
+  .nav a.back:hover { color:var(--accent); }
+
+  main { padding:56px 0 80px; }
+  h1 { font-size:2.1rem; letter-spacing:-0.02em; color:var(--ink); }
+  .updated { margin-top:10px; font-size:0.88rem; color:var(--ink-3); }
+  .disclaimer {
+    margin-top:24px; padding:14px 16px; background:var(--surface);
+    border:1px solid var(--rule); border-radius:8px;
+    font-size:0.9rem; color:var(--ink-2);
+  }
+  h2 { margin-top:42px; margin-bottom:12px; font-size:1.25rem; color:var(--ink); }
+  p, li { color:var(--ink-2); font-size:1rem; }
+  p + p { margin-top:12px; }
+  ul { margin:12px 0 0 20px; }
+  li { margin-bottom:8px; }
+  li strong { color:var(--ink); }
+
+  footer { border-top:1px solid var(--rule); padding:32px 0; }
+  footer .shell { display:flex; flex-wrap:wrap; gap:16px; justify-content:space-between; align-items:center; }
+  footer a { color:var(--ink-2); font-size:0.9rem; text-decoration:none; }
+  footer a:hover { color:var(--accent); }
+</style>
+</head>
+<body>
+
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<nav class="nav">
+  <div class="shell">
+    <a class="wordmark" href="/">News<span>B</span>ot</a>
+    <a class="back" href="/">&larr; Back to home</a>
+  </div>
+</nav>
+
+<main id="main-content">
+  <div class="shell">
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated 13 July 2026</p>
+
+    <p class="disclaimer">
+      NewsBot is a small, independently run project. This page describes
+      what we actually do with your data, in plain language — it is not
+      a substitute for legal advice, and if compliance in your
+      jurisdiction matters to you, please have it reviewed.
+    </p>
+
+    <h2>Who we are</h2>
+    <p>
+      NewsBot (thenewsbot.net) is operated by an individual, not a
+      company. For anything in this policy — a question, a correction,
+      or a request about your data — contact
+      <a href="{{ contact_url }}">{{ contact_label }}</a>.
+    </p>
+
+    <h2>What data we collect</h2>
+    <ul>
+      <li><strong>Email address</strong> — required to create your account and to send you the digest you sign up for.</li>
+      <li><strong>First and last name</strong> — collected at signup, or from your Google profile if you sign in with Google, so your account and emails can address you by name.</li>
+      <li><strong>The topics you subscribe to</strong> — so we know which weekly digest to send you.</li>
+      <li><strong>Google account info</strong> — if you choose "Sign in with Google", we receive your name, email address, and profile picture under Google's standard <code>profile</code> and <code>email</code> scopes. We don't request anything beyond that.</li>
+      <li><strong>A session cookie</strong> — the one strictly-necessary cookie that keeps you signed in. No analytics, advertising, or tracking cookies are set.</li>
+      <li><strong>Standard server logs</strong> — our hosting and CDN providers automatically log basic technical data (e.g. IP address, timestamp) for every request, purely for operating and securing the site. This is not linked to your subscriber profile or analyzed.</li>
+    </ul>
+
+    <h2>What we don't do</h2>
+    <p>
+      We don't sell, rent, or share your personal data with advertisers.
+      We don't run analytics or tracking scripts on this site. We don't
+      use your name or email for anything beyond running your account
+      and delivering the digest you asked for. The news articles
+      NewsBot summarizes are public news content, not your personal
+      data — the AI models in the pipeline process that article text,
+      never your subscriber information.
+    </p>
+
+    <h2>Why we process this data</h2>
+    <ul>
+      <li><strong>To provide the service you asked for</strong> — running your account and sending the digest for the topics you chose.</li>
+      <li><strong>Your consent</strong> — you opt in to specific topics, and can unsubscribe from all of them at any time.</li>
+      <li><strong>Legitimate interest</strong> — the minimal technical logs described above, used only for security and abuse prevention.</li>
+    </ul>
+
+    <h2>Who we share data with</h2>
+    <p>To actually run the service, a few providers process your data on our behalf:</p>
+    <ul>
+      <li><strong>Email delivery</strong> — your account and digest emails are sent through a transactional email provider (an SMTP relay or a service such as Resend), solely to deliver that email.</li>
+      <li><strong>Sign-in</strong> — if you use "Sign in with Google", Google acts as your identity provider for that login.</li>
+      <li><strong>Hosting and infrastructure</strong> — the app and database run on our hosting provider's servers, and site traffic passes through a CDN/proxy (Cloudflare) in front of the site.</li>
+    </ul>
+    <p>We don't share your data with anyone else, and never for marketing or advertising purposes.</p>
+
+    <h2>International data transfers</h2>
+    <p>
+      Some of the providers above may process data outside the EU/EEA,
+      including in the United States and Canada. Where that happens, it
+      relies on the safeguards those providers themselves offer (e.g.
+      standard contractual clauses or an applicable data protection
+      framework).
+    </p>
+
+    <h2>How long we keep your data</h2>
+    <p>
+      We keep your account for as long as it exists. Unsubscribing
+      removes you from all topic digests immediately but keeps your
+      account so you can resubscribe later. To have your account and
+      personal data deleted entirely, contact
+      <a href="{{ contact_url }}">{{ contact_label }}</a> and we'll
+      remove it.
+    </p>
+
+    <h2>Your rights</h2>
+    <p>
+      Depending on where you live, you may have the right to access,
+      correct, delete, restrict, or export your personal data, and to
+      object to how it's processed. Contact
+      <a href="{{ contact_url }}">{{ contact_label }}</a> for any of
+      these requests, or to lodge a complaint with your local data
+      protection authority.
+    </p>
+
+    <h2>Cookies</h2>
+    <p>
+      NewsBot sets only a strictly-necessary session cookie to keep you
+      signed in. No consent banner is shown because no non-essential
+      cookies are set.
+    </p>
+
+    <h2>Children</h2>
+    <p>
+      NewsBot isn't directed at children, and we don't knowingly collect
+      data from them.
+    </p>
+
+    <h2>Changes to this policy</h2>
+    <p>
+      If what we do with your data changes, we'll update this page and
+      its "last updated" date above.
+    </p>
+  </div>
+</main>
+
+<footer>
+  <div class="shell">
+    <a href="/">News<span style="color:var(--accent)">B</span>ot</a>
+    <a href="{{ contact_url }}">Contact: {{ contact_label }}</a>
+  </div>
+</footer>
+
+</body>
+</html>

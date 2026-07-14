@@ -10,18 +10,23 @@ from django.urls import reverse
 
 
 class MarketingSitemap(Sitemap):
-    """The only indexable URL on marketing hosts: the landing page."""
-
-    changefreq = "weekly"
-    priority = 1.0
+    """The indexable URLs on marketing hosts: landing and privacy."""
 
     def items(self) -> list[str]:
         """Return the URL names to include in the sitemap."""
-        return ["landing"]
+        return ["landing", "privacy_policy"]
 
     def location(self, item: str) -> str:
         """Resolve a URL name to its path."""
         return reverse(item)
+
+    def changefreq(self, item: str) -> str:
+        """Landing page changes often; the privacy page rarely does."""
+        return "weekly" if item == "landing" else "yearly"
+
+    def priority(self, item: str) -> float:
+        """Landing page is the primary page; privacy is secondary."""
+        return 1.0 if item == "landing" else 0.3
 
     def get_domain(self, site: Site | RequestSite | None = None) -> str:
         """
