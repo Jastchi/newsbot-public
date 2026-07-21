@@ -861,15 +861,30 @@ class NewsSchedulerDashboardView(TemplateView):
         if self.request.user.is_authenticated and getattr(
             self.request.user, "is_staff", False,
         ):
-            configs = NewsConfig.objects.filter(is_active=True)
+            active_configs = NewsConfig.objects.filter(is_active=True)
         else:
-            configs = NewsConfig.objects.filter(
+            active_configs = NewsConfig.objects.filter(
                 is_active=True,
                 published_for_subscription=True,
             )
+        # Inactive configs are shown to everyone as non-clickable
+        # placeholders, excluding internal test configs.
+        inactive_configs = NewsConfig.objects.filter(
+            is_active=False,
+        ).exclude(key__icontains="test")
+
+        is_staff = self.request.user.is_authenticated and getattr(
+            self.request.user, "is_staff", False,
+        )
         include_sources = self.request.user.is_authenticated
         if include_sources:
-            configs = configs.prefetch_related("news_sources")
+            active_configs = active_configs.prefetch_related(
+                "news_sources",
+            )
+            inactive_configs = inactive_configs.prefetch_related(
+                "news_sources",
+            )
+        configs = list(active_configs) + list(inactive_configs)
         subscribed_ids = self._get_subscribed_config_ids()
 
         # Generate events for each week in the visible range
@@ -886,6 +901,7 @@ class NewsSchedulerDashboardView(TemplateView):
                     curr_week_start,
                     is_subscribed=config.pk in subscribed_ids,
                     include_sources=include_sources,
+                    is_staff=is_staff,
                 )
                 if event:
                     events.append(event)
@@ -901,6 +917,7 @@ class NewsSchedulerDashboardView(TemplateView):
         *,
         is_subscribed: bool = False,
         include_sources: bool = True,
+        is_staff: bool = False,
     ) -> dict[str, str | int | dict[str, bool | list[str] | str]] | None:
         """
         Create a calendar event for a config's weekly analysis.
@@ -910,6 +927,8 @@ class NewsSchedulerDashboardView(TemplateView):
             week_start: Start of the week (Monday)
             is_subscribed: True if the user is subscribed to this config
             include_sources: If True, include news source names
+            is_staff: True if the requesting user is staff, who may
+                drag-and-drop inactive configs to reschedule them
 
         Returns:
             Event dictionary for FullCalendar, or None if invalid
@@ -946,7 +965,9 @@ class NewsSchedulerDashboardView(TemplateView):
             "borderColor": (
                 config.hero_color_secondary or config.hero_color_primary
             ),
+            "editable": config.is_active or is_staff,
             "extendedProps": {
+                "active": config.is_active,
                 "subscribed": is_subscribed,
                 "sourceNames": source_names,
                 "colorPrimary": config.hero_color_primary,

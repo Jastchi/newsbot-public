@@ -86,6 +86,11 @@
             opacity: 0.5;
             border: 1px solid var(--site-border);
         }
+        .calendar-legend .swatch-inactive {
+            background: var(--site-muted);
+            opacity: 0.3;
+            border: 1px dashed var(--site-border);
+        }
         .my-subscriptions-card {
             background: var(--bg-card);
             border-radius: 12px;
@@ -405,6 +410,7 @@
     <div class="calendar-legend" aria-hidden="true">
         <span><span class="swatch swatch-subscribed" aria-hidden="true"></span> Your reports</span>
         <span><span class="swatch swatch-other" aria-hidden="true"></span> Other reports</span>
+        <span><span class="swatch swatch-inactive" aria-hidden="true"></span> Not active</span>
     </div>
         </div>
 
@@ -511,6 +517,7 @@
                 eventDidMount: function(info) {
                     var props = info.event.extendedProps || {};
                     var subscribed = props.subscribed;
+                    var active = props.active !== false;
                     var primary = props.colorPrimary || '#5b6ee8';
                     var secondary = props.colorSecondary || '#8b52d4';
                     var middle = props.colorMiddle || '';
@@ -519,12 +526,18 @@
                         : (primary + ' 0%, ' + secondary + ' 100%');
                     info.el.style.background = 'linear-gradient(135deg, ' + stops + ')';
                     info.el.style.borderColor = 'transparent';
-                    if (subscribed) {
+                    if (!active) {
+                        info.el.style.opacity = '0.3';
+                        info.el.style.filter = 'grayscale(60%)';
+                    } else if (subscribed) {
                         info.el.style.boxShadow = '0 0 0 2px #fff, 0 0 0 3.5px ' + secondary;
                     } else {
                         info.el.style.opacity = '0.55';
                     }
                     var tooltipParts = [info.event.title];
+                    if (!active) {
+                        tooltipParts.push('Not active');
+                    }
                     var sourceNames = props.sourceNames;
                     if (sourceNames && Array.isArray(sourceNames) && sourceNames.length > 0) {
                         tooltipParts.push(sourceNames.join(', '));
@@ -592,7 +605,12 @@
                 overlay.classList.add('is-open');
                 overlay.setAttribute('aria-hidden', 'false');
                 var subscribed = event.extendedProps && event.extendedProps.subscribed;
-                if (canSubscribe) {
+                var active = !(event.extendedProps && event.extendedProps.active === false);
+                if (!active) {
+                    subscribeBtn.style.display = 'none';
+                    unsubscribeBtn.style.display = 'none';
+                    if (hint) hint.textContent = 'This news configuration is currently not active.';
+                } else if (canSubscribe) {
                     subscribeBtn.style.display = subscribed ? 'none' : 'inline-block';
                     unsubscribeBtn.style.display = subscribed ? 'inline-block' : 'none';
                     if (hint) hint.textContent = subscribed ? 'Stop receiving this report.' : 'Subscribe to receive this report by email.';
