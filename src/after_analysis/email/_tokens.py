@@ -7,12 +7,28 @@ import urllib.parse
 from ._config import _env_str
 
 
+def _get_app_base_url() -> str:
+    """
+    Return the base URL of the host that serves the Django app.
+
+    In a subdomain split the app (and routes like ``/unsubscribe/``)
+    lives on ``APP_HOST``, while ``NEWSSERVER_BASE_URL`` points at the
+    canonical/marketing host, which serves only the landing page and
+    would 404 on app routes. Prefer ``APP_HOST`` when set; otherwise
+    fall back to ``NEWSSERVER_BASE_URL`` (single-host deployments).
+    """
+    app_host = _env_str("APP_HOST")
+    if app_host:
+        return f"https://{app_host}"
+    return _env_str("NEWSSERVER_BASE_URL")
+
+
 def _get_manage_subscriptions_url() -> str:
-    return _env_str("NEWSSERVER_BASE_URL") or ""
+    return _get_app_base_url() or ""
 
 
 def _get_unsubscribe_url() -> str:
-    base = _env_str("NEWSSERVER_BASE_URL")
+    base = _get_app_base_url()
     return f"{base.rstrip('/')}/unsubscribe/" if base else ""
 
 

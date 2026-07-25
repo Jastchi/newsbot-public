@@ -1,0 +1,15 @@
+{% extends "account/base.html" %}
+
+{% block title %}Confirm sign-in – NewsBot{% endblock %}
+
+{% block card_content %}
+<h1>Confirm sign-in</h1>
+<p>Click the button below to finish signing in to NewsBot.</p>
+<form method="post">
+    {% csrf_token %}
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+    <button type="submit" class="btn-magic">Sign in</button>
+</form>
+<p class="footer"><a href="{% url 'account_login' %}{% if next %}?next={{ next|urlencode }}{% endif %}">← Back to
+        login</a></p>
+{% endblock %}

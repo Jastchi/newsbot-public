@@ -119,11 +119,20 @@ def build_magic_link_verify_url(
     token: str,
     next_url: str = "",
 ) -> str:
-    """Build absolute URL for the magic-link verify view."""
+    """
+    Build absolute URL for the magic-link verify view.
+
+    In a subdomain split (``APP_HOST`` set) the verify route only exists
+    on the app host — the canonical/marketing host serves the landing
+    page URLconf, where this path 404s. So target ``APP_BASE_URL`` when
+    it is configured; otherwise fall back to the canonical/request host.
+    """
     verify_path = reverse("magic_link_verify", kwargs={"token": token})
 
     if next_url:
         verify_path += "?next=" + quote(next_url)
+    if settings.APP_BASE_URL:
+        return f"{settings.APP_BASE_URL}{verify_path}"
     return build_canonical_absolute_uri(request, verify_path)
 
 
@@ -303,26 +312,40 @@ def magic_link_sent(request: HttpRequest) -> HttpResponse:
 
 def verify_magic_link(request: HttpRequest, token: str) -> HttpResponse:
     """
-    Verify magic-link token from email.
+    Verify a magic-link token from email.
 
-    If Subscriber exists: log in and redirect.
-    If no Subscriber: create SubscriberRequest, notify admin, show
-    request received.
-    Invalid or expired token: redirect to login with error message.
+    GET is deliberately side-effect-free: it only renders a
+    confirmation page whose button POSTs back. Email security scanners
+    and link previewers issue GET/HEAD requests, and consuming the
+    single-use token on GET let those prefetches burn the token before
+    the recipient clicked — so the real click failed as "invalid".
+    Consuming only on POST keeps prefetches from spending the token.
+
+    On POST:
+    - Subscriber exists: log in and redirect.
+    - No Subscriber: create SubscriberRequest, notify admin, show
+      request received.
+    - Invalid or expired token: redirect to login with error message.
     """
+    next_url = (
+        request.GET.get("next", "").strip()
+        or request.POST.get("next", "").strip()
+    )
+    if request.method != "POST":
+        return render(
+            request,
+            "account/magic_link_confirm.html",
+            {"token": token, "next": next_url},
+        )
+
     email = consume_magic_link_token(token)
     if not email:
-        next_url = reverse("account_login")
-        return redirect(
-            f"{next_url}?error=magic_link_invalid",
-        )
+        login_url = reverse("account_login")
+        return redirect(f"{login_url}?error=magic_link_invalid")
     try:
         user = Subscriber.objects.get(email__iexact=email)
         auth_login(request, user, backend=settings.AUTHENTICATION_BACKENDS[0])
-        next_url = (
-            request.GET.get("next", "").strip() or settings.LOGIN_REDIRECT_URL
-        )
-        return redirect(next_url)
+        return redirect(next_url or settings.LOGIN_REDIRECT_URL)
     except Subscriber.DoesNotExist:
         pass
     obj = SubscriberRequest.objects.filter(email__iexact=email).first()

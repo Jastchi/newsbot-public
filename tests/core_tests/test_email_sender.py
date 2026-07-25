@@ -187,10 +187,30 @@ class TestReplacePlaceholdersInReport:
             {"NEWSSERVER_BASE_URL": "https://news.example.com"},
             clear=False,
         ):
+            os.environ.pop("APP_HOST", None)
             result = replace_placeholders_in_report(report_html, "bot@example.com")
         assert "PLACEHOLDER_MANAGE_SUBSCRIPTIONS_LINK" not in result
         assert 'href="https://news.example.com/unsubscribe/"' in result
         assert "unsubscribe" in result
+
+    def test_replace_manage_subscriptions_link_prefers_app_host(self):
+        """When APP_HOST is set (subdomain split), the unsubscribe link
+        targets the app host rather than the marketing NEWSSERVER_BASE_URL,
+        so it does not 404 on the landing-page-only host."""
+        from after_analysis.email_sender import replace_placeholders_in_report
+
+        report_html = "<p>To cancel, PLACEHOLDER_MANAGE_SUBSCRIPTIONS_LINK.</p>"
+        with patch.dict(
+            "os.environ",
+            {
+                "NEWSSERVER_BASE_URL": "https://thenewsbot.net",
+                "APP_HOST": "app.thenewsbot.net",
+            },
+            clear=False,
+        ):
+            result = replace_placeholders_in_report(report_html, "bot@example.com")
+        assert 'href="https://app.thenewsbot.net/unsubscribe/"' in result
+        assert "thenewsbot.net/unsubscribe/" in result
 
     def test_replace_manage_subscriptions_link_without_base_url(self):
         """When NEWSSERVER_BASE_URL is not set, placeholder becomes contact fallback."""
@@ -200,6 +220,7 @@ class TestReplacePlaceholdersInReport:
         with patch.dict("os.environ", {}, clear=False):
             # Remove in case it's set in environment
             os.environ.pop("NEWSSERVER_BASE_URL", None)
+            os.environ.pop("APP_HOST", None)
             result = replace_placeholders_in_report(report_html, "support@example.com")
         assert "PLACEHOLDER_MANAGE_SUBSCRIPTIONS_LINK" not in result
         assert "contact us at" in result

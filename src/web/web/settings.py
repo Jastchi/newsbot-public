@@ -199,15 +199,19 @@ if DATABASES["default"].get("ENGINE") == "django.db.backends.postgresql":
         DATABASES["default"]["CONN_MAX_AGE"] = 0
 
 
-# Cache (in-memory). Used for magic-link rate limiting (see
+# Cache. Used for magic-link tokens and rate limiting (see
 # newsserver.auth_helpers for window and limits).
-# LocMemCache is process-local; with multiple gunicorn workers each has
-# its own cache. For single-process dev or one worker this is
-# sufficient.
+# DatabaseCache is shared across processes/instances — required because
+# Cloud Run scales to multiple instances (maxScale) and a magic-link
+# token created on one instance must be verifiable on any other.
+# LocMemCache would be process-local and lose the token across the
+# request that creates it and the click that verifies it.
+# The `newsbot_cache` table is created by the createcachetable
+# migration (newsserver.migrations); keep the name in sync with it.
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "newsbot-default",
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "newsbot_cache",
     },
 }
 

@@ -59,6 +59,7 @@ def request_factory():
     return RequestFactory()
 
 
+@pytest.mark.django_db
 class TestMagicLinkRateLimitExceeded:
     """Tests for magic_link_rate_limit_exceeded."""
 
@@ -106,6 +107,7 @@ class TestMagicLinkRateLimitExceeded:
 # ----- create_magic_link_token / consume_magic_link_token -----
 
 
+@pytest.mark.django_db
 class TestMagicLinkToken:
     """Tests for create_magic_link_token and consume_magic_link_token."""
 
@@ -172,6 +174,25 @@ class TestBuildMagicLinkVerifyUrl:
         url = build_magic_link_verify_url(request, "abc123", next_url="")
         assert url == (
             "https://thenewsbot.net/accounts/login-by-email/verify/abc123/"
+        )
+
+    @override_settings(
+        APP_BASE_URL="https://app.thenewsbot.net",
+        SITE_DOMAIN="thenewsbot.net",
+        CANONICAL_SITE_URL="https://thenewsbot.net",
+        FORCE_SCRIPT_NAME="",
+    )
+    def test_uses_app_base_url_over_canonical_in_subdomain_split(
+        self, request_factory
+    ):
+        # The verify route lives only on the app host; the canonical
+        # (marketing) host serves the landing URLconf and would 404.
+        request = request_factory.get("/")
+        request.get_host = lambda: "www.thenewsbot.net"
+        url = build_magic_link_verify_url(request, "abc123", next_url="")
+        assert url == (
+            "https://app.thenewsbot.net"
+            "/accounts/login-by-email/verify/abc123/"
         )
 
 
@@ -357,13 +378,38 @@ class TestVerifyMagicLinkView:
     """Tests for verify_magic_link view."""
 
     def test_invalid_token_redirects_to_login_with_error(self, client):
-        response = client.get(
+        response = client.post(
             reverse("magic_link_verify", kwargs={"token": "invalid-token-xyz"}),
             follow=False,
         )
         assert response.status_code == 302
         assert "login" in response.url or "accounts" in response.url
         assert "magic_link_invalid" in response.url or "error=" in response.url
+
+    def test_get_renders_confirm_page_and_does_not_consume_token(self, client):
+        # A GET (e.g. an email scanner or link-preview prefetch) must not
+        # spend the single-use token — it only shows the confirm page, so
+        # the recipient's later POST still works.
+        token = create_magic_link_token("scanned@example.com")
+        response = client.get(
+            reverse("magic_link_verify", kwargs={"token": token}),
+            follow=False,
+        )
+        assert response.status_code == 200
+        template_names = [t.name for t in response.templates]
+        assert "account/magic_link_confirm.html" in template_names
+        # Token survives the GET and is still consumable.
+        assert consume_magic_link_token(token) == "scanned@example.com"
+
+    def test_get_preserves_next_in_context(self, client):
+        token = create_magic_link_token("nextuser@example.com")
+        response = client.get(
+            reverse("magic_link_verify", kwargs={"token": token}),
+            {"next": "/report-archive/"},
+            follow=False,
+        )
+        assert response.status_code == 200
+        assert response.context.get("next") == "/report-archive/"
 
     @patch("web.newsserver.auth_helpers.send_mail")
     def test_valid_token_existing_subscriber_logs_in_and_redirects(
@@ -379,7 +425,7 @@ class TestVerifyMagicLinkView:
             is_staff=False,
         )
         token = create_magic_link_token("existing@example.com")
-        response = client.get(
+        response = client.post(
             reverse("magic_link_verify", kwargs={"token": token}),
             follow=False,
         )
@@ -397,7 +443,7 @@ class TestVerifyMagicLinkView:
             settings, "EMAIL_ADMIN_NOTIFICATION_TO", "admin@newsbot.com"
         ):
             token = create_magic_link_token("newuser@example.com")
-            response = client.get(
+            response = client.post(
                 reverse("magic_link_verify", kwargs={"token": token}),
                 follow=False,
             )
@@ -422,7 +468,7 @@ class TestVerifyMagicLinkView:
             settings, "EMAIL_ADMIN_NOTIFICATION_TO", "admin@newsbot.com"
         ):
             token = create_magic_link_token("existingreq@example.com")
-            response = client.get(
+            response = client.post(
                 reverse("magic_link_verify", kwargs={"token": token}),
                 follow=False,
             )
