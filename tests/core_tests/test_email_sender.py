@@ -212,6 +212,50 @@ class TestReplacePlaceholdersInReport:
         assert 'href="https://app.thenewsbot.net/unsubscribe/"' in result
         assert "thenewsbot.net/unsubscribe/" in result
 
+    def test_web_report_link_prefers_app_host(self):
+        """The emailed report link targets the app host when APP_HOST is
+        set, since /config/<key>/ only exists there in a subdomain split."""
+        from after_analysis.email_sender import replace_placeholders_in_report
+
+        report_html = '<a href="PLACEHOLDER_WEB_REPORT_LINK">Report</a>'
+        with patch.dict(
+            "os.environ",
+            {
+                "NEWSSERVER_BASE_URL": "https://thenewsbot.net",
+                "APP_HOST": "app.thenewsbot.net",
+            },
+            clear=False,
+        ):
+            result = replace_placeholders_in_report(
+                report_html,
+                "bot@example.com",
+                "daily",
+                "report.html",
+            )
+        assert (
+            'href="https://app.thenewsbot.net/config/daily/?report=report.html"'
+            in result
+        )
+
+    def test_web_report_link_falls_back_to_base_url(self):
+        """Without APP_HOST (single-host deploy) the report link uses
+        NEWSSERVER_BASE_URL."""
+        from after_analysis.email_sender import replace_placeholders_in_report
+
+        report_html = '<a href="PLACEHOLDER_WEB_REPORT_LINK">Report</a>'
+        with patch.dict(
+            "os.environ",
+            {"NEWSSERVER_BASE_URL": "https://news.example.com"},
+            clear=False,
+        ):
+            os.environ.pop("APP_HOST", None)
+            result = replace_placeholders_in_report(
+                report_html,
+                "bot@example.com",
+                "daily",
+            )
+        assert 'href="https://news.example.com/config/daily/"' in result
+
     def test_replace_manage_subscriptions_link_without_base_url(self):
         """When NEWSSERVER_BASE_URL is not set, placeholder becomes contact fallback."""
         from after_analysis.email_sender import replace_placeholders_in_report

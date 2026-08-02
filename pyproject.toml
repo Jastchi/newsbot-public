@@ -152,6 +152,7 @@ docstring-code-line-length = 72
 "src/web/web/__init__.py" = ["ALL"]
 "src/web/newsserver/migrations/*" = ["ALL"]
 "src/web/*" = ["TID253"]  # allow django/newsserver imports in Django app
+"src/web/newsserver/apps.py" = ["PLC0415"]  # signal handlers must be imported inside ready()
 "src/web/newsserver/adapters.py" = ["ARG002"]  # request required by base class signature
 "src/web/newsserver/widgets.py" = ["ANN401"]  # Widget API uses Any for value/data
 "src/web/web/urls.py" = ["ARG001"]  # admin login replacement must match method signature

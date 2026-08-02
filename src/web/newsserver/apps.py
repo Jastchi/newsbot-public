@@ -35,3 +35,8 @@ class NewsserverConfig(AppConfig):
     def ready(self) -> None:
         """Run when Django starts; used for signal registration etc."""
         connection_created.connect(_set_search_path)
+        # Imported here, not at module level: the handlers import
+        # models, which is only safe once the registry is populated.
+        from . import signals
+
+        signals.connect_signal_handlers()

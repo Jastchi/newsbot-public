@@ -92,6 +92,7 @@ jobs:
           EMAIL_RECIPIENT: ${{ vars.EMAIL_RECIPIENT }}
           EMAIL_FOR_CANCELLATION: ${{ vars.EMAIL_FOR_CANCELLATION }}
           NEWSSERVER_BASE_URL: ${{ vars.NEWSSERVER_BASE_URL }}
+          APP_HOST: ${{ vars.APP_HOST }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           GEMINI_API_KEY: ${{ inputs.llm_provider == 'gemini' && secrets.GEMINI_API_KEY || '' }}
@@ -112,6 +113,7 @@ jobs:
           EMAIL_RECIPIENT: ${{ vars.EMAIL_RECIPIENT }}
           EMAIL_FOR_CANCELLATION: ${{ vars.EMAIL_FOR_CANCELLATION }}
           NEWSSERVER_BASE_URL: ${{ vars.NEWSSERVER_BASE_URL }}
+          APP_HOST: ${{ vars.APP_HOST }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           GEMINI_API_KEY: ${{ inputs.llm_provider == 'gemini' && secrets.GEMINI_API_KEY || '' }}

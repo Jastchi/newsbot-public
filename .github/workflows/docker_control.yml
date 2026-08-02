@@ -68,6 +68,7 @@ jobs:
                 -e EMAIL_USE_SSL="${{ vars.EMAIL_USE_SSL }}" \
                 -e EMAIL_FOR_CANCELLATION="${{ vars.EMAIL_FOR_CANCELLATION }}" \
                 -e NEWSSERVER_BASE_URL="${{ vars.NEWSSERVER_BASE_URL }}" \
+                -e APP_HOST="${{ vars.APP_HOST }}" \
                 -e ENABLE_SCHEDULER="true" \
                 newsbot-api:latest
               ;;

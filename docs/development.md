@@ -43,6 +43,10 @@ EMAIL_PASSWORD=your_app_password
 EMAIL_RECIPIENT=admin@yourdomain.com
 EMAIL_FOR_CANCELLATION=cancellation@yourdomain.com
 NEWSSERVER_BASE_URL=https://yourdomain.com
+# Subdomain split only: host that serves the Django app. Report,
+# unsubscribe and manage-subscription links in emails target this host,
+# since NEWSSERVER_BASE_URL points at the landing-page-only host.
+APP_HOST=app.yourdomain.com
 
 # LLM (only when using Gemini)
 GEMINI_API_KEY=your-gemini-api-key

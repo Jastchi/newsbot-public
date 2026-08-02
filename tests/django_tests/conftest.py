@@ -30,6 +30,18 @@ def django_db_setup(django_db_setup, django_db_blocker):
         call_command("migrate", "--run-syncdb", verbosity=0)
 
 
+@pytest.fixture(autouse=True)
+def _no_outbound_resend(settings):
+    """Keep the suite off the real Resend API.
+
+    _send_email prefers Resend whenever RESEND_API_KEY is set, which
+    bypasses Django's locmem test backend — so a developer's .env made
+    tests send real mail (and fail on Resend's example.com rejection).
+    Tests that exercise the Resend path set the key themselves.
+    """
+    settings.RESEND_API_KEY = ""
+
+
 @pytest.fixture
 def admin_user(db):
     """Create or get a superuser (Subscriber with is_staff/is_superuser) for admin access."""
