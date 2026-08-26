@@ -149,6 +149,7 @@ class GeminiProvider:
         config = self._types.GenerateContentConfig(
             temperature=temperature,
             max_output_tokens=max_tokens,
+            service_tier=self._types.ServiceTier.FLEX,
         )
 
         response = self.client.models.generate_content(
@@ -175,6 +176,7 @@ class GeminiProvider:
         config = self._types.GenerateContentConfig(
             temperature=temperature,
             max_output_tokens=max_tokens,
+            service_tier=self._types.ServiceTier.FLEX,
         )
 
         # Convert messages to Gemini format
@@ -207,6 +209,7 @@ class GeminiProvider:
             max_output_tokens=max_tokens,
             response_mime_type="application/json",
             response_schema=schema,
+            service_tier=self._types.ServiceTier.FLEX,
         )
 
         # Convert messages to Gemini format
