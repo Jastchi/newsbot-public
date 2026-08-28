@@ -32,6 +32,10 @@ Create a `.env` file in the project root:
 DATABASE_URL=postgresql://postgres.user:password@host:5432/postgres
 SUPABASE_SERVICE_KEY=your-service-role-key-here
 
+# Tests read this instead of DATABASE_URL, never the app's own database.
+# Omit it and tests fall back to SQLite, which is what CI runs on.
+TEST_DATABASE_URL=postgresql://postgres@localhost:5432/newsbot?sslmode=disable
+
 # Email
 EMAIL_ENABLED=true
 EMAIL_PROVIDER=smtp
@@ -68,6 +72,32 @@ DJANGO_CSRF_TRUSTED_ORIGINS=localhost:8000,yourdomain.com
 
 **Option B — SQLite:**  
 Leave `DATABASE_URL` unset — SQLite databases are created automatically.
+
+### Test Database
+
+Tests never use `DATABASE_URL`. `settings.py` switches to
+`TEST_DATABASE_URL` when it detects a pytest run, so a shared remote
+Supabase project can never be reached by a test — two concurrent runs
+would collide on the same test database, and `--create-db` cannot drop
+one while another run holds connections.
+
+Point it at a local Postgres to test on the engine production uses:
+
+```bash
+createdb newsbot
+# then in .env:
+# TEST_DATABASE_URL=postgresql://postgres@localhost:5432/newsbot?sslmode=disable
+```
+
+Django creates and reuses `test_newsbot` from it. `sslmode=disable` is
+needed because a stock local Postgres is built without SSL; the app's
+own connections still default to `sslmode=require`.
+
+Leave `TEST_DATABASE_URL` unset and tests fall back to SQLite.
+
+CI sets it to a `postgres` service container, so every test workflow
+runs on Postgres too. Keep the image's major version in the workflows
+aligned with the Supabase project when that is upgraded.
 
 ## Running Locally
 

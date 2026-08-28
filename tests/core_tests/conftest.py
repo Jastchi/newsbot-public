@@ -224,6 +224,25 @@ def mock_environment_variables(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def keep_test_connection_open(monkeypatch):
+    """Neutralise close_old_connections() for the duration of a test.
+
+    SummaryWriter and DatabaseManager call it before each query so the
+    long-lived scheduler and API processes survive a Postgres that drops
+    idle connections. pytest-django wraps each test in an atomic block,
+    where autocommit is off while the setting says on; Django reads that
+    mismatch as an unusable connection and closes the very connection the
+    test is running on, so the next query fails with "connection already
+    closed".
+    """
+    for module in (
+        "newsbot.summary_writer",
+        "newsbot.managers.database_manager",
+    ):
+        monkeypatch.setattr(f"{module}.close_old_connections", lambda: None)
+
+
+@pytest.fixture(autouse=True)
 def mock_smtp(monkeypatch):
     """Mock SMTP so no test can open a real email connection."""
     smtp_context = MagicMock()

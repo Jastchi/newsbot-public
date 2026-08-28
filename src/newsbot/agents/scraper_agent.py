@@ -163,20 +163,27 @@ class NewsScraperAgent:
 
     def _get_topic_embeddings(self) -> np.ndarray:
         """Get or generate embeddings for all topic descriptions."""
-        if self._topic_embeddings is None:
+        embeddings = self._topic_embeddings
+        if embeddings is None:
             model = self._get_embedding_model()
             # Use topic description for semantic matching
             topic_texts = [
                 topic.description or topic.name
                 for topic in self.topics
             ]
-            self._topic_embeddings = model.encode(
-                topic_texts,
-                batch_size=EMBEDDING_BATCH_SIZE,
-                show_progress_bar=False,
+            # encode() is typed as returning Tensor; with the default
+            # convert_to_numpy=True it hands back an ndarray.
+            embeddings = cast(
+                "np.ndarray",
+                model.encode(
+                    topic_texts,
+                    batch_size=EMBEDDING_BATCH_SIZE,
+                    show_progress_bar=False,
+                ),
             )
+            self._topic_embeddings = embeddings
             logger.debug(f"Generated embeddings for {len(self.topics)} topics")
-        return self._topic_embeddings
+        return embeddings
 
     def _matches_topics(self, text: str) -> tuple[bool, str | None]:
         """

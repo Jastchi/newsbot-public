@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 import re
+import sys
 from email.utils import formataddr
 from pathlib import Path
 
@@ -169,8 +170,19 @@ WSGI_APPLICATION = "web.web.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# Under pytest, read TEST_DATABASE_URL instead of DATABASE_URL: a test
+# run must never reach the application's own database, which in a normal
+# .env is the shared remote Supabase project. Point TEST_DATABASE_URL at
+# a local Postgres to test on the engine production uses; leave it unset
+# and the SQLite default applies.
+# The check has to live here rather than in a conftest because
+# pytest-django imports these settings from its
+# pytest_load_initial_conftests hook, before any conftest.py runs.
+DB_URL_ENV = "TEST_DATABASE_URL" if "pytest" in sys.modules else "DATABASE_URL"
+
 DATABASES = {
     "default": dj_database_url.config(
+        env=DB_URL_ENV,
         default="sqlite:///webserver.sqlite3",
         conn_max_age=600,
         conn_health_checks=True,
@@ -179,7 +191,13 @@ DATABASES = {
 
 # Supabase requires SSL
 if DATABASES["default"].get("ENGINE") == "django.db.backends.postgresql":
-    DATABASES["default"].setdefault("OPTIONS", {})["sslmode"] = "require"
+    # setdefault, not assignment: a DATABASE_URL that carries its own
+    # ?sslmode= wins, so a local Postgres without SSL can be used for
+    # tests. Supabase gets "require" because it supplies no sslmode.
+    DATABASES["default"].setdefault("OPTIONS", {}).setdefault(
+        "sslmode",
+        "require",
+    )
 
     # NOTE: search_path is *not* set via the `options` startup parameter
     # because Supabase's Supavisor pooler rejects it and drops the
@@ -194,7 +212,7 @@ if DATABASES["default"].get("ENGINE") == "django.db.backends.postgresql":
     # Disable persistent connections when using a connection pooler.
     # Poolers (like Supabase) handle pooling themselves, so Django's
     # persistent connections cause stale connection issues.
-    database_url = os.getenv("DATABASE_URL", "")
+    database_url = os.getenv(DB_URL_ENV, "")
     if "pooler" in database_url.lower():
         DATABASES["default"]["CONN_MAX_AGE"] = 0
 

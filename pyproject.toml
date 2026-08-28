@@ -16,11 +16,11 @@ packages = [
 requires-python = ">=3.12,<3.14"
 
 dependencies = [
-    "jaraco-context>=6.1.0", # vulnerability fix
-    "pydantic>=2.0.0",
-    "python-dotenv>=1.0.0",
-    "pytz>=2025.2",
-    "pyyaml>=6.0",
+    "jaraco-context==6.1.2", # vulnerability fix
+    "pydantic==2.13.0",
+    "python-dotenv==1.2.2",
+    "pytz==2026.1.post1",
+    "pyyaml==6.0.3",
 ]
 
 [project.scripts]
@@ -28,83 +28,87 @@ newsbot = "newsbot.main:main"
 start_api = "api.app:start"
 
 [build-system]
-requires = ["uv_build>=0.11.7,<0.12.0"]
+requires = ["uv_build==0.11.33"]
 build-backend = "uv_build"
 
 [dependency-groups]
 newsbot = [
     "django>=6.0.4",
-    "dj-database-url>=2.3.0",
-    "psycopg2-binary>=2.9.9",
-    "supabase>=2.0.0",
-    "apscheduler>=3.10.4",
-    "beautifulsoup4>=4.12.0",
-    "feedparser>=6.0.10",
-    "lxml>=4.9.3",
-    "requests>=2.33.0",
-    "trafilatura>=2.0.0",
-    "google-genai>=1.56.0",
-    "ollama>=0.1.0",
+    "dj-database-url==3.1.2",
+    "psycopg2-binary==2.9.11",
+    "supabase==2.28.3",
+    "apscheduler==3.11.2",
+    "beautifulsoup4==4.14.3",
+    "feedparser==6.0.12",
+    "lxml==6.1.2",
+    "requests==2.33.1",
+    "trafilatura==2.0.0",
+    "google-genai==1.72.0",
+    "ollama==0.6.1",
     "torch>=2.1.0",
     "transformers>=4.41.0,<5.0.0",
-    "sentence-transformers[onnx]>=5.0.0",
-    "sentencepiece>=0.1.99",
-    "spacy>=3.7.0",
+    "sentence-transformers[onnx]==5.4.0",
+    "sentencepiece==0.2.1",
+    "spacy==3.8.14",
     "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
     "xx-ent-wiki-sm @ https://github.com/explosion/spacy-models/releases/download/xx_ent_wiki_sm-3.8.0/xx_ent_wiki_sm-3.8.0-py3-none-any.whl",
-    "pysentimiento>=0.7.0",
-    "textblob>=0.17.1",
-    "vadersentiment>=3.3.2",
-    "numpy>=1.24.0",
-    "scikit-learn>=1.3.0",
-    "jinja2>=3.1.2",
-    "css-inline>=0.18.0",
-    "tenacity>=8.2.0",
-    "typer>=0.21.1",
-    "resend>=2.0.0",
+    "pysentimiento==0.7.3",
+    "textblob==0.20.0",
+    "vadersentiment==3.3.2",
+    "numpy==2.4.4",
+    "scikit-learn==1.8.0",
+    "jinja2==3.1.6",
+    "css-inline==0.20.2",
+    "tenacity==9.1.4",
+    "typer==0.24.1",
+    "resend==2.30.1",
 ]
 serve = [
     "django>=6.0.4",
-    "django-allauth>=65.14.1",
-    "gunicorn>=23.0.0",
-    "psycopg2-binary>=2.9.9",
-    "dj-database-url>=2.3.0",
-    "requests>=2.33.0",
-    "supabase>=2.0.0",
-    "whitenoise>=6.8.0",
-    "jinja2>=3.1.2",
-    "resend>=2.0.0",
+    "django-allauth==65.15.1",
+    "gunicorn==25.3.0",
+    "psycopg2-binary==2.9.11",
+    "dj-database-url==3.1.2",
+    "requests==2.33.1",
+    "supabase==2.28.3",
+    "whitenoise==6.12.0",
+    "jinja2==3.1.6",
+    "resend==2.30.1",
 ]
 api = [
     { include-group = "newsbot" },
-    "django-allauth>=65.14.1",  # required: API loads Django settings which include allauth in INSTALLED_APPS
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.32.0",
+    "django-allauth==65.15.1",  # required: API loads Django settings which include allauth in INSTALLED_APPS
+    "fastapi==0.135.3",
+    "uvicorn[standard]==0.44.0",
 ]
 raspberrypi = [
     { include-group = "newsbot" },
-    "sqlalchemy>=2.0.45", # temporary dependency for supabase migrations
-    "watchdog>=6.0.0",
+    "sqlalchemy==2.0.49", # temporary dependency for supabase migrations
+    "watchdog==6.0.0",
 ]
 test = [
-    "fastapi[standard]>=0.128.0",
-    "httpx>=0.28.0",
-    "playwright>=1.40.0",
-    "pytest>=7.4.0",
-    "pytest-cov>=7.0.0",
-    "pytest-django>=4.5.0",
+    "fastapi[standard]==0.135.3",
+    "httpx==0.28.1",
+    "playwright==1.58.0",
+    "pytest==9.0.3",
+    "pytest-cov==7.1.0",
+    "pytest-django==4.12.0",
 ]
 dev = [
-    "django-stubs>=5.2.8",
-    "pillow>=11.0.0",
+    "django-stubs==6.0.2",
+    "pillow==12.3.0",
     "prek",
-    "ruff>=0.15.10",
-    "ty>=0.0.29",
+    "ruff==0.15.10",
+    "ty==0.0.29",
 ]
 
 [tool.uv]
 default-groups = "all"
 exclude-newer = "7 days"
+# Never let resolution pressure pull in a pre-release: `uv lock --upgrade`
+# was picking pyiceberg 0.12.0rc1 purely to unlock newer cachetools/rich.
+# "explicit" still honours a pre-release named directly in a requirement.
+prerelease = "explicit"
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
@@ -140,6 +144,10 @@ ignore = [
     "S607", # starting process without specifying full path
     "D212", # multi-line docstrings start at second line
     "D203", # no blank line before class docstring
+    # Promoted from preview to stable in ruff 0.16, so "ALL" picked them up.
+    "CPY001", # missing copyright notice at top of file
+    "ISC004", # implicit string concatenation in collection literal
+    "PLR0917", # too many positional arguments (sibling of PLR0913 above)
 ]
 
 [tool.ruff.format]

@@ -27,6 +27,23 @@ jobs:
     name: API Container Tests
     needs: [find-pr]
     runs-on: self-hosted
+    services:
+      postgres:
+        # Keep the major version aligned with the Supabase project, so CI
+        # exercises the engine production actually runs.
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: newsbot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
@@ -60,6 +77,8 @@ jobs:
           mkdir -p coverage-api
           chmod -R 777 coverage-api
           docker run --rm \
+            --add-host=host.docker.internal:host-gateway \
+            -e TEST_DATABASE_URL="postgresql://postgres:postgres@host.docker.internal:5432/newsbot?sslmode=disable" \
             -v "$(pwd)/tests:/app/tests" \
             -v "$(pwd)/coverage-api:/app/coverage-output" \
             -e DJANGO_SETTINGS_MODULE=web.web.settings \
@@ -78,6 +97,23 @@ jobs:
     name: Web Container Tests
     needs: [find-pr]
     runs-on: self-hosted
+    services:
+      postgres:
+        # Keep the major version aligned with the Supabase project, so CI
+        # exercises the engine production actually runs.
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: newsbot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
@@ -100,6 +136,8 @@ jobs:
           mkdir -p coverage-web tests/screenshots
           chmod -R 777 coverage-web tests/screenshots
           docker run --rm \
+            --add-host=host.docker.internal:host-gateway \
+            -e TEST_DATABASE_URL="postgresql://postgres:postgres@host.docker.internal:5432/newsbot?sslmode=disable" \
             -v "$(pwd)/tests:/app/tests" \
             -v "$(pwd)/coverage-web:/app/coverage-output" \
             -e DJANGO_SETTINGS_MODULE=web.web.settings \
