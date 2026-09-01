@@ -159,6 +159,7 @@ TEMPLATES = [
                 "web.newsserver.context_processors.has_logs",
                 "web.newsserver.context_processors.site_theme",
                 "web.newsserver.context_processors.canonical_urls",
+                "web.newsserver.context_processors.contact_email",
             ],
         },
     },
@@ -351,6 +352,9 @@ EMAIL_ADMIN_NOTIFICATION_TO = (
     or os.getenv("EMAIL_LOGIN")
     or os.getenv("EMAIL_SENDER", "")
 )
+# Public contact address: shown on the site, and used as the
+# List-Unsubscribe mailto in report emails (see after_analysis/email)
+EMAIL_FOR_CANCELLATION = os.getenv("EMAIL_FOR_CANCELLATION", _email_sender)
 
 LOGGING = {
     "version": 1,

@@ -3,6 +3,7 @@
 import re
 import secrets
 
+from django.conf import settings
 from django.http import HttpRequest
 
 from newsbot.color_utils import derive_color_palette
@@ -12,6 +13,11 @@ from .services.log_service import LogService
 from .site_urls import build_canonical_page_url, site_origin
 
 _HEX6 = re.compile(r"[0-9a-fA-F]{6}")
+
+
+def contact_email(_request: HttpRequest) -> dict[str, str]:
+    """Expose the public contact address for site templates."""
+    return {"contact_email": settings.EMAIL_FOR_CANCELLATION}
 
 
 def _query_hex(request: HttpRequest, key: str) -> str:

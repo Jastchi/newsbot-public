@@ -274,6 +274,22 @@
         .footer a:hover {
             text-decoration: underline;
         }
+
+        .site-contact {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .site-contact a {
+            color: #93c5fd;
+            text-decoration: none;
+        }
+
+        .site-contact a:hover {
+            text-decoration: underline;
+        }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
@@ -287,6 +303,9 @@
     <div class="account-card">
         {% block card_content %}{% endblock %}
     </div>
+    {% if contact_email %}
+    <p class="site-contact">Questions? Contact <a href="mailto:{{ contact_email }}">{{ contact_email }}</a></p>
+    {% endif %}
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
