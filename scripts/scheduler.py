@@ -109,7 +109,8 @@ def make_api_request(
     except requests.exceptions.Timeout:
         logger.warning(f"Timeout: Request to {url} timed out")
     except requests.exceptions.HTTPError as e:
-        logger.warning(f"HTTP error {e.response.status_code}: {e}")
+        status = "unknown" if e.response is None else e.response.status_code
+        logger.warning(f"HTTP error {status}: {e}")
     except requests.exceptions.RequestException as e:
         logger.warning(f"Request error: {e}")
     except ValueError as e:

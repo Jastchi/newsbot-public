@@ -155,7 +155,7 @@ def _create_table(
     col_defs: list[str] = []
     cols: list[str] = []
     for field in meta.concrete_fields:
-        name = field.column
+        name = field.column or field.attname
         parts = [_concat('"', name, '"'), _sqlite_type(field)]
         if field.primary_key:
             parts.append("PRIMARY KEY")

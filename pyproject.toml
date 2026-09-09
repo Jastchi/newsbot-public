@@ -17,9 +17,9 @@ requires-python = ">=3.12,<3.14"
 
 dependencies = [
     "jaraco-context==6.1.2", # vulnerability fix
-    "pydantic==2.13.0",
-    "python-dotenv==1.2.2",
-    "pytz==2026.1.post1",
+    "pydantic==2.13.5",
+    "python-dotenv==1.2.3",
+    "pytz==2026.3.post1",
     "pyyaml==6.0.3",
 ]
 
@@ -28,78 +28,78 @@ newsbot = "newsbot.main:main"
 start_api = "api.app:start"
 
 [build-system]
-requires = ["uv_build==0.11.33"]
+requires = ["uv_build==0.12.7"]
 build-backend = "uv_build"
 
 [dependency-groups]
 newsbot = [
-    "django>=6.0.4",
+    "django==6.1",
     "dj-database-url==3.1.2",
-    "psycopg2-binary==2.9.11",
-    "supabase==2.28.3",
-    "apscheduler==3.11.2",
-    "beautifulsoup4==4.14.3",
-    "feedparser==6.0.12",
+    "psycopg2-binary==2.9.12",
+    "supabase==2.31.0",
+    "apscheduler==3.11.3",
+    "beautifulsoup4==4.15.0",
+    "feedparser==6.0.14",
     "lxml==6.1.2",
-    "requests==2.33.1",
-    "trafilatura==2.0.0",
-    "google-genai==1.72.0",
-    "ollama==0.6.1",
+    "requests==2.34.2",
+    "trafilatura==2.2.0",
+    "google-genai==2.20.0",
+    "ollama==0.6.2",
     "torch>=2.1.0",
     "transformers>=4.41.0,<5.0.0",
-    "sentence-transformers[onnx]==5.4.0",
-    "sentencepiece==0.2.1",
-    "spacy==3.8.14",
+    "sentence-transformers[onnx]==5.7.0",
+    "sentencepiece==0.2.2",
+    "spacy==3.8.16",
     "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
     "xx-ent-wiki-sm @ https://github.com/explosion/spacy-models/releases/download/xx_ent_wiki_sm-3.8.0/xx_ent_wiki_sm-3.8.0-py3-none-any.whl",
     "pysentimiento==0.7.3",
-    "textblob==0.20.0",
+    "textblob==0.20.1",
     "vadersentiment==3.3.2",
-    "numpy==2.4.4",
-    "scikit-learn==1.8.0",
+    "numpy==2.5.2",
+    "scikit-learn==1.9.0",
     "jinja2==3.1.6",
-    "css-inline==0.20.2",
+    "css-inline==0.21.2",
     "tenacity==9.1.4",
-    "typer==0.24.1",
-    "resend==2.30.1",
+    "typer==0.27.2",
+    "resend==2.42.0",
 ]
 serve = [
-    "django>=6.0.4",
-    "django-allauth==65.15.1",
-    "gunicorn==25.3.0",
-    "psycopg2-binary==2.9.11",
+    "django==6.1",
+    "django-allauth==65.19.1",
+    "gunicorn==26.2.0",
+    "psycopg2-binary==2.9.12",
     "dj-database-url==3.1.2",
-    "requests==2.33.1",
-    "supabase==2.28.3",
+    "requests==2.34.2",
+    "supabase==2.31.0",
     "whitenoise==6.12.0",
     "jinja2==3.1.6",
-    "resend==2.30.1",
+    "resend==2.42.0",
 ]
 api = [
     { include-group = "newsbot" },
-    "django-allauth==65.15.1",  # required: API loads Django settings which include allauth in INSTALLED_APPS
-    "fastapi==0.135.3",
-    "uvicorn[standard]==0.44.0",
+    "django-allauth==65.19.1",  # required: API loads Django settings which include allauth in INSTALLED_APPS
+    "fastapi==0.141.1",
+    "uvicorn[standard]==0.52.4",
 ]
 raspberrypi = [
     { include-group = "newsbot" },
-    "sqlalchemy==2.0.49", # temporary dependency for supabase migrations
+    "sqlalchemy==2.0.52", # temporary dependency for supabase migrations
     "watchdog==6.0.0",
 ]
 test = [
-    "fastapi[standard]==0.135.3",
+    "fastapi[standard]==0.141.1",
     "httpx==0.28.1",
-    "playwright==1.58.0",
-    "pytest==9.0.3",
+    "playwright==1.62.0",
+    "pytest==9.1.1",
     "pytest-cov==7.1.0",
-    "pytest-django==4.12.0",
+    "pytest-django==4.14.0",
 ]
 dev = [
-    "django-stubs==6.0.2",
+    "django-stubs==6.1.0",
     "pillow==12.3.0",
     "prek",
-    "ruff==0.15.10",
-    "ty==0.0.29",
+    "ruff==0.16.5",
+    "ty==0.0.76",
 ]
 
 [tool.uv]
