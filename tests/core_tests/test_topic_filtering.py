@@ -267,14 +267,11 @@ class TestTopicFiltering:
         # Create an agent with keyword matching
         agent = NewsScraperAgent(config_with_topics)
 
-        source: NewsSource = cast(
-            NewsSource,
-            {
-                "name": "Test News",
-                "rss_url": "http://test.com/feed",
-                "type": "rss",
-            },
-        )
+        source: NewsSource = {
+            "name": "Test News",
+            "rss_url": "http://test.com/feed",
+            "type": "rss",
+        }
 
         # Test with matching article
         mock_parse.return_value = MagicMock(
@@ -291,7 +288,9 @@ class TestTopicFiltering:
         )
 
         # We need to mock the semantic matching to return no match
-        with patch.object(agent, "_matches_topics", return_value=(False, None)):
+        with patch.object(
+            agent, "_matches_topics", return_value=(False, None)
+        ):
             articles = agent._scrape_rss_feed(source)
             assert len(articles) == 0
 

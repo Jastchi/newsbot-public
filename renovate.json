@@ -13,9 +13,15 @@
       "allowedVersions": "/^python3\\.(12|13)-/"
     },
     {
-      "description": "Hugging Face transformers v5: blocked by optimum-onnx (transitive via sentence-transformers[onnx]) which caps transformers<4.58.0. Since 4.58.0 was never released (HF jumped to 5.0.0), this blocks all of v5. Tracking issue: https://github.com/huggingface/optimum-onnx/issues/114. When resolved, remove this rule and the <5.0.0 bound in pyproject.toml.",
+      "description": "TODO(revisit): transformers v5 is blocked by optimum-onnx (transitive via sentence-transformers[onnx]), which caps transformers<4.58.0. Latest optimum-onnx is 0.1.0 (2025-12-23); its transformers v5 PRs (#120, #140) were closed unmerged as of 2026-10-12. Revisit when optimum-onnx releases transformers v5 support, then remove this rule and the <5.0.0 bound in pyproject.toml.",
       "matchManagers": ["pep621"],
       "matchPackageNames": ["transformers"],
+      "enabled": false
+    },
+    {
+      "description": "TODO(revisit): sentence-transformers v6 requires transformers>=5, so it is blocked together with transformers (see rule above). Remove both rules together.",
+      "matchManagers": ["pep621"],
+      "matchPackageNames": ["sentence-transformers"],
       "matchUpdateTypes": ["major"],
       "enabled": false
     }

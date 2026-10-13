@@ -82,17 +82,14 @@ class TestEmailReceiversOverride:
         # Analysis data with email override
         from newsbot.models import AnalysisData
 
-        analysis_data: AnalysisData = cast(
-            AnalysisData,
-            {
-                "config_name": "TestConfig",
-                "config_key": "testconfig",
-                "email_receivers_override": ["override@example.com"],
-                "stories_count": 5,
-                "from_date": Mock(strftime=lambda x: "01 Jan"),
-                "to_date": Mock(strftime=lambda x: "07 Jan"),
-            },
-        )
+        analysis_data: AnalysisData = {
+            "config_name": "TestConfig",
+            "config_key": "testconfig",
+            "email_receivers_override": ["override@example.com"],
+            "stories_count": 5,
+            "from_date": Mock(strftime=lambda x: "01 Jan"),
+            "to_date": Mock(strftime=lambda x: "07 Jan"),
+        }
 
         # Mock environment and SMTP
         with patch("after_analysis.email_sender.load_dotenv"):
@@ -156,17 +153,14 @@ class TestEmailReceiversOverride:
         # Analysis data with empty email override (send to sender only)
         from newsbot.models import AnalysisData
 
-        analysis_data: AnalysisData = cast(
-            AnalysisData,
-            {
-                "config_name": "TestConfig",
-                "config_key": "testconfig",
-                "email_receivers_override": [],
-                "stories_count": 5,
-                "from_date": Mock(strftime=lambda x: "01 Jan"),
-                "to_date": Mock(strftime=lambda x: "07 Jan"),
-            },
-        )
+        analysis_data: AnalysisData = {
+            "config_name": "TestConfig",
+            "config_key": "testconfig",
+            "email_receivers_override": [],
+            "stories_count": 5,
+            "from_date": Mock(strftime=lambda x: "01 Jan"),
+            "to_date": Mock(strftime=lambda x: "07 Jan"),
+        }
 
         # Mock environment
         with patch("after_analysis.email_sender.load_dotenv"):
@@ -229,16 +223,13 @@ class TestEmailReceiversOverride:
         # Analysis data WITHOUT email override
         from newsbot.models import AnalysisData
 
-        analysis_data: AnalysisData = cast(
-            AnalysisData,
-            {
-                "config_name": "TestConfig",
-                "config_key": "testconfig",
-                "stories_count": 5,
-                "from_date": Mock(strftime=lambda x: "01 Jan"),
-                "to_date": Mock(strftime=lambda x: "07 Jan"),
-            },
-        )
+        analysis_data: AnalysisData = {
+            "config_name": "TestConfig",
+            "config_key": "testconfig",
+            "stories_count": 5,
+            "from_date": Mock(strftime=lambda x: "01 Jan"),
+            "to_date": Mock(strftime=lambda x: "07 Jan"),
+        }
 
         # Mock environment and database
         with patch("after_analysis.email_sender.load_dotenv"):

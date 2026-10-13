@@ -4,7 +4,7 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from newsbot.constants import TZ
 
@@ -21,6 +21,7 @@ logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
+
 
 def test_supabase_upload_hook() -> None:
     """Test the Supabase upload hook with a sample report."""
@@ -60,24 +61,22 @@ def test_supabase_upload_hook() -> None:
             sys.exit(1)
 
     # Create sample analysis data
-    analysis_data: AnalysisData = cast(
-        "AnalysisData",
-        {
-            "success": True,
-            "timestamp": datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S"),
-            "config_name": "Test",
-            "articles_count": 42,
-            "stories_count": 5,
-            "duration": 12.34,
-            "format": "html",
-            "from_date": datetime.now(TZ),
-            "to_date": datetime.now(TZ),
-        },
-    )
+    analysis_data: AnalysisData = {
+        "success": True,
+        "timestamp": datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S"),
+        "config_name": "Test",
+        "articles_count": 42,
+        "stories_count": 5,
+        "duration": 12.34,
+        "format": "html",
+        "from_date": datetime.now(TZ),
+        "to_date": datetime.now(TZ),
+    }
 
     logging.info(f"Running Supabase upload hook for {report_path}...")
     supabase_upload.execute(report_path, analysis_data)
     logging.info("Hook execution complete.")
+
 
 if __name__ == "__main__":
     test_supabase_upload_hook()

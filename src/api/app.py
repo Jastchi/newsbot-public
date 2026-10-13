@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncGenerator
 
     from fastapi.responses import Response
     from starlette.middleware.base import RequestResponseEndpoint
@@ -132,7 +132,7 @@ class TodayJobsResponse(BaseModel):
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     """
     Application lifespan manager.
 
@@ -381,9 +381,7 @@ def get_today_jobs_endpoint() -> TodayJobsResponse:
         # 2. Filter to realized jobs (exclude PENDING - only jobs that
         # have actually started)
         realized_jobs = [
-            job
-            for job in all_today_jobs
-            if job.status != JobStatus.PENDING
+            job for job in all_today_jobs if job.status != JobStatus.PENDING
         ]
 
         # 3. Get all schedules to find what else is planned for today
@@ -399,9 +397,14 @@ def get_today_jobs_endpoint() -> TodayJobsResponse:
             config_name = schedule["name"]
 
             daily = schedule.get("daily_scrape", {})
-            if daily.get("enabled") and (
-                config_key, JobType.SCRAPE,
-            ) not in started:
+            if (
+                daily.get("enabled")
+                and (
+                    config_key,
+                    JobType.SCRAPE,
+                )
+                not in started
+            ):
                 scheduled_jobs.append(
                     ScheduledJob(
                         type=JobType.SCRAPE,
@@ -412,9 +415,14 @@ def get_today_jobs_endpoint() -> TodayJobsResponse:
                 )
 
             weekly = schedule.get("weekly_analysis", {})
-            if weekly.get("enabled") and (
-                config_key, JobType.ANALYSIS,
-            ) not in started:
+            if (
+                weekly.get("enabled")
+                and (
+                    config_key,
+                    JobType.ANALYSIS,
+                )
+                not in started
+            ):
                 # Check if today is the scheduled day
                 scheduled_day = DAY_NAME_TO_PYTHON_WEEKDAY.get(
                     weekly.get("day_of_week", "").lower(),

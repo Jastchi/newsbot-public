@@ -124,8 +124,7 @@ class PipelineOrchestrator:
         """
         self.email_receivers_override = email_receivers
         logger.info(
-            f"Email receivers override set: "
-            f"{email_receivers or 'disabled'}",
+            f"Email receivers override set: {email_receivers or 'disabled'}",
         )
 
     def _set_timing(self, results: Results) -> None:
@@ -269,7 +268,8 @@ class PipelineOrchestrator:
         for analysis in story_analyses:
             story = analysis["story"]
             source_sentiments: dict[
-                str, list[SentimentResult],
+                str,
+                list[SentimentResult],
             ] = defaultdict(list)
 
             for article in story.articles:
@@ -286,15 +286,12 @@ class PipelineOrchestrator:
                 avg_compound = sum(s.compound for s in sentiments) / len(
                     sentiments,
                 )
-                source_sentiment_summary[source] = cast(
-                    "SentimentSummary",
-                    {
-                        "avg_sentiment": avg_compound,
-                        "label": label_for_score(avg_compound),
-                        "article_count": len(sentiments),
-                        "sentiments": sentiments,
-                    },
-                )
+                source_sentiment_summary[source] = {
+                    "avg_sentiment": avg_compound,
+                    "label": label_for_score(avg_compound),
+                    "article_count": len(sentiments),
+                    "sentiments": sentiments,
+                }
 
             analysis["source_sentiments"] = source_sentiment_summary
 

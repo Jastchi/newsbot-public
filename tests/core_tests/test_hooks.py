@@ -21,14 +21,11 @@ class TestAfterAnalysisHooks:
         report_path = tmp_path / "test_report.html"
         report_path.write_text("<html><body>Test</body></html>")
 
-        analysis_data: AnalysisData = cast(
-            AnalysisData,
-            {
-                "success": True,
-                "articles_count": 100,
-                "stories_count": 10,
-            },
-        )
+        analysis_data: AnalysisData = {
+            "success": True,
+            "articles_count": 100,
+            "stories_count": 10,
+        }
 
         # Mock email hook execution to prevent actual emails
         with patch("after_analysis.email_sender.execute", return_value=None):

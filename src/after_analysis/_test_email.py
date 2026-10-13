@@ -4,7 +4,7 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from newsbot.constants import TZ
 
@@ -43,20 +43,17 @@ def test_email_hook() -> None:
         sys.exit(1)
 
     # Create sample analysis data
-    analysis_data: AnalysisData = cast(
-        "AnalysisData",
-        {
-            "success": True,
-            "timestamp": datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S"),
-            "config_name": "Technology",
-            "articles_count": 42,
-            "stories_count": 5,
-            "duration": 12.34,
-            "format": "html",
-            "from_date": datetime.now(TZ),
-            "to_date": datetime.now(TZ),
-        },
-    )
+    analysis_data: AnalysisData = {
+        "success": True,
+        "timestamp": datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S"),
+        "config_name": "Technology",
+        "articles_count": 42,
+        "stories_count": 5,
+        "duration": 12.34,
+        "format": "html",
+        "from_date": datetime.now(TZ),
+        "to_date": datetime.now(TZ),
+    }
 
     # Run the email hook
     logging.debug("\nRunning email hook...")

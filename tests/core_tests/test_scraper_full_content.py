@@ -15,7 +15,12 @@ from typing import cast
 class TestScraperFullContent:
     @pytest.fixture
     def sample_config(self):
-        from utilities.models import ConfigModel, NewsSourceModel, ReportConfigModel
+        from utilities.models import (
+            ConfigModel,
+            NewsSourceModel,
+            ReportConfigModel,
+        )
+
         return ConfigModel(
             name="test_config",
             news_sources=[
@@ -49,7 +54,9 @@ class TestScraperFullContent:
         mock_get = Mock(return_value=mock_response)
         with patch.object(agent.session, "get", mock_get):
             # Mock trafilatura extraction
-            mock_trafilatura.return_value = "First paragraph. Second paragraph."
+            mock_trafilatura.return_value = (
+                "First paragraph. Second paragraph."
+            )
 
             content = agent._fetch_full_content("http://test.com/article")
 
@@ -138,14 +145,11 @@ class TestScraperFullContent:
         mock_fetch.return_value = "Full content fetched."
 
         source_model = sample_config.news_sources[0]
-        source: NewsSource = cast(
-            NewsSource,
-            {
-                "name": source_model.name,
-                "rss_url": source_model.rss_url,
-                "type": source_model.type,
-            },
-        )
+        source: NewsSource = {
+            "name": source_model.name,
+            "rss_url": source_model.rss_url,
+            "type": source_model.type,
+        }
         articles = agent._scrape_rss_feed(source)
 
         assert len(articles) == 1
@@ -185,14 +189,11 @@ class TestScraperFullContent:
         mock_fetch.return_value = None
 
         source_model = sample_config.news_sources[0]
-        source: NewsSource = cast(
-            NewsSource,
-            {
-                "name": source_model.name,
-                "rss_url": source_model.rss_url,
-                "type": source_model.type,
-            },
-        )
+        source: NewsSource = {
+            "name": source_model.name,
+            "rss_url": source_model.rss_url,
+            "type": source_model.type,
+        }
         articles = agent._scrape_rss_feed(source)
 
         assert len(articles) == 1
@@ -217,6 +218,7 @@ def html_config():
         NewsSourceModel,
         ReportConfigModel,
     )
+
     return ConfigModel(
         name="test_html",
         news_sources=[
@@ -248,7 +250,8 @@ class TestDiscoverArticleLinks:
         </body></html>
         """
         links = agent._discover_article_links(
-            html, "https://news.example.com/section/world",
+            html,
+            "https://news.example.com/section/world",
         )
         assert links == [
             "https://news.example.com/news/article-1",
@@ -266,7 +269,8 @@ class TestDiscoverArticleLinks:
         </body></html>
         """
         links = agent._discover_article_links(
-            html, "https://news.example.com/section/world",
+            html,
+            "https://news.example.com/section/world",
         )
         assert links == [
             "https://news.example.com/news/article-1",
@@ -282,7 +286,8 @@ class TestDiscoverArticleLinks:
         </body></html>
         """
         links = agent._discover_article_links(
-            html, "https://news.example.com/section/world",
+            html,
+            "https://news.example.com/section/world",
         )
         assert links == ["https://news.example.com/news/article-1"]
 
@@ -294,7 +299,8 @@ class TestDiscoverArticleLinks:
         )
         html = f"<html><body>{anchors}</body></html>"
         links = agent._discover_article_links(
-            html, "https://news.example.com/section/world",
+            html,
+            "https://news.example.com/section/world",
         )
         assert len(links) == MAX_LINKS_PER_LISTING
 
@@ -375,9 +381,7 @@ class TestExtractArticleMetadata:
 
 class TestScrapeHtmlListing:
     def _listing_html(self, paths: list[str]) -> str:
-        anchors = "".join(
-            f'<a href="{p}">link</a>' for p in paths
-        )
+        anchors = "".join(f'<a href="{p}">link</a>' for p in paths)
         return (
             "<html><body><main>"
             + anchors
@@ -406,15 +410,15 @@ class TestScrapeHtmlListing:
         agent = NewsScraperAgent(html_config)
         listing_url = html_config.news_sources[0].rss_url
         listing = self._listing_html(["/a/1", "/a/2"])
-        article_body = (
-            "This is the body of an article. " * 20
-        )
+        article_body = "This is the body of an article. " * 20
         article_a = self._article_html(
-            "Article One", article_body,
+            "Article One",
+            article_body,
             (datetime.now(TZ) - timedelta(days=1)).isoformat(),
         )
         article_b = self._article_html(
-            "Article Two", article_body,
+            "Article Two",
+            article_body,
             (datetime.now(TZ) - timedelta(days=2)).isoformat(),
         )
 
@@ -448,12 +452,12 @@ class TestScrapeHtmlListing:
     def test_skips_articles_past_cutoff(self, _sleep, html_config):
         agent = NewsScraperAgent(html_config)
         listing_url = html_config.news_sources[0].rss_url
-        old_date = (
-            datetime.now(TZ) - timedelta(days=30)
-        ).isoformat()
+        old_date = (datetime.now(TZ) - timedelta(days=30)).isoformat()
         listing = self._listing_html(["/a/old"])
         article = self._article_html(
-            "Old Article", "body " * 30, old_date,
+            "Old Article",
+            "body " * 30,
+            old_date,
         )
 
         responses = {
@@ -523,12 +527,14 @@ class TestScrapeHtmlListing:
     def test_exclude_url_check_skips_links(self, _sleep, html_config):
         exclude_check = Mock(side_effect=lambda url: "1" in url)
         agent = NewsScraperAgent(
-            html_config, exclude_url_check=exclude_check,
+            html_config,
+            exclude_url_check=exclude_check,
         )
         listing_url = html_config.news_sources[0].rss_url
         listing = self._listing_html(["/a/1", "/a/2"])
         article_b = self._article_html(
-            "Article Two", "body " * 30,
+            "Article Two",
+            "body " * 30,
             (datetime.now(TZ) - timedelta(days=1)).isoformat(),
         )
 
@@ -559,6 +565,7 @@ class TestScrapeHtmlListing:
             ReportConfigModel,
             TopicModel,
         )
+
         config = ConfigModel(
             name="test_html_topic",
             news_sources=[
@@ -613,10 +620,12 @@ class TestScrapeHtmlListing:
 
         responses = {
             listing_url: _make_html_response(listing),
-            "https://news.example.com/sports/match":
-                _make_html_response(article_sports),
-            "https://news.example.com/finance/market":
-                _make_html_response(article_finance),
+            "https://news.example.com/sports/match": _make_html_response(
+                article_sports
+            ),
+            "https://news.example.com/finance/market": _make_html_response(
+                article_finance
+            ),
         }
         mock_get = Mock(side_effect=lambda url, **_: responses[url])
         # Avoid the embedding pass - only keyword matches matter here
@@ -638,7 +647,9 @@ class TestScrapeHtmlListing:
 
 
 class TestScrapeSourceDispatch:
-    @patch("newsbot.agents.scraper_agent.NewsScraperAgent._scrape_html_listing")
+    @patch(
+        "newsbot.agents.scraper_agent.NewsScraperAgent._scrape_html_listing"
+    )
     def test_dispatches_html_source(self, mock_html, html_config):
         mock_html.return_value = []
         agent = NewsScraperAgent(html_config)

@@ -22,7 +22,11 @@ class TestNewsScraperAgent:
 
         assert agent.config == sample_config
         assert agent.sources == [
-            {"name": source.name, "rss_url": source.rss_url, "type": source.type}
+            {
+                "name": source.name,
+                "rss_url": source.rss_url,
+                "type": source.type,
+            }
             for source in sample_config.news_sources
         ]
         assert agent.country == "US"
@@ -60,14 +64,11 @@ class TestNewsScraperAgent:
 
         agent = NewsScraperAgent(sample_config)
         source_model = sample_config.news_sources[0]
-        source: NewsSource = cast(
-            NewsSource,
-            {
-                "name": source_model.name,
-                "rss_url": source_model.rss_url,
-                "type": source_model.type,
-            },
-        )
+        source: NewsSource = {
+            "name": source_model.name,
+            "rss_url": source_model.rss_url,
+            "type": source_model.type,
+        }
         articles = agent._scrape_rss_feed(source)
 
         assert len(articles) == 2
@@ -121,14 +122,11 @@ class TestNewsScraperAgent:
 
         agent = NewsScraperAgent(sample_config)
         source_model = sample_config.news_sources[0]
-        source: NewsSource = cast(
-            NewsSource,
-            {
-                "name": source_model.name,
-                "rss_url": source_model.rss_url,
-                "type": source_model.type,
-            },
-        )
+        source: NewsSource = {
+            "name": source_model.name,
+            "rss_url": source_model.rss_url,
+            "type": source_model.type,
+        }
         articles = agent._scrape_rss_feed(source)
 
         assert len(articles) == 1
@@ -163,14 +161,11 @@ class TestNewsScraperAgent:
 
         agent = NewsScraperAgent(sample_config)
         source_model = sample_config.news_sources[0]
-        source: NewsSource = cast(
-            NewsSource,
-            {
-                "name": source_model.name,
-                "rss_url": source_model.rss_url,
-                "type": source_model.type,
-            },
-        )
+        source: NewsSource = {
+            "name": source_model.name,
+            "rss_url": source_model.rss_url,
+            "type": source_model.type,
+        }
         articles = agent._scrape_rss_feed(source)
 
         assert len(articles) == 1
@@ -180,18 +175,16 @@ class TestNewsScraperAgent:
     def test_scrape_rss_feed_error_handling(self, mock_parse, sample_config):
         """Test error handling during RSS feed parsing"""
         from urllib.error import URLError
+
         mock_parse.side_effect = URLError("Feed parsing error")
 
         agent = NewsScraperAgent(sample_config)
         source_model = sample_config.news_sources[0]
-        source: NewsSource = cast(
-            NewsSource,
-            {
-                "name": source_model.name,
-                "rss_url": source_model.rss_url,
-                "type": source_model.type,
-            },
-        )
+        source: NewsSource = {
+            "name": source_model.name,
+            "rss_url": source_model.rss_url,
+            "type": source_model.type,
+        }
         articles = agent._scrape_rss_feed(source)
 
         assert articles == []
@@ -227,14 +220,11 @@ class TestNewsScraperAgent:
 
         agent = NewsScraperAgent(sample_config)
         source_model = sample_config.news_sources[0]
-        source: NewsSource = cast(
-            NewsSource,
-            {
-                "name": source_model.name,
-                "rss_url": source_model.rss_url,
-                "type": source_model.type,
-            },
-        )
+        source: NewsSource = {
+            "name": source_model.name,
+            "rss_url": source_model.rss_url,
+            "type": source_model.type,
+        }
         articles = agent._scrape_rss_feed(source)
 
         assert len(articles) == 1
@@ -251,9 +241,7 @@ class TestNewsScraperAgent:
         articles = agent.scrape_all_sources()
 
         assert len(articles) == len(sample_config.news_sources)
-        assert mock_scrape_source.call_count == len(
-            sample_config.news_sources
-        )
+        assert mock_scrape_source.call_count == len(sample_config.news_sources)
 
     @patch.object(NewsScraperAgent, "_scrape_source")
     def test_scrape_all_sources_handles_errors(
@@ -261,6 +249,7 @@ class TestNewsScraperAgent:
     ):
         """Test that scraping continues even if one source fails"""
         import requests
+
         mock_scrape_source.side_effect = [
             requests.exceptions.RequestException("Source 1 failed"),
             [],
@@ -268,6 +257,7 @@ class TestNewsScraperAgent:
 
         # Add another source
         from utilities.models import NewsSourceModel
+
         config = sample_config.model_copy(
             update={
                 "news_sources": [
@@ -353,13 +343,9 @@ class TestNewsScraperAgent:
 
         assert mock_scrape_source.call_count == 4
         # Both RFE sources share a thread (sequential within domain).
-        assert (
-            thread_ids_by_source["RFE-1"] == thread_ids_by_source["RFE-2"]
-        )
+        assert thread_ids_by_source["RFE-1"] == thread_ids_by_source["RFE-2"]
         # Distinct domains use distinct threads.
-        assert (
-            thread_ids_by_source["BBC"] != thread_ids_by_source["Guardian"]
-        )
+        assert thread_ids_by_source["BBC"] != thread_ids_by_source["Guardian"]
 
     @patch.object(NewsScraperAgent, "_scrape_source")
     @patch.object(NewsScraperAgent, "_get_topic_embeddings")
@@ -439,7 +425,10 @@ class TestNewsScraperAgent:
         """Test that session headers are set correctly"""
         agent = NewsScraperAgent(sample_config)
 
-        assert agent.session.headers["User-Agent"] == NewsScraperAgent.REQUEST_AGENT
+        assert (
+            agent.session.headers["User-Agent"]
+            == NewsScraperAgent.REQUEST_AGENT
+        )
         assert "Accept" in agent.session.headers
         assert "Accept-Language" in agent.session.headers
         assert "DNT" in agent.session.headers
@@ -477,13 +466,17 @@ class TestNewsScraperAgent:
         assert agent._is_valid_html("Just plain text" * 10) is False
 
     @patch("newsbot.agents.scraper_agent.trafilatura.extract")
-    def test_try_trafilatura_extract_success(self, mock_extract, sample_config):
+    def test_try_trafilatura_extract_success(
+        self, mock_extract, sample_config
+    ):
         """Test successful trafilatura extraction"""
         agent = NewsScraperAgent(sample_config)
 
         # HTML must be >= MIN_RESPONSE_LENGTH (100 chars)
         html = "<html><body><p>Article content here with enough text to pass the minimum length requirement for HTML validation</p></body></html>"
-        mock_extract.return_value = "Article content here" * 10  # > MIN_CONTENT_LENGTH
+        mock_extract.return_value = (
+            "Article content here" * 10
+        )  # > MIN_CONTENT_LENGTH
 
         result = agent._try_trafilatura_extract(html)
 
@@ -492,7 +485,9 @@ class TestNewsScraperAgent:
         mock_extract.assert_called_once()
 
     @patch("newsbot.agents.scraper_agent.trafilatura.extract")
-    def test_try_trafilatura_extract_invalid_html(self, mock_extract, sample_config):
+    def test_try_trafilatura_extract_invalid_html(
+        self, mock_extract, sample_config
+    ):
         """Test trafilatura extraction with invalid HTML"""
         agent = NewsScraperAgent(sample_config)
 
@@ -503,7 +498,9 @@ class TestNewsScraperAgent:
         mock_extract.assert_not_called()
 
     @patch("newsbot.agents.scraper_agent.trafilatura.extract")
-    def test_try_trafilatura_extract_short_content(self, mock_extract, sample_config):
+    def test_try_trafilatura_extract_short_content(
+        self, mock_extract, sample_config
+    ):
         """Test trafilatura extraction with content too short"""
         agent = NewsScraperAgent(sample_config)
 
@@ -516,7 +513,9 @@ class TestNewsScraperAgent:
         assert result is None
 
     @patch("newsbot.agents.scraper_agent.trafilatura.extract")
-    def test_try_trafilatura_extract_exception(self, mock_extract, sample_config):
+    def test_try_trafilatura_extract_exception(
+        self, mock_extract, sample_config
+    ):
         """Test trafilatura extraction with exception"""
         agent = NewsScraperAgent(sample_config)
 
@@ -569,7 +568,9 @@ class TestNewsScraperAgent:
         assert result is not None
         assert "main content" in result.lower()
 
-    def test_try_beautifulsoup_extract_paragraphs_fallback(self, sample_config):
+    def test_try_beautifulsoup_extract_paragraphs_fallback(
+        self, sample_config
+    ):
         """Test BeautifulSoup extraction fallback to paragraphs"""
         agent = NewsScraperAgent(sample_config)
 
@@ -867,7 +868,9 @@ class TestNewsScraperAgent:
                 self.title = "Test Article"
                 self.link = "http://test.com/article"
                 self.summary = "Article summary with enough content"
-                self.published_parsed = time.struct_time(recent_date.timetuple())
+                self.published_parsed = time.struct_time(
+                    recent_date.timetuple()
+                )
 
             def get(self, key, default=None):
                 return getattr(self, key, default)
@@ -879,14 +882,11 @@ class TestNewsScraperAgent:
         mock_fetch.return_value = None  # Fetch fails
 
         source_model = sample_config.news_sources[0]
-        source: NewsSource = cast(
-            NewsSource,
-            {
-                "name": source_model.name,
-                "rss_url": source_model.rss_url,
-                "type": source_model.type,
-            },
-        )
+        source: NewsSource = {
+            "name": source_model.name,
+            "rss_url": source_model.rss_url,
+            "type": source_model.type,
+        }
         articles = agent._scrape_rss_feed(source)
 
         assert len(articles) == 1
@@ -910,7 +910,9 @@ class TestNewsScraperAgent:
                 self.title = "Test Article"
                 self.link = "http://test.com/article"
                 # No summary or description
-                self.published_parsed = time.struct_time(recent_date.timetuple())
+                self.published_parsed = time.struct_time(
+                    recent_date.timetuple()
+                )
 
             def get(self, key, default=None):
                 return getattr(self, key, default)
@@ -922,14 +924,11 @@ class TestNewsScraperAgent:
         mock_fetch.return_value = None  # Fetch fails
 
         source_model = sample_config.news_sources[0]
-        source: NewsSource = cast(
-            NewsSource,
-            {
-                "name": source_model.name,
-                "rss_url": source_model.rss_url,
-                "type": source_model.type,
-            },
-        )
+        source: NewsSource = {
+            "name": source_model.name,
+            "rss_url": source_model.rss_url,
+            "type": source_model.type,
+        }
         articles = agent._scrape_rss_feed(source)
 
         assert len(articles) == 0

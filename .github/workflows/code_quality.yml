@@ -36,7 +36,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version-file: ".python-version"
-      - run: uvx --refresh ruff check
+      - run: uv run --only-group dev ruff check
 
   type-check:
     name: Type Check (ty)
@@ -52,4 +52,4 @@ jobs:
           python-version-file: ".python-version"
       - run: uv sync
       - run: chmod +x src/web/manage.py
-      - run: uvx --refresh ty check
+      - run: uv run ty check
