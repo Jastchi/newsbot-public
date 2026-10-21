@@ -24,6 +24,12 @@
       "matchPackageNames": ["sentence-transformers"],
       "matchUpdateTypes": ["major"],
       "enabled": false
+    },
+    {
+      "description": "TODO(revisit): google-genai 2.29.0 requires tenacity<9.2.0, so tenacity 9.2+ is unresolvable. Remove once google-genai relaxes the cap.",
+      "matchManagers": ["pep621"],
+      "matchPackageNames": ["tenacity"],
+      "allowedVersions": "<9.2.0"
     }
   ]
 }
