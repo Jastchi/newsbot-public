@@ -27,7 +27,7 @@ class TestRunListView:
         context = view.get_context_data()
 
         assert "selected_date" in context
-        assert context["selected_date"] == timezone.now().date()
+        assert context["selected_date"] == timezone.localdate()
         assert "scrape_runs" in context
         assert "analysis_runs" in context
 
@@ -51,7 +51,7 @@ class TestRunListView:
         context = view.get_context_data()
 
         # Should fallback to today
-        assert context["selected_date"] == timezone.now().date()
+        assert context["selected_date"] == timezone.localdate()
 
     def test_get_context_data_filtering(self, request_factory):
         """Test that runs are filtered by date."""
@@ -81,7 +81,7 @@ class TestRunListView:
         assert scrape_yesterday.id not in scrape_run_ids
 
         # Request for yesterday
-        date_str = yesterday.date().isoformat()
+        date_str = timezone.localdate(yesterday).isoformat()
         view.request = request_factory.get(f"/runs/?date={date_str}")
         context = view.get_context_data()
 

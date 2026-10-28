@@ -482,7 +482,7 @@ class RunListView(LoginRequiredMixin, TemplateView):
         next_date = selected_date + timedelta(days=1)
 
         # Don't allow next date if it's in the future
-        if next_date > timezone.now().date():
+        if next_date > timezone.localdate():
             next_date = None
 
         # Fetch runs for the selected date

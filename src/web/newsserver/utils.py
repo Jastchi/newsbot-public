@@ -75,7 +75,7 @@ def parse_date_or_default(
 
     """
     if default is None:
-        default = django_timezone.now().date()
+        default = django_timezone.localdate()
 
     if not date_str:
         return default

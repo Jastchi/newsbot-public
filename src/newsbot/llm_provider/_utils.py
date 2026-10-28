@@ -1,11 +1,13 @@
 """Shared utilities for LLM providers."""
 
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
+
+from newsbot.constants import TZ
 
 
 def _today() -> str:
-    return datetime.now(UTC).date().isoformat()
+    return datetime.now(TZ).date().isoformat()
 
 
 def get_options(

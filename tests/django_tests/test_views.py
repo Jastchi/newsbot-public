@@ -1750,8 +1750,8 @@ class TestRunListView:
         """Test RunListView with default date (today)."""
         # Mock timezone.now()
         mock_now = datetime(2025, 12, 23, 12, 0, 0)
-        mock_utils_timezone.now.return_value = mock_now
-        mock_views_timezone.now.return_value = mock_now
+        mock_utils_timezone.localdate.return_value = mock_now.date()
+        mock_views_timezone.localdate.return_value = mock_now.date()
 
         # Mock querysets
         mock_scrape_qs = Mock()
@@ -1788,8 +1788,8 @@ class TestRunListView:
     ):
         """Test RunListView with specific date from query param."""
         mock_now = datetime(2025, 12, 23, 12, 0, 0)
-        mock_utils_timezone.now.return_value = mock_now
-        mock_views_timezone.now.return_value = mock_now
+        mock_utils_timezone.localdate.return_value = mock_now.date()
+        mock_views_timezone.localdate.return_value = mock_now.date()
 
         mock_scrape_qs = Mock()
         mock_analysis_qs = Mock()
@@ -1822,8 +1822,8 @@ class TestRunListView:
     ):
         """Test RunListView with invalid date falls back to today."""
         mock_now = datetime(2025, 12, 23, 12, 0, 0)
-        mock_utils_timezone.now.return_value = mock_now
-        mock_views_timezone.now.return_value = mock_now
+        mock_utils_timezone.localdate.return_value = mock_now.date()
+        mock_views_timezone.localdate.return_value = mock_now.date()
 
         mock_scrape_qs = Mock()
         mock_analysis_qs = Mock()
@@ -1852,8 +1852,8 @@ class TestRunListView:
     ):
         """Test that future dates don't allow next_date."""
         mock_now = datetime(2025, 12, 23, 12, 0, 0)
-        mock_utils_timezone.now.return_value = mock_now
-        mock_views_timezone.now.return_value = mock_now
+        mock_utils_timezone.localdate.return_value = mock_now.date()
+        mock_views_timezone.localdate.return_value = mock_now.date()
 
         mock_scrape_qs = Mock()
         mock_analysis_qs = Mock()
