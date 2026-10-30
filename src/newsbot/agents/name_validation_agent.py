@@ -27,7 +27,7 @@ import spacy
 from newsbot.agents.prompts import get_prompt
 from newsbot.llm_provider import get_llm_provider
 from newsbot.model_cache import get_spacy_model
-from newsbot.models import NameValidationResult
+from newsbot.models import NameValidationResult, ValidationStats
 from utilities.models import ConfigModel
 
 logger = logging.getLogger(__name__)
@@ -57,15 +57,21 @@ class NameValidationAgent:
     the output is rewritten by the LLM to remove or generalize them.
     """
 
-    def __init__(self, config: ConfigModel) -> None:
+    def __init__(
+        self,
+        config: ConfigModel,
+        stats: ValidationStats | None = None,
+    ) -> None:
         """
         Initialize the Name Validation Agent.
 
         Args:
             config: Configuration dictionary containing LLM settings.
+            stats: Optional shared validation counters.
 
         """
         self.config = config
+        self.stats = stats or ValidationStats()
         llm_config = config.llm
 
         # Name validation configuration
@@ -218,6 +224,7 @@ class NameValidationAgent:
 
         # Extract entities from the LLM output
         entities = self.extract_entities(text)
+        self.stats.inc("name.checked")
 
         if not entities:
             return NameValidationResult(is_valid=True)
@@ -240,6 +247,7 @@ class NameValidationAgent:
         is_valid = len(unverified) == 0
 
         if not is_valid:
+            self.stats.inc("name.violations")
             logger.info(
                 f"Name validation found {len(unverified)} unverified "
                 f"entities: {unverified}",
@@ -277,9 +285,10 @@ class NameValidationAgent:
         try:
             rewritten = self.provider.chat(
                 messages=[{"role": "user", "content": prompt}],
-                options={"temperature": 0.3, "num_predict": 8192},
+                options={"temperature": 0.3},
             )
         except Exception:
+            self.stats.inc("name.rewrite_error")
             logger.exception(
                 "Error rewriting text to remove entities, returning original",
             )
@@ -327,6 +336,7 @@ class NameValidationAgent:
                 return current_text
 
             if attempt < self.max_retries:
+                self.stats.inc("name.rewrites")
                 logger.warning(
                     f"Found {len(result.unverified_entities)} unverified "
                     f"entities, rewriting "
@@ -337,6 +347,7 @@ class NameValidationAgent:
                     result.unverified_entities,
                 )
             else:
+                self.stats.inc("name.max_retries_exceeded")
                 logger.warning(
                     f"Max retries ({self.max_retries}) exceeded for name "
                     f"validation. Remaining unverified: "

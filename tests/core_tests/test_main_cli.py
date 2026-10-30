@@ -100,6 +100,7 @@ def test_run_analysis_uses_lookback(monkeypatch, dummy_handler):
                     duration=1.0,
                     top_stories=[],
                     errors=[],
+                    validation_stats={},
                 )
             )
             self.set_email_receivers_override = Mock()
@@ -286,6 +287,7 @@ def test_run_analysis_with_test_flag_inserts_test_articles(
                     duration=1.0,
                     top_stories=[],
                     errors=[],
+                    validation_stats={},
                 )
             )
             self.set_email_receivers_override = Mock()
@@ -348,6 +350,7 @@ def test_run_analysis_without_test_flag_skips_insert(
                     duration=1.0,
                     top_stories=[],
                     errors=[],
+                    validation_stats={},
                 )
             )
             self.set_email_receivers_override = Mock()

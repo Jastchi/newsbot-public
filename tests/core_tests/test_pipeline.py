@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from newsbot.managers import AgentManager, DatabaseManager
-from newsbot.models import Article, SentimentResult
+from newsbot.models import Article, SentimentResult, ValidationStats
 from newsbot.pipeline import PipelineOrchestrator, Results
 
 
@@ -25,6 +25,7 @@ def orchestrator(monkeypatch, sample_config):
         self._news_config = Mock()
         # Create mock managers
         self.agent_manager = Mock(spec=AgentManager)
+        self.agent_manager.validation_stats = ValidationStats()
         self.database_manager = Mock(spec=DatabaseManager)
 
     monkeypatch.setattr(PipelineOrchestrator, "__init__", fake_init)
@@ -456,3 +457,30 @@ class TestPipelineInternalMethods:
         assert "country" in status["config"]
         assert "sources" in status["config"]
         assert "llm_model" in status["config"]
+
+
+def test_record_validation_stats_flags_high_fail_open(orchestrator, caplog):
+    stats = orchestrator.agent_manager.validation_stats
+    for _ in range(20):
+        stats.inc("judge.checked")
+    for _ in range(10):
+        stats.inc("judge.fail_open_error")
+    results = Results()
+
+    with caplog.at_level(logging.ERROR, logger="newsbot.pipeline"):
+        orchestrator._record_validation_stats(results)
+
+    assert results.validation_stats["judge.fail_open_error"] == 10
+    assert "failed open" in caplog.text
+
+
+def test_record_validation_stats_quiet_below_threshold(orchestrator, caplog):
+    stats = orchestrator.agent_manager.validation_stats
+    for _ in range(5):
+        stats.inc("judge.checked")
+        stats.inc("judge.fail_open_parse")
+
+    with caplog.at_level(logging.ERROR, logger="newsbot.pipeline"):
+        orchestrator._record_validation_stats(Results())
+
+    assert "failed open" not in caplog.text

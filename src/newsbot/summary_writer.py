@@ -121,6 +121,7 @@ class SummaryWriter:
         stories_identified: int,
         top_stories: list[Story],
         errors: list[str],
+        validation_stats: dict[str, int] | None = None,
     ) -> None:
         """
         Save a summary of a weekly analysis run.
@@ -133,6 +134,7 @@ class SummaryWriter:
             stories_identified: Number of stories identified.
             top_stories: List of top stories.
             errors: List of error messages.
+            validation_stats: Judge and name-validation counters.
 
         """
         try:
@@ -152,6 +154,7 @@ class SummaryWriter:
                 top_stories=top_stories_text,
                 error_count=len(errors),
                 errors=errors_text,
+                validation_stats=validation_stats or {},
             )
             logger.info(f"Saved analysis summary for {config_key}")
         except (DatabaseError, IntegrityError, OperationalError):

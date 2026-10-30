@@ -168,6 +168,7 @@ def run_analysis(args: Namespace) -> None:
             stories_identified=results.stories_count,
             top_stories=results.top_stories,
             errors=results.errors,
+            validation_stats=results.validation_stats,
         )
 
     finally:
@@ -769,6 +770,7 @@ def _schedule_weekly_analysis(
                 stories_identified=results.stories_count,
                 top_stories=results.top_stories,
                 errors=results.errors,
+                validation_stats=results.validation_stats,
             )
         finally:
             email_error_handler.flush()

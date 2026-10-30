@@ -4,6 +4,7 @@ Data Models.
 Defines data classes and database models
 """
 
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
@@ -23,11 +24,14 @@ class ViolationType(StrEnum):
     wrong_format: Output does not match expected format (e.g., bullet
         points when none expected)
     off_topic: Output deviates from the requested content
+    unsupported_claim: Output states facts the source articles do not
+        support
     """
 
     META_COMMENTARY = "meta_commentary"
     WRONG_FORMAT = "wrong_format"
     OFF_TOPIC = "off_topic"
+    UNSUPPORTED_CLAIM = "unsupported_claim"
 
 
 class JudgeVerdict(BaseModel):
@@ -38,7 +42,8 @@ class JudgeVerdict(BaseModel):
         is_valid: Whether the output correctly follows the prompt
             instructions.
         violation_type: Category of violation if is_valid is False:
-            meta_commentary, wrong_format, or off_topic.
+            meta_commentary, wrong_format, off_topic, or
+            unsupported_claim.
         is_no_content: Whether the output is a meta-response indicating
             no content (like "no additional points", "nothing to add")
             rather than actual content.
@@ -53,8 +58,8 @@ class JudgeVerdict(BaseModel):
     violation_type: ViolationType | None = Field(
         default=None,
         description=(
-            "Category of violation: meta_commentary, wrong_format, or "
-            "off_topic"
+            "Category of violation: meta_commentary, wrong_format, "
+            "off_topic, or unsupported_claim"
         ),
     )
     is_no_content: bool = Field(
@@ -276,6 +281,8 @@ class LLMConfig(TypedDict, total=False):
         temperature: Sampling temperature (0-1).
         max_tokens: Maximum tokens to generate.
         judge_model: Model identifier for the judge LLM
+        judge_check_source: Whether the judge compares outputs with the
+            source articles
         judge_max_retries: Maximum retry attempts when judge detects
             violations.
         judge_enabled: Whether to enable LLM-as-a-judge validation.
@@ -293,6 +300,7 @@ class LLMConfig(TypedDict, total=False):
     temperature: float
     max_tokens: int
     judge_model: str
+    judge_check_source: bool
     judge_max_retries: int
     judge_enabled: bool
     name_validation_enabled: bool
@@ -531,6 +539,32 @@ class PipelineStatus(TypedDict):
 
 
 @dataclass
+class ValidationStats:
+    """Counters for judge and name-validation events during one run."""
+
+    counts: Counter[str] = field(default_factory=Counter)
+
+    def inc(self, key: str) -> None:
+        """Increment a counter."""
+        self.counts[key] += 1
+
+    def as_dict(self) -> dict[str, int]:
+        """Return the counters as a plain dict."""
+        return dict(self.counts)
+
+    def judge_fail_open_rate(self) -> float:
+        """Return the share of judge checks that failed open."""
+        checked = self.counts["judge.checked"]
+        if not checked:
+            return 0.0
+        failed = (
+            self.counts["judge.fail_open_parse"]
+            + self.counts["judge.fail_open_error"]
+        )
+        return failed / checked
+
+
+@dataclass
 class Results:
     """Results of pipeline execution."""
 
@@ -545,3 +579,4 @@ class Results:
     errors: list[str] = field(default_factory=list)
     report_path: str = ""
     end_time: datetime | None = None
+    validation_stats: dict[str, int] = field(default_factory=dict)

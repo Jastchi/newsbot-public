@@ -17,7 +17,7 @@ from newsbot.constants import (
     MAX_ARTICLE_LENGTH_FALLBACK,
 )
 from newsbot.llm_provider import LLMProvider, get_llm_provider
-from newsbot.models import Article
+from newsbot.models import Article, ValidationStats
 from utilities.models import ConfigModel
 
 logger = logging.getLogger(__name__)
@@ -43,12 +43,17 @@ class SummarizationAgent:
     Uses the configured LLM provider (Ollama or Gemini).
     """
 
-    def __init__(self, config: ConfigModel) -> None:
+    def __init__(
+        self,
+        config: ConfigModel,
+        stats: ValidationStats | None = None,
+    ) -> None:
         """
         Initialize the Summarization Agent.
 
         Args:
             config: Configuration dictionary
+            stats: Optional shared validation counters
 
         """
         self.config = config
@@ -88,8 +93,8 @@ class SummarizationAgent:
             f"{summarization_config.explain_for_outsiders}",
         )
 
-        self.judge_agent = JudgeAgent(config)
-        self.name_validation_agent = NameValidationAgent(config)
+        self.judge_agent = JudgeAgent(config, stats)
+        self.name_validation_agent = NameValidationAgent(config, stats)
 
     def summarize_article(self, article: Article) -> str:
         """
@@ -126,6 +131,7 @@ class SummarizationAgent:
             summary = self.judge_agent.validate_and_fix(
                 summary,
                 prompt_context,
+                source=self._build_judge_source([article]),
             )
 
             summary = self.name_validation_agent.validate_and_fix(
@@ -391,6 +397,7 @@ class SummarizationAgent:
         story_summary = self.judge_agent.validate_and_fix(
             story_summary,
             prompt_context,
+            source=self._build_judge_source(story.articles),
         )
 
         # Validate named entities against source articles
@@ -443,6 +450,7 @@ class SummarizationAgent:
             refined_summary = self.judge_agent.validate_and_fix(
                 refined_summary,
                 prompt_context,
+                source=self._build_judge_source(story.articles),
             )
 
             # Validate named entities against source articles
@@ -516,6 +524,7 @@ class SummarizationAgent:
                 additional_points,
                 prompt_context,
                 allow_empty=True,
+                source=self._build_judge_source([article]),
             )
 
             # Validate named entities against source article
@@ -617,6 +626,7 @@ class SummarizationAgent:
                 source_summary,
                 prompt_context,
                 allow_empty=True,
+                source=f"{story_summary}\n\n{points_text}",
             )
 
             # Validate named entities against source articles
@@ -761,6 +771,33 @@ class SummarizationAgent:
             source=article.source,
             content=content,
             language_instruction=self.language_instruction,
+        )
+
+    def _build_judge_source(self, articles: list[Article]) -> str:
+        """
+        Join article titles and content into one text for the judge.
+
+        Each article gets an equal share of the judge's size budget, so
+        a large story does not push out its later articles. No article
+        exceeds the length the summarizer itself saw.
+
+        Args:
+            articles: List of Article objects
+
+        Returns:
+            Combined source text, empty if there are no articles
+
+        """
+        if not articles:
+            return ""
+        overhead = sum(len(a.title or "") for a in articles)
+        share = min(
+            MAX_ARTICLE_CONTENT_LENGTH,
+            max(JudgeAgent.MAX_SOURCE_CHARS - overhead, 0) // len(articles),
+        )
+        return "\n---\n".join(
+            f"{article.title}\n{(article.content or '')[:share]}"
+            for article in articles
         )
 
     def _get_article_contents(self, articles: list[Article]) -> list[str]:

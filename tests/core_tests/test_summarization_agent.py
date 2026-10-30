@@ -181,6 +181,68 @@ class TestSummarizationAgent:
     @patch("newsbot.agents.name_validation_agent.get_llm_provider")
     @patch("newsbot.agents.judge_agent.get_llm_provider")
     @patch("newsbot.agents.summarization_agent.get_llm_provider")
+    def test_summarize_article_passes_source_to_judge(
+        self,
+        mock_get_provider,
+        mock_judge_provider,
+        mock_name_validation_provider,
+        sample_config,
+        sample_article,
+    ):
+        """The judge receives the article text to check claims against."""
+        mock_provider = create_mock_provider()
+        mock_get_provider.return_value = mock_provider
+        mock_judge_provider.return_value = mock_provider
+        mock_name_validation_provider.return_value = mock_provider
+
+        agent = SummarizationAgent(sample_config)
+        with patch.object(
+            agent.judge_agent,
+            "validate_and_fix",
+            side_effect=lambda output, *_a, **_k: output,
+        ) as judge:
+            agent.summarize_article(sample_article)
+
+        assert sample_article.content in judge.call_args.kwargs["source"]
+
+    @patch("newsbot.agents.name_validation_agent.get_llm_provider")
+    @patch("newsbot.agents.judge_agent.get_llm_provider")
+    @patch("newsbot.agents.summarization_agent.get_llm_provider")
+    def test_build_judge_source_shares_budget(
+        self,
+        mock_get_provider,
+        mock_judge_provider,
+        mock_name_validation_provider,
+        sample_config,
+    ):
+        """Every article keeps a slice of the judge's size budget."""
+        mock_provider = create_mock_provider()
+        mock_get_provider.return_value = mock_provider
+        mock_judge_provider.return_value = mock_provider
+        mock_name_validation_provider.return_value = mock_provider
+        agent = SummarizationAgent(sample_config)
+        articles = [
+            Article(
+                title=f"T{i}",
+                content=f"{i}" * 10000,
+                source="S",
+                url=f"https://example.com/{i}",
+                published_date=datetime.now(),
+                scraped_date=datetime.now(),
+            )
+            for i in range(4)
+        ]
+
+        source = agent._build_judge_source(articles)
+
+        assert all(f"T{i}" in source for i in range(4))
+        # Titles and separators add a little; the judge trims the tail
+        assert len(source) < 12100
+        assert agent._build_judge_source([]) == ""
+
+    @patch("newsbot.agents.name_validation_agent.get_llm_provider")
+    @patch("newsbot.agents.judge_agent.get_llm_provider")
+    @patch("newsbot.agents.summarization_agent.get_llm_provider")
     def test_summarize_empty_content(
         self,
         mock_get_provider,

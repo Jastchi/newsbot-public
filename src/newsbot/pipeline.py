@@ -36,6 +36,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Alert when the judge silently skips validation too often
+FAIL_OPEN_MIN_CHECKS = 20
+FAIL_OPEN_MAX_RATE = 0.2
+
 
 class PipelineOrchestrator:
     """Orchestrates the entire news analysis pipeline."""
@@ -439,6 +443,23 @@ class PipelineOrchestrator:
         results.stories_count = len(top_stories)
         return top_stories
 
+    def _record_validation_stats(self, results: Results) -> None:
+        """Copy validation counters to results; flag high fail-open."""
+        stats = self.agent_manager.validation_stats
+        results.validation_stats = stats.as_dict()
+        if not results.validation_stats:
+            return
+        logger.info(f"Validation stats: {results.validation_stats}")
+        rate = stats.judge_fail_open_rate()
+        if (
+            stats.counts["judge.checked"] >= FAIL_OPEN_MIN_CHECKS
+            and rate > FAIL_OPEN_MAX_RATE
+        ):
+            logger.error(
+                f"Judge failed open on {rate:.0%} "
+                "of checks; outputs were not validated.",
+            )
+
     def _weekly_finalize_results(
         self,
         results: Results,
@@ -469,6 +490,7 @@ class PipelineOrchestrator:
         results.top_stories = top_stories
         results.story_analyses = story_analyses
         results.report_path = report_path
+        self._record_validation_stats(results)
 
         logger.info("Weekly analysis completed successfully!")
         logger.info(f"Duration: {results.duration:.2f} seconds")
@@ -540,6 +562,8 @@ class PipelineOrchestrator:
             logger.exception("Weekly analysis failed with error")
             results.errors.append(str(e))
             self._set_timing(results)
+            if not results.validation_stats:
+                self._record_validation_stats(results)
             return results
         else:
             return results

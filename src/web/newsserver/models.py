@@ -258,6 +258,13 @@ class NewsConfig(BaseModel):
         default="gemini-2.5-flash-lite",
         help_text="Model identifier for the judge LLM",
     )
+    llm_judge_check_source = models.BooleanField(
+        default=False,
+        help_text=(
+            "Whether the judge also checks outputs against the source "
+            "articles. Uses more tokens."
+        ),
+    )
     llm_judge_max_retries = models.IntegerField(
         default=2,
         help_text="Maximum retry attempts when judge detects violations",
@@ -542,6 +549,7 @@ class NewsConfig(BaseModel):
                 max_tokens=self.llm_max_tokens,
                 judge_enabled=self.llm_judge_enabled,
                 judge_model=self.llm_judge_model,
+                judge_check_source=self.llm_judge_check_source,
                 judge_max_retries=self.llm_judge_max_retries,
                 name_validation_enabled=self.llm_name_validation_enabled,
                 name_validation_max_retries=self.llm_name_validation_max_retries,
@@ -875,6 +883,11 @@ class AnalysisSummary(BaseModel):
 
     error_count = models.IntegerField(default=0)
     errors = models.TextField(blank=True, help_text="List of errors")
+    validation_stats = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Judge and name-validation counters",
+    )
 
     if TYPE_CHECKING:
         objects: Manager[AnalysisSummary]

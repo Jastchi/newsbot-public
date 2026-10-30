@@ -381,7 +381,8 @@ def mock_llm_provider_in_ci(monkeypatch, request):
                 mock_judge_validate = MagicMock(
                     side_effect=lambda output,
                     prompt_context,
-                    allow_empty=False: output
+                    allow_empty=False,
+                    source=None: output
                 )
                 monkeypatch.setattr(
                     "newsbot.agents.judge_agent.JudgeAgent.validate_and_fix",

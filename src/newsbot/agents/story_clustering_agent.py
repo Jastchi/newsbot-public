@@ -21,7 +21,7 @@ from newsbot.constants import (
 )
 from newsbot.llm_provider import get_llm_provider
 from newsbot.model_cache import get_sentence_transformer, get_spacy_model
-from newsbot.models import Article, Story
+from newsbot.models import Article, Story, ValidationStats
 from utilities.models import ConfigModel
 
 logger = logging.getLogger(__name__)
@@ -38,12 +38,17 @@ class StoryClusteringAgent:
     sources using semantic similarity.
     """
 
-    def __init__(self, config: ConfigModel) -> None:
+    def __init__(
+        self,
+        config: ConfigModel,
+        stats: ValidationStats | None = None,
+    ) -> None:
         """
         Initialize the Story Clustering Agent.
 
         Args:
             config: Configuration dictionary
+            stats: Optional shared validation counters
 
         """
         self.story_clustering_config = config.story_clustering
@@ -114,7 +119,7 @@ class StoryClusteringAgent:
         logger.info("Story clustering initialized with LLM provider")
 
         # Initialize judge agent for output validation
-        self.judge_agent = JudgeAgent(config)
+        self.judge_agent = JudgeAgent(config, stats)
         self.llm_config = config.llm
         self.provider_name = self.llm_config.provider
 

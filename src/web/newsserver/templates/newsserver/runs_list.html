@@ -311,6 +311,13 @@
                 </div>
             </div>
 
+            {% if run.validation_stats %}
+            <div class="run-time">
+                Validation:
+                {% for name, count in run.validation_stats.items %}{{ name }}={{ count }}{% if not forloop.last %}, {% endif %}{% endfor %}
+            </div>
+            {% endif %}
+
             {% if run.errors %}
             <div class="error-list">
                 <div class="error-title">Errors ({{ run.error_count }})</div>

@@ -8,6 +8,7 @@ from newsbot.agents.sentiment_agent import SentimentAnalysisAgent
 from newsbot.agents.story_clustering_agent import StoryClusteringAgent
 from newsbot.agents.summarization_agent import SummarizationAgent
 from newsbot.managers.database_manager import DatabaseManager
+from newsbot.models import ValidationStats
 from utilities.models import ConfigModel
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,7 @@ class AgentManager:
         """
         self.config = config
         self._database_manager = database_manager
+        self.validation_stats = ValidationStats()
         self._scraper: NewsScraperAgent | None = None
         self._story_clustering: StoryClusteringAgent | None = None
         self._summarizer: SummarizationAgent | None = None
@@ -78,7 +80,10 @@ class AgentManager:
         """Get the story clustering agent, initializing if needed."""
         if self._story_clustering is None:
             logger.info("Initializing story clustering agent...")
-            self._story_clustering = StoryClusteringAgent(self.config)
+            self._story_clustering = StoryClusteringAgent(
+                self.config,
+                self.validation_stats,
+            )
             logger.info("Story clustering agent initialized")
         return self._story_clustering
 
@@ -87,7 +92,10 @@ class AgentManager:
         """Get the summarization agent, initializing if needed."""
         if self._summarizer is None:
             logger.info("Initializing summarization agent...")
-            self._summarizer = SummarizationAgent(self.config)
+            self._summarizer = SummarizationAgent(
+                self.config,
+                self.validation_stats,
+            )
             logger.info("Summarization agent initialized")
         return self._summarizer
 

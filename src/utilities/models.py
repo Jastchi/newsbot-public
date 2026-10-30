@@ -30,6 +30,7 @@ class LLMConfigModel(BaseModel):
     max_tokens: int = 16384
     judge_enabled: bool = False
     judge_model: str = ""
+    judge_check_source: bool = False
     judge_max_retries: int = 2
     name_validation_enabled: bool = False
     name_validation_max_retries: int = 2

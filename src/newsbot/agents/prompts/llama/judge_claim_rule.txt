@@ -1,0 +1,7 @@
+
+4. UNSUPPORTED_CLAIM - Compare the output with the source articles one fact at a time. Check EVERY number, count, percentage, amount, date, time, ordinal ("first", "third"), direction ("over"/"under", "up"/"down") and every clause that adds an event, plan, injury, reaction or cause. Flag the output if ANY of these is absent from the source, differs from it, or is contradicted by it:
+   - Paraphrase, shorter wording and omissions are NOT violations.
+   - The output may be in a different language than the source. Equivalent meaning is NOT a violation.
+   - Do NOT flag names; they are checked separately.
+   - Only if the source ends with "[... truncated ...]", mark valid when you cannot find a detail.
+   - Meta-commentary and format violations take precedence over UNSUPPORTED_CLAIM.
