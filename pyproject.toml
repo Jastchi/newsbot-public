@@ -96,7 +96,7 @@ test = [
 ]
 dev = [
     "django-stubs==6.1.2",
-    "pillow==12.3.0",
+    "pillow==13.0.0",
     "prek",
     "ruff==0.17.0",
     "ty==0.0.86",
@@ -157,6 +157,7 @@ docstring-code-line-length = 72
 [tool.ruff.lint.per-file-ignores]
 "src/utilities/__init__.py" = ["PLC0415"] # lazy import needed to avoid circular Django setup
 "src/api/app.py" = ["PLC0415"] # lazy import for manual script
+"src/evals/*" = ["SLF001"]  # evals drive agent internals the pipeline does not expose
 "src/web/web/__init__.py" = ["ALL"]
 "src/web/newsserver/migrations/*" = ["ALL"]
 "src/web/*" = ["TID253"]  # allow django/newsserver imports in Django app

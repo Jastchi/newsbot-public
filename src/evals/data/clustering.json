@@ -1,0 +1,180 @@
+{
+  "description": "Authored seed set: 6 stories (two same-type event pairs in different places to stress the geo penalty and similarity threshold) plus 5 unrelated articles. story=null marks an article that belongs to no story. Extend with hand-labelled real articles.",
+  "articles": [
+    {
+      "id": "a01",
+      "story": "chile_quake",
+      "source": "Global Wire",
+      "title": "Magnitude 6.8 earthquake strikes off Chile's coast",
+      "content": "A magnitude 6.8 earthquake struck off the coast of central Chile on Tuesday, 40 kilometres west of Valparaíso, the national seismological centre said. Buildings swayed in Santiago, about 120 kilometres inland, but no tsunami warning was issued. Officials reported at least 12 injuries."
+    },
+    {
+      "id": "a02",
+      "story": "chile_quake",
+      "source": "Andes Tribune",
+      "title": "Chile quake injures 12, damages hospital in Valparaíso",
+      "content": "At least 12 people were injured and a hospital in Valparaíso suffered structural damage after a 6.8 magnitude quake on Tuesday. The interior minister said power was cut to about 80,000 homes, most of them restored within hours. The seismological centre recorded a depth of 25 kilometres."
+    },
+    {
+      "id": "a03",
+      "story": "chile_quake",
+      "source": "Pacific Courier",
+      "title": "Valparaíso residents spend night outdoors after strong earthquake",
+      "content": "Hundreds of residents in Valparaíso slept outside after Tuesday's 6.8 magnitude earthquake, fearing aftershocks. Seismologists recorded more than 30 aftershocks, the strongest at magnitude 5.1."
+    },
+    {
+      "id": "a04",
+      "story": "chile_quake",
+      "source": "Daily Ledger",
+      "title": "Chile earthquake: what we know",
+      "content": "The 6.8 magnitude earthquake that hit central Chile on Tuesday was centred 40 kilometres west of Valparaíso at a depth of 25 kilometres. No deaths were reported. Chile sits on the Pacific Ring of Fire and has a strict building code introduced after the 2010 quake."
+    },
+    {
+      "id": "a05",
+      "story": "izmir_quake",
+      "source": "Global Wire",
+      "title": "Earthquake of magnitude 5.9 shakes western Turkey",
+      "content": "A magnitude 5.9 earthquake hit near Izmir in western Turkey on Wednesday, the disaster agency AFAD said. Tremors were felt in Istanbul. Two people were treated for minor injuries."
+    },
+    {
+      "id": "a06",
+      "story": "izmir_quake",
+      "source": "Aegean Post",
+      "title": "Izmir residents rush into streets as quake hits",
+      "content": "Panicked residents of Izmir ran into the streets when a 5.9 magnitude quake struck at 3:12 a.m. on Wednesday. Authorities said several old buildings were cracked and schools in the district would stay closed on Thursday."
+    },
+    {
+      "id": "a07",
+      "story": "izmir_quake",
+      "source": "Daily Ledger",
+      "title": "Turkey quake: schools closed in Izmir",
+      "content": "Schools in Izmir province will close on Thursday for building inspections after Wednesday's 5.9 magnitude earthquake, the governor said. AFAD recorded 14 aftershocks."
+    },
+    {
+      "id": "a08",
+      "story": "fed_hold",
+      "source": "Global Wire",
+      "title": "Fed holds interest rates steady, signals patience",
+      "content": "The US Federal Reserve left its benchmark rate unchanged at a range of 4.25% to 4.50% on Wednesday, as expected. The Fed chair said inflation remained above the 2% target and the committee was in no hurry to cut. The decision was unanimous."
+    },
+    {
+      "id": "a09",
+      "story": "fed_hold",
+      "source": "Daily Ledger",
+      "title": "Fed pauses, markets shrug",
+      "content": "Wall Street ended little changed after the Federal Reserve held rates at 4.25% to 4.50%. The S&P 500 closed down 0.2%. Traders now price in one cut by December."
+    },
+    {
+      "id": "a10",
+      "story": "fed_hold",
+      "source": "Capital Review",
+      "title": "Why the Fed is waiting",
+      "content": "The Federal Reserve kept its policy rate at 4.25% to 4.50%, citing inflation of 2.8% and a still-solid labour market with unemployment at 4.1%. Officials' projections showed two cuts in the coming year."
+    },
+    {
+      "id": "a11",
+      "story": "fed_hold",
+      "source": "Pacific Courier",
+      "title": "Mortgage rates stay high as Fed holds",
+      "content": "With the Federal Reserve holding rates at 4.25% to 4.50%, the average 30-year mortgage rate remained near 6.9%, according to lender data. Housing analysts expect little relief before the spring."
+    },
+    {
+      "id": "a12",
+      "story": "ecb_cut",
+      "source": "Global Wire",
+      "title": "ECB cuts rates by a quarter point",
+      "content": "The European Central Bank lowered its deposit rate by 25 basis points to 2.00% on Thursday, its sixth cut in a year. The ECB president said further cuts would depend on incoming data. Eurozone inflation was 2.1% last month."
+    },
+    {
+      "id": "a13",
+      "story": "ecb_cut",
+      "source": "Capital Review",
+      "title": "ECB eases again as growth stalls",
+      "content": "The European Central Bank cut its deposit rate to 2.00% as eurozone growth slowed to 0.1% in the last quarter. Germany's economy contracted over the same period."
+    },
+    {
+      "id": "a14",
+      "story": "ecb_cut",
+      "source": "Daily Ledger",
+      "title": "Euro slips after ECB cut",
+      "content": "The euro fell 0.4% against the dollar after the European Central Bank cut its deposit rate to 2.00%. Policymakers in Frankfurt signalled they could pause in the autumn."
+    },
+    {
+      "id": "a15",
+      "story": "portugal_fire",
+      "source": "Global Wire",
+      "title": "Wildfire forces evacuation of 3,000 in northern Portugal",
+      "content": "A wildfire in the Viana do Castelo district of northern Portugal forced the evacuation of about 3,000 people on Saturday. More than 900 firefighters and 12 water-dropping aircraft were deployed. Temperatures reached 41 degrees Celsius."
+    },
+    {
+      "id": "a16",
+      "story": "portugal_fire",
+      "source": "Aegean Post",
+      "title": "Portugal fire: villages emptied as winds fan flames",
+      "content": "Strong winds spread a wildfire across about 5,000 hectares in northern Portugal by Sunday. Authorities said no deaths were reported but 9 firefighters were treated for smoke inhalation."
+    },
+    {
+      "id": "a17",
+      "story": "portugal_fire",
+      "source": "Daily Ledger",
+      "title": "Portugal asks EU for help against wildfire",
+      "content": "Portugal activated the EU civil protection mechanism on Sunday, requesting two Canadair planes from Spain and Italy as the wildfire near Viana do Castelo burned for a second day."
+    },
+    {
+      "id": "a18",
+      "story": "veridian_earnings",
+      "source": "Capital Review",
+      "title": "Veridian Semiconductors posts record revenue",
+      "content": "Veridian Semiconductors reported quarterly revenue of $14.2 billion, up 38% from a year earlier, driven by demand for data-centre chips. Net profit was $4.1 billion. The company forecast next-quarter revenue of $15.5 billion."
+    },
+    {
+      "id": "a19",
+      "story": "veridian_earnings",
+      "source": "Global Wire",
+      "title": "Veridian shares jump 9% after earnings beat",
+      "content": "Shares of Veridian Semiconductors rose 9% in after-hours trading after the chipmaker beat estimates with revenue of $14.2 billion. Analysts had expected $13.4 billion. Its chief executive said supply of advanced packaging remained constrained."
+    },
+    {
+      "id": "a20",
+      "story": "veridian_earnings",
+      "source": "Daily Ledger",
+      "title": "Chipmaker Veridian warns on export curbs",
+      "content": "Veridian Semiconductors said new export restrictions could reduce next-quarter revenue by up to $600 million, even as it reported record quarterly revenue of $14.2 billion. Shares were volatile."
+    },
+    {
+      "id": "a21",
+      "story": null,
+      "source": "Andes Tribune",
+      "title": "Museum in Lima unveils restored colonial-era mural",
+      "content": "A museum in Lima unveiled a colonial-era mural after a three-year restoration. Conservators removed layers of soot and later paint to reveal the original pigments."
+    },
+    {
+      "id": "a22",
+      "story": null,
+      "source": "Daily Ledger",
+      "title": "Study links daily walking to lower dementia risk",
+      "content": "Researchers following 30,000 adults for a decade found that those who walked 7,000 steps a day had a lower risk of dementia than those who walked fewer than 3,000."
+    },
+    {
+      "id": "a23",
+      "story": null,
+      "source": "Global Wire",
+      "title": "Swiss striker signs three-year deal with Hamburg club",
+      "content": "The Swiss forward joined the Hamburg club on a three-year contract, ending a season-long loan. The transfer fee was not disclosed."
+    },
+    {
+      "id": "a24",
+      "story": null,
+      "source": "Capital Review",
+      "title": "Retailer to close 40 stores after weak holiday sales",
+      "content": "A national homewares retailer said it will close 40 stores by March after holiday sales fell short of forecasts, affecting about 1,100 jobs."
+    },
+    {
+      "id": "a25",
+      "story": null,
+      "source": "Pacific Courier",
+      "title": "New ferry route links Auckland and Waiheke every 30 minutes",
+      "content": "A new ferry service will connect downtown Auckland and Waiheke Island every 30 minutes from next month, cutting the crossing to 35 minutes."
+    }
+  ]
+}

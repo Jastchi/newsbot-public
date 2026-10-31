@@ -11,6 +11,8 @@ import pytest
 
 from newsbot.agents.name_validation_agent import (
     DEFAULT_SPACY_MODEL,
+    _load_generic_words,
+    GENERIC_WORDS,
     MIN_ENTITY_LENGTH,
     NameValidationAgent,
 )
@@ -349,6 +351,83 @@ class TestEntityVerification:
         assert "John Smith" in result.verified_entities
         assert "Fake Person" in result.unverified_entities
 
+    @pytest.mark.parametrize(
+        ("entity", "label", "source"),
+        [
+            ("UN", "ORG", "The fund paid out on Tuesday."),
+            ("Oman", "GPE", "A woman led the talks in Geneva."),
+            ("Anna Carter", "PERSON", "Prime Minister Anna Weber spoke."),
+            ("The Bank of England", "ORG", "The European Central Bank cut."),
+            ("European Commission", "ORG", "The European Central Bank cut."),
+            ("UN", "ORG", "Unions waited until noon."),
+            ("Anna Li", "PERSON", "Prime Minister Anna Weber spoke."),
+            ("G7", "ORG", "The G77 group met."),
+        ],
+    )
+    def test_look_alike_entities_are_not_verified(
+        self, agent_with_mocked_spacy, mock_spacy_doc, entity, label, source
+    ):
+        """Mid-word matches, a first name alone and generic words fail."""
+        agent, mock_nlp, _ = agent_with_mocked_spacy
+        mock_nlp.return_value = mock_spacy_doc([(entity, label)])
+
+        result = agent.validate_entities("Some summary.", [source])
+
+        assert result.unverified_entities == [entity]
+
+    def test_a_possessive_is_not_part_of_the_name(
+        self, agent_with_mocked_spacy, mock_spacy_doc
+    ):
+        """spaCy may keep the 's in an entity; it is not part of the name."""
+        agent, mock_nlp, _ = agent_with_mocked_spacy
+        mock_nlp.return_value = mock_spacy_doc([
+            ("Marco Rubio's", "PERSON"),
+            ("The European Commission\u2019s", "ORG"),
+        ])
+
+        result = agent.validate_entities(
+            "Some summary.",
+            ["Marco Rubio and the European Commission met."],
+        )
+
+        assert result.is_valid is True
+        assert sorted(result.verified_entities) == [
+            "Marco Rubio",
+            "The European Commission",
+        ]
+
+    @pytest.mark.parametrize(
+        ("entity", "label", "source"),
+        [
+            ("Anna Weber", "PERSON", "Prime Minister Weber spoke."),
+            ("Veridian Semiconductors", "ORG", "Veridian reported profit."),
+            ("Iran", "GPE", "The Iranian delegation signed the deal."),
+            ("Supreme Court", "ORG", "The court ruled on Tuesday."),
+            ("John Smith III", "PERSON", "Mr Smith arrived."),
+            ("Jack Ma", "PERSON", "Ma spoke at the summit."),
+            ("UN", "ORG", "The UN condemned the attack."),
+            ("US", "GPE", "The U.S. condemned the attack."),
+            ("Leo XIV", "PERSON", "Pope Leo spoke on Sunday."),
+            ("Ofer Winter", "PERSON", "Ofer Winters rabbi refused."),
+            ("UN", "ORG", "Questions emerge over the UNs role."),
+            ("Wine Trader*", "ORG", "The Wine Trader was struck."),
+            ("Aleksandar Vučić", "PERSON", "Aleksandar Vucic spoke."),
+            ("Novak Đoković", "PERSON", "Novak Djokovic won."),
+            ("XI JINPING", "PERSON", "Xi Jinping spoke."),
+            ("TRUMP'S", "PERSON", "Trump spoke."),
+        ],
+    )
+    def test_shortened_and_derived_forms_are_verified(
+        self, agent_with_mocked_spacy, mock_spacy_doc, entity, label, source
+    ):
+        """A surname, a distinctive word or a word start still match."""
+        agent, mock_nlp, _ = agent_with_mocked_spacy
+        mock_nlp.return_value = mock_spacy_doc([(entity, label)])
+
+        result = agent.validate_entities("Some summary.", [source])
+
+        assert result.is_valid is True
+
     def test_multiple_sources_checked(
         self, agent_with_mocked_spacy, mock_spacy_doc
     ):
@@ -462,6 +541,29 @@ class TestValidateAndFix:
 
         assert agent.validate_and_fix("", ["source"]) == ""
         assert agent.validate_and_fix("  ", ["source"]) == "  "
+
+
+class TestGenericWords:
+    """Tests for the generic word list in generic_entity_words.txt."""
+
+    def test_words_are_single_lowercase_words(self):
+        """Entries are compared with normalized, lowercase name parts."""
+        assert GENERIC_WORDS
+        assert all(w.islower() and w.isalpha() for w in GENERIC_WORDS)
+
+    def test_loader_skips_comments_and_blank_lines(self, tmp_path):
+        """Comments, blank lines, indentation and case do not matter."""
+        words = tmp_path / "words.txt"
+        words.write_text("# note\n\n  # indented note\n  Bank \nparty\n")
+
+        assert _load_generic_words(words) == {"bank", "party"}
+
+    def test_plural_counts_as_its_singular(self, agent_with_mocked_spacy):
+        """A shared generic word does not verify, even in the plural."""
+        agent, _, _ = agent_with_mocked_spacy
+
+        assert agent._is_generic("banks")
+        assert not agent._is_generic("england")
 
 
 class TestNormalization:

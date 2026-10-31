@@ -58,12 +58,12 @@ DESC_COLOR = "#{:02x}{:02x}{:02x}".format(*_desc)
 
 # Fonts (downloaded to the system temp directory on first run)
 FONT_SERIF_URL = (
-    "https://fonts.gstatic.com/s/dmseriftext/v12"
-    "/FeVQS0BTqb0h60ACL5la2bxii28wYQ.ttf"
+    "https://fonts.gstatic.com/s/dmserifdisplay/v17"
+    "/-nFnOHM81r4j6k0gjAW3mujVU2B2K_c.ttf"
 )
 FONT_SANS_URL = (
-    "https://fonts.gstatic.com/s/dmsans/v15"
-    "/rP2Hp2ywxg089UriCZOIHTWEBlwu8Q.ttf"
+    "https://fonts.gstatic.com/s/dmsans/v17"
+    "/rP2tp2ywxg089UriI5-g4vlH9VoD8CmcqZG40F9JadbnoEwAopxhTg.ttf"
 )
 _FONT_DIR = Path(tempfile.gettempdir())
 FONT_SERIF_PATH = _FONT_DIR / "DMSerifDisplay.ttf"

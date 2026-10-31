@@ -1,0 +1,97 @@
+{
+  "metrics": {
+    "numbers_dates.precision": 1.0,
+    "numbers_dates.recall": 0.7058823529411765,
+    "numbers_dates.f1": 0.8275862068965517,
+    "numbers_dates.specificity": 1.0,
+    "numbers_dates.accuracy": 0.8275862068965517,
+    "numbers_dates.kappa": 0.6651270207852193,
+    "names.precision": 1.0,
+    "names.recall": 0.058823529411764705,
+    "names.f1": 0.1111111111111111,
+    "names.specificity": 1.0,
+    "names.accuracy": 0.4482758620689655,
+    "names.kappa": 0.04918032786885251,
+    "judge.precision": 1.0,
+    "judge.recall": 1.0,
+    "judge.f1": 1.0,
+    "judge.specificity": 1.0,
+    "judge.accuracy": 1.0,
+    "judge.kappa": 1.0,
+    "deterministic.precision": 1.0,
+    "deterministic.recall": 0.7647058823529411,
+    "deterministic.f1": 0.8666666666666666,
+    "deterministic.specificity": 1.0,
+    "deterministic.accuracy": 0.8620689655172413,
+    "deterministic.kappa": 0.7289719626168223
+  },
+  "detail": {
+    "judge_model": "gemini-2.5-flash",
+    "judge_counters": {
+      "judge.checked": 29,
+      "judge.violations": 17,
+      "judge.violation.unsupported_claim": 17
+    },
+    "numbers_dates_counts": {
+      "tp": 12,
+      "fp": 0,
+      "fn": 5,
+      "tn": 12
+    },
+    "numbers_dates_recall_by_error": {
+      "changed_date": 1.0,
+      "changed_direction": 0.0,
+      "changed_number": 1.0,
+      "contradiction": 0.5,
+      "invented_detail": 0.5,
+      "wrong_entity": 0.0
+    },
+    "names_counts": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 16,
+      "tn": 12
+    },
+    "names_recall_by_error": {
+      "changed_date": 0.0,
+      "changed_direction": 0.0,
+      "changed_number": 0.0,
+      "contradiction": 0.0,
+      "invented_detail": 0.0,
+      "wrong_entity": 1.0
+    },
+    "judge_counts": {
+      "tp": 17,
+      "fp": 0,
+      "fn": 0,
+      "tn": 12
+    },
+    "judge_recall_by_error": {
+      "changed_date": 1.0,
+      "changed_direction": 1.0,
+      "changed_number": 1.0,
+      "contradiction": 1.0,
+      "invented_detail": 1.0,
+      "wrong_entity": 1.0
+    },
+    "deterministic_counts": {
+      "tp": 13,
+      "fp": 0,
+      "fn": 4,
+      "tn": 12
+    },
+    "deterministic_recall_by_error": {
+      "changed_date": 1.0,
+      "changed_direction": 0.0,
+      "changed_number": 1.0,
+      "contradiction": 0.5,
+      "invented_detail": 0.5,
+      "wrong_entity": 1.0
+    }
+  },
+  "meta": {
+    "eval": "faithfulness",
+    "git_sha": "e8eee44",
+    "run_at": "2026-10-30T07:30:12+01:00"
+  }
+}

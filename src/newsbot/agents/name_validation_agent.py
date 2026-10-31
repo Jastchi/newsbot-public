@@ -14,13 +14,19 @@ NameValidationAgent.validate_and_fix(
 ) -> str
 
 - Entities are extracted using spaCy NER (PERSON, ORG, GPE, LOC, NORP).
-- Verification uses multi-tier matching: exact, partial, normalized.
+- Verification matches the entity in the sources, starting at a word
+  boundary ("Oman" is not found in "woman"), else by part of its name:
+  the surname of a person, or a word of another entity that is not a
+  generic one such as "bank" or "the" (listed in
+  generic_entity_words.txt).
 - Unverified entities trigger LLM rewrite up to max_retries times.
 - spaCy model configurable via llm.spacy_model (default en_core_web_sm).
 """
 
 import logging
 import re
+import unicodedata
+from pathlib import Path
 
 import spacy
 
@@ -40,6 +46,47 @@ MIN_ENTITY_LENGTH = 2
 
 # Minimum word length for partial matching (skip articles, prepositions)
 MIN_PARTIAL_MATCH_LENGTH = 3
+
+# A single word has no part to match on its own
+MIN_PARTS_FOR_PARTIAL_MATCH = 2
+
+# Entities this short must match a whole word: "UN" is not in "until"
+MAX_WHOLE_WORD_LENGTH = 3
+
+# Ends of a person's name that are not the surname: Jr, Sr, or a regnal
+# number such as the "XIV" of Leo XIV. Capitals only: "Li" is a surname.
+# Only the end of a name is checked, so "XI JINPING" keeps both words.
+NAME_SUFFIX = re.compile(r"(?i:jr|sr)|[IVXLC]+")
+
+# The possessive spaCy sometimes keeps in an entity: "Rubio's"
+POSSESSIVE = re.compile(r"[\u2019']s$", re.IGNORECASE)
+
+# Accents that NFKD splits off; letters it leaves whole are mapped here
+COMBINING_MARKS = re.compile(r"[\u0300-\u036f]")
+UNACCENTED = str.maketrans(
+    {
+        "\u0111": "dj",
+        "\u0142": "l",
+        "\u00f8": "o",
+        "\u00e6": "ae",
+        "\u0153": "oe",
+        "\u00df": "ss",
+    },
+)
+
+# Words that name a kind of body, office or place, not one of them
+GENERIC_WORDS_FILE = Path(__file__).with_name("generic_entity_words.txt")
+
+
+def _load_generic_words(path: Path = GENERIC_WORDS_FILE) -> frozenset[str]:
+    """Read one word per line, skipping blank lines and # comments."""
+    lines = (
+        line.strip().lower() for line in path.read_text("utf-8").splitlines()
+    )
+    return frozenset(line for line in lines if line and line[0] != "#")
+
+
+GENERIC_WORDS = _load_generic_words()
 
 # Default spaCy model for NER
 DEFAULT_SPACY_MODEL = "en_core_web_sm"
@@ -117,17 +164,21 @@ class NameValidationAgent:
             Set of entity text strings.
 
         """
+        return set(self._extract_labelled(text))
+
+    def _extract_labelled(self, text: str) -> dict[str, str]:
+        """Extract entities as {text: NER label}."""
         if not text or not text.strip():
-            return set()
+            return {}
 
         doc = self.nlp(text)
-        entities = set()
+        entities: dict[str, str] = {}
 
         for ent in doc.ents:
             if ent.label_ in ENTITY_TYPES:
-                entity_text = ent.text.strip()
+                entity_text = POSSESSIVE.sub("", ent.text.strip())
                 if len(entity_text) >= MIN_ENTITY_LENGTH:
-                    entities.add(entity_text)
+                    entities.setdefault(entity_text, ent.label_)
 
         return entities
 
@@ -135,8 +186,8 @@ class NameValidationAgent:
         """
         Normalize text for comparison.
 
-        Lowercases, removes extra whitespace, and strips punctuation
-        from edges.
+        Lowercases, drops accents, removes extra whitespace, and strips
+        punctuation from edges.
 
         Args:
             text: Text to normalize.
@@ -145,60 +196,90 @@ class NameValidationAgent:
             Normalized text string.
 
         """
-        # Lowercase
-        normalized = text.lower()
-        # Remove leading/trailing punctuation and dashes
-        normalized = normalized.strip(".,;:!?\"'()[]{}\u2014\u2013-")
+        # Lowercase, and drop accents: some sources write "Vucic"
+        decomposed = unicodedata.normalize("NFKD", text.lower())
+        normalized = COMBINING_MARKS.sub("", decomposed).translate(UNACCENTED)
+        # Remove leading/trailing punctuation, dashes and markdown marks
+        normalized = normalized.strip(".,;:!?\"'()[]{}*_\u2014\u2013-")
         # Normalize whitespace
         normalized = re.sub(r"\s+", " ", normalized)
         return normalized.strip()
 
-    def _entity_in_source(self, entity: str, source_text: str) -> bool:
+    @staticmethod
+    def _contains(source: str, needle: str, *, whole: bool = False) -> bool:
+        """
+        Check if needle occurs in source, starting at a word boundary.
+
+        A short needle, or one asked for as a whole word, must also end
+        at a boundary, with an "s" allowed before it. A short acronym
+        also matches its dotted form: "US" is found in "U.S.".
+        """
+        short = len(needle) <= MAX_WHOLE_WORD_LENGTH
+        if short and needle.isalpha():
+            body = r"\.?".join(needle) + r"\.?"
+        else:
+            body = re.escape(needle)
+        # An "s" may follow: scraped text lacks the "'" of "Winter's"
+        end = r"s?(?!\w)" if whole or short else ""
+        return re.search(rf"(?<!\w){body}{end}", source) is not None
+
+    @staticmethod
+    def _is_generic(word: str) -> bool:
+        """Check if a word, or its singular, is on the generic list."""
+        return word in GENERIC_WORDS or word.removesuffix("s") in GENERIC_WORDS
+
+    def _entity_in_source(
+        self,
+        entity: str,
+        normalized_source: str,
+        label: str,
+    ) -> bool:
         """
         Check if an entity appears in source text.
 
-        Uses multi-tier matching:
-        1. Exact match (case-insensitive)
-        2. Partial match (any name part appears)
-        3. Normalized match (whitespace/punctuation normalized)
+        Matches the whole entity, else for a multi-word entity part of
+        its name: a person's surname (the last word, as in Western name
+        order; a first name alone says nothing about who is meant), or
+        any word of another entity that is not a generic one.
 
         Args:
             entity: Entity text to search for.
-            source_text: Source article content.
+            normalized_source: Source text passed through
+                _normalize_text.
+            label: spaCy label of the entity.
 
         Returns:
             True if entity is verified in source.
 
         """
-        if not entity or not source_text:
+        normalized_entity = self._normalize_text(entity)
+        if not normalized_entity or not normalized_source:
             return False
 
-        entity_lower = entity.lower()
-        source_lower = source_text.lower()
-
-        # Tier 1: Exact match (case-insensitive)
-        if entity_lower in source_lower:
+        if self._contains(normalized_source, normalized_entity):
             return True
 
-        # Tier 2: Partial match (check each word in entity)
-        entity_parts = entity.split()
-        if len(entity_parts) > 1:
-            # For multi-word entities, check if any significant part
-            # appears
-            for part in entity_parts:
-                # Strip punctuation (dashes: em-dash, en-dash, hyphen)
-                part_lower = part.lower().strip(".,;:!?\"'()[]{}\u2014\u2013-")
-                # Skip short words (articles, prepositions)
-                if (
-                    len(part_lower) >= MIN_PARTIAL_MATCH_LENGTH
-                    and part_lower in source_lower
-                ):
-                    return True
+        pairs = [(word, self._normalize_text(word)) for word in entity.split()]
+        pairs = [(word, part) for word, part in pairs if part]
+        if len(pairs) < MIN_PARTS_FOR_PARTIAL_MATCH:
+            return False
+        parts = [part for _, part in pairs]
 
-        # Tier 3: Normalized match
-        normalized_entity = self._normalize_text(entity)
-        normalized_source = self._normalize_text(source_text)
-        return normalized_entity in normalized_source
+        if label == "PERSON":
+            # A suffix (Jr, XIV) ends a name; it is not the surname
+            while len(pairs) > 1 and NAME_SUFFIX.fullmatch(
+                pairs[-1][0].strip(".,"),
+            ):
+                pairs.pop()
+            return self._contains(normalized_source, pairs[-1][1], whole=True)
+
+        # Skip short words (articles, prepositions)
+        words = [p for p in parts if len(p) >= MIN_PARTIAL_MATCH_LENGTH]
+        distinctive = [w for w in words if not self._is_generic(w)]
+        return any(
+            self._contains(normalized_source, word)
+            for word in distinctive or words
+        )
 
     def validate_entities(
         self,
@@ -223,20 +304,20 @@ class NameValidationAgent:
             return NameValidationResult(is_valid=True)
 
         # Extract entities from the LLM output
-        entities = self.extract_entities(text)
+        entities = self._extract_labelled(text)
         self.stats.inc("name.checked")
 
         if not entities:
             return NameValidationResult(is_valid=True)
 
         # Combine all source content
-        combined_sources = " ".join(sources)
+        combined_sources = self._normalize_text(" ".join(sources))
 
         verified = []
         unverified = []
 
-        for entity in entities:
-            if self._entity_in_source(entity, combined_sources):
+        for entity, label in entities.items():
+            if self._entity_in_source(entity, combined_sources, label):
                 verified.append(entity)
             else:
                 unverified.append(entity)

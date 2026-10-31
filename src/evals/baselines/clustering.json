@@ -1,0 +1,23 @@
+{
+  "metrics": {
+    "ari": 0.4791666666666667,
+    "pair_precision": 1.0,
+    "pair_recall": 0.3333333333333333,
+    "pair_f1": 0.5
+  },
+  "detail": {
+    "config": {
+      "similarity_threshold": 0.7,
+      "embedding_model": "Xenova/all-mpnet-base-v2",
+      "algorithm": "dbscan"
+    },
+    "clusters_found": 4,
+    "clusters_expected": 6,
+    "unclustered": 15
+  },
+  "meta": {
+    "eval": "clustering",
+    "git_sha": "26ecfb5",
+    "run_at": "2026-10-29T19:58:24+01:00"
+  }
+}

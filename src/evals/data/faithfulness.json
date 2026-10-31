@@ -1,0 +1,208 @@
+{
+  "description": "Authored seed set: candidate story summaries with a faithful/unfaithful label and, for unfaithful ones, the injected error type. story refers to a story in clustering.json, whose articles are the source text. Extend with human-labelled summaries from real runs.",
+  "cases": [
+    {
+      "id": "f01",
+      "story": "chile_quake",
+      "label": "faithful",
+      "error": null,
+      "summary": "A magnitude 6.8 earthquake struck 40 kilometres west of Valparaíso, Chile, on Tuesday. At least 12 people were injured and a hospital was damaged. More than 30 aftershocks followed, the strongest at magnitude 5.1."
+    },
+    {
+      "id": "f02",
+      "story": "chile_quake",
+      "label": "unfaithful",
+      "error": "changed_number",
+      "summary": "A magnitude 6.8 earthquake struck off central Chile on Tuesday, injuring at least 20 people and damaging a hospital in Valparaíso."
+    },
+    {
+      "id": "f03",
+      "story": "chile_quake",
+      "label": "unfaithful",
+      "error": "changed_number",
+      "summary": "A magnitude 7.2 earthquake struck off the coast of central Chile on Tuesday. No deaths were reported, and about 80,000 homes lost power before most were restored."
+    },
+    {
+      "id": "f04",
+      "story": "chile_quake",
+      "label": "unfaithful",
+      "error": "contradiction",
+      "summary": "A magnitude 6.8 earthquake hit central Chile on Tuesday. No deaths were reported, but a tsunami warning was issued for the coast."
+    },
+    {
+      "id": "f05",
+      "story": "chile_quake",
+      "label": "faithful",
+      "error": null,
+      "summary": "Central Chile was shaken by a 6.8 magnitude quake on Tuesday with no reported deaths. Power cuts affected roughly 80,000 homes and most were restored within hours."
+    },
+    {
+      "id": "f06",
+      "story": "izmir_quake",
+      "label": "faithful",
+      "error": null,
+      "summary": "A magnitude 5.9 earthquake hit near Izmir in western Turkey on Wednesday. Two people were treated for minor injuries, and schools in the province will close on Thursday for inspections."
+    },
+    {
+      "id": "f07",
+      "story": "izmir_quake",
+      "label": "unfaithful",
+      "error": "wrong_entity",
+      "summary": "A magnitude 5.9 earthquake struck near Ankara in central Turkey on Wednesday, and two people were treated for minor injuries."
+    },
+    {
+      "id": "f08",
+      "story": "izmir_quake",
+      "label": "unfaithful",
+      "error": "changed_date",
+      "summary": "Schools in Izmir province will close on Friday for building inspections after a 5.9 magnitude earthquake."
+    },
+    {
+      "id": "f09",
+      "story": "izmir_quake",
+      "label": "unfaithful",
+      "error": "changed_number",
+      "summary": "A 5.9 magnitude earthquake near Izmir was followed by 40 aftershocks, according to the disaster agency AFAD."
+    },
+    {
+      "id": "f10",
+      "story": "izmir_quake",
+      "label": "faithful",
+      "error": null,
+      "summary": "The disaster agency AFAD reported 14 aftershocks after Wednesday's 5.9 magnitude quake near Izmir, which cracked several old buildings."
+    },
+    {
+      "id": "f11",
+      "story": "fed_hold",
+      "label": "faithful",
+      "error": null,
+      "summary": "The US Federal Reserve held its benchmark rate at 4.25% to 4.50% on Wednesday. The decision was unanimous, and the Fed chair said inflation remained above the 2% target."
+    },
+    {
+      "id": "f12",
+      "story": "fed_hold",
+      "label": "unfaithful",
+      "error": "changed_number",
+      "summary": "The Federal Reserve kept its benchmark rate at 4.00% to 4.25% on Wednesday and said inflation remained above its 2% target."
+    },
+    {
+      "id": "f13",
+      "story": "fed_hold",
+      "label": "unfaithful",
+      "error": "invented_detail",
+      "summary": "The Federal Reserve held rates at 4.25% to 4.50% on Wednesday and also announced it would end its balance-sheet runoff."
+    },
+    {
+      "id": "f14",
+      "story": "fed_hold",
+      "label": "unfaithful",
+      "error": "changed_direction",
+      "summary": "Wall Street ended slightly higher after the Federal Reserve held rates steady, with the S&P 500 up 0.2%."
+    },
+    {
+      "id": "f15",
+      "story": "fed_hold",
+      "label": "faithful",
+      "error": null,
+      "summary": "Markets were little changed after the Fed left rates unchanged. Average 30-year mortgage rates stayed near 6.9%, and traders expect one cut by December."
+    },
+    {
+      "id": "f16",
+      "story": "ecb_cut",
+      "label": "faithful",
+      "error": null,
+      "summary": "The European Central Bank cut its deposit rate by 25 basis points to 2.00% on Thursday, its sixth reduction in a year. The euro fell 0.4% against the dollar."
+    },
+    {
+      "id": "f17",
+      "story": "ecb_cut",
+      "label": "unfaithful",
+      "error": "changed_number",
+      "summary": "The European Central Bank cut its deposit rate to 2.00% on Thursday, its fourth reduction in a year."
+    },
+    {
+      "id": "f18",
+      "story": "ecb_cut",
+      "label": "unfaithful",
+      "error": "changed_number",
+      "summary": "The European Central Bank cut its deposit rate by 50 basis points to 1.75% on Thursday as eurozone growth slowed."
+    },
+    {
+      "id": "f19",
+      "story": "ecb_cut",
+      "label": "faithful",
+      "error": null,
+      "summary": "Eurozone growth slowed to 0.1% last quarter, and Germany's economy contracted. The ECB cut its deposit rate to 2.00% and signalled it could pause in the autumn."
+    },
+    {
+      "id": "f20",
+      "story": "portugal_fire",
+      "label": "faithful",
+      "error": null,
+      "summary": "A wildfire in northern Portugal forced about 3,000 people to leave their homes on Saturday. More than 900 firefighters were deployed, and no deaths were reported."
+    },
+    {
+      "id": "f21",
+      "story": "portugal_fire",
+      "label": "unfaithful",
+      "error": "contradiction",
+      "summary": "A wildfire near Viana do Castelo in northern Portugal killed three people and forced the evacuation of about 3,000 residents."
+    },
+    {
+      "id": "f22",
+      "story": "portugal_fire",
+      "label": "unfaithful",
+      "error": "changed_number",
+      "summary": "A wildfire in northern Portugal forced the evacuation of about 30,000 people on Saturday, with more than 900 firefighters deployed."
+    },
+    {
+      "id": "f23",
+      "story": "portugal_fire",
+      "label": "unfaithful",
+      "error": "changed_number",
+      "summary": "Portugal sent 20 water-dropping aircraft against a wildfire near Viana do Castelo, where 41 degrees Celsius was recorded."
+    },
+    {
+      "id": "f24",
+      "story": "portugal_fire",
+      "label": "faithful",
+      "error": null,
+      "summary": "Portugal asked the EU for help, requesting two Canadair planes from Spain and Italy, as the wildfire near Viana do Castelo burned for a second day across about 5,000 hectares."
+    },
+    {
+      "id": "f25",
+      "story": "veridian_earnings",
+      "label": "faithful",
+      "error": null,
+      "summary": "Veridian Semiconductors reported record quarterly revenue of $14.2 billion, up 38% from a year earlier, and forecast $15.5 billion for the next quarter. Its shares rose 9% in after-hours trading."
+    },
+    {
+      "id": "f26",
+      "story": "veridian_earnings",
+      "label": "unfaithful",
+      "error": "changed_number",
+      "summary": "Veridian Semiconductors reported quarterly revenue of $14.2 billion, up 48% from a year earlier, driven by data-centre chip demand."
+    },
+    {
+      "id": "f27",
+      "story": "veridian_earnings",
+      "label": "unfaithful",
+      "error": "changed_direction",
+      "summary": "Shares of Veridian Semiconductors fell 9% in after-hours trading even though the chipmaker beat revenue estimates of $13.4 billion."
+    },
+    {
+      "id": "f28",
+      "story": "veridian_earnings",
+      "label": "unfaithful",
+      "error": "invented_detail",
+      "summary": "Veridian Semiconductors posted record revenue of $14.2 billion and announced a $2 billion share buyback."
+    },
+    {
+      "id": "f29",
+      "story": "veridian_earnings",
+      "label": "faithful",
+      "error": null,
+      "summary": "Veridian Semiconductors warned that new export restrictions could cut next-quarter revenue by up to $600 million, despite record revenue of $14.2 billion and a beat on analyst estimates."
+    }
+  ]
+}

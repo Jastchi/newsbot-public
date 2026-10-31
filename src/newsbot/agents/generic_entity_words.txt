@@ -1,0 +1,79 @@
+# Words that name a kind of body, office or place, not one of them.
+# Sharing one proves nothing: "Bank of England" is not "European
+# Central Bank", and "the" is in nearly every source.
+#
+# Used by name_validation_agent when it verifies part of an entity's
+# name. One lowercase word per line; lines starting with # are ignored.
+# A plural ("banks") counts as its singular. English only: another
+# spaCy model gets no generic words of its own, so a partial match is
+# more lenient there.
+african
+agency
+airlines
+american
+and
+army
+asian
+association
+authority
+bank
+british
+bureau
+central
+city
+committee
+company
+conservative
+corp
+corporation
+council
+county
+court
+democratic
+department
+east
+european
+federal
+for
+forces
+government
+group
+holdings
+inc
+institute
+international
+island
+islands
+kingdom
+labour
+lake
+liberal
+ltd
+minister
+ministry
+mount
+national
+new
+news
+north
+office
+party
+police
+post
+president
+prime
+republic
+republican
+river
+royal
+sea
+south
+state
+states
+supreme
+the
+times
+union
+united
+university
+west
