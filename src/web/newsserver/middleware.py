@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     class _URLConfRequest(HttpRequest):
         """HttpRequest subtype with ``urlconf`` override."""
 
-        urlconf: str
+        urlconf: str | None
 
 
 class PermissionsPolicyMiddleware:

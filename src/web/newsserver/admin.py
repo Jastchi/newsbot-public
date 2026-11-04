@@ -196,7 +196,7 @@ class NewsConfigAdmin(admin.ModelAdmin):
     )
     search_fields = ("key", "display_name")
     readonly_fields = ("created_at", "updated_at", "email_preview_panel")
-    inlines: ClassVar[list] = [NewsSourceInline, TopicInline]
+    inlines = (NewsSourceInline, TopicInline)
 
     fieldsets = (
         (None, {
