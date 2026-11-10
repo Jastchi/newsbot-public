@@ -71,3 +71,10 @@ class TestNewsserverUrls:
         # log_stream_view is a function-based view
         assert callable(resolved.func)
         assert resolved.func == log_stream_view
+
+
+def test_admin_login_redirects_to_app_login():
+    """Admin login redirects to the app login instead of erroring."""
+    response = Client().get("/admin/login/", {"next": "/admin/users"})
+    assert response.status_code == 302
+    assert response.url == f"{reverse('account_login')}?next=/admin/users"

@@ -22,7 +22,6 @@ Including another URLconf
 from typing import Any
 
 from django.contrib import admin
-from django.contrib.admin import AdminSite
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import include, path, reverse
 
@@ -36,7 +35,6 @@ from web.newsserver.views import signup_google_only
 
 
 def _admin_login_redirect(
-    self: AdminSite,
     request: HttpRequest,
     extra_context: dict[str, Any] | None = None,
 ) -> HttpResponse:
